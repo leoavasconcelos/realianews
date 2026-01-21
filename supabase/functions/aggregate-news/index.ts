@@ -10,12 +10,42 @@ const corsHeaders = {
 const RSS_FEEDS = [
   {
     name: "InfoMoney Imóveis",
-    url: "https://www.infomoney.com.br/feed/imoveis/",
+    url: "https://www.infomoney.com.br/feed/",
     sourceId: null as string | null,
   },
   {
-    name: "Valor Econômico",
-    url: "https://valor.globo.com/rss/empresas/imoveis/",
+    name: "Estadão Economia",
+    url: "https://www.estadao.com.br/rss/economia.xml",
+    sourceId: null as string | null,
+  },
+  {
+    name: "G1 Economia",
+    url: "https://g1.globo.com/rss/g1/economia/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "Folha Mercado",
+    url: "https://feeds.folha.uol.com.br/mercado/rss091.xml",
+    sourceId: null as string | null,
+  },
+  {
+    name: "Exame Economia",
+    url: "https://exame.com/feed/economia/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "CNN Brasil Economia",
+    url: "https://www.cnnbrasil.com.br/economia/feed/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "UOL Economia",
+    url: "https://rss.uol.com.br/feed/economia.xml",
+    sourceId: null as string | null,
+  },
+  {
+    name: "Terra Economia",
+    url: "https://www.terra.com.br/economia/rss.xml",
     sourceId: null as string | null,
   },
 ];
