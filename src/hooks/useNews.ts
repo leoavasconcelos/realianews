@@ -65,58 +65,86 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter) => {
   return useQuery({
     queryKey: ['news', topicFilter, regionFilter],
     queryFn: async () => {
-      const { data: news, error } = await supabase
-        .from('news')
-        .select('*')
-        .order('published_at', { ascending: false });
+      try {
+        const { data: news, error } = await supabase
+          .from('news')
+          .select('*')
+          .order('published_at', { ascending: false });
 
-      if (error) throw error;
+        if (error) {
+          console.error('Supabase news fetch error:', error);
+          throw error;
+        }
 
-      const { data: sources } = await supabase
-        .from('sources')
-        .select('*');
+        console.log('News fetched from DB:', news?.length || 0);
 
-      const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
+        const { data: sources, error: sourcesError } = await supabase
+          .from('sources')
+          .select('*');
 
-      // Filter to only show news with AI summary (processed and relevant)
-      let filteredNews = (news || []).filter(item => item.summary_ai && item.summary_ai.trim().length > 0);
+        if (sourcesError) {
+          console.error('Supabase sources fetch error:', sourcesError);
+        }
 
-      // Apply region filter
-      if (regionFilter && regionFilter !== 'all') {
-        filteredNews = filteredNews.filter(item => item.region === regionFilter);
+        const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
+
+        // Filter to only show news with AI summary (processed and relevant)
+        let filteredNews = (news || []).filter(item => item.summary_ai && item.summary_ai.trim().length > 0);
+        console.log('News with summary_ai:', filteredNews.length);
+
+        // Apply region filter
+        if (regionFilter && regionFilter !== 'all') {
+          filteredNews = filteredNews.filter(item => item.region === regionFilter);
+        }
+
+        // Transform to NewsItem format
+        let newsItems: NewsItem[] = filteredNews.map((item) => {
+          const source = item.source_id ? sourceMap.get(item.source_id) : null;
+          
+          // Robust topics parsing with error handling
+          let topics: string[] = [];
+          try {
+            if (Array.isArray(item.topics)) {
+              topics = item.topics as string[];
+            } else if (typeof item.topics === 'string') {
+              topics = JSON.parse(item.topics || '[]');
+            } else if (item.topics && typeof item.topics === 'object') {
+              topics = Object.values(item.topics) as string[];
+            }
+          } catch (parseError) {
+            console.warn('Failed to parse topics for news:', item.id, parseError);
+            topics = [];
+          }
+          
+          return {
+            id: item.id,
+            title: item.title,
+            summary: item.summary_ai || '',
+            source: source?.name || 'Fonte desconhecida',
+            imageUrl: item.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
+            publishedAt: formatTimeAgo(item.published_at),
+            topics: topics,
+            readTime: item.read_time || '3 min',
+            trending: item.is_trending,
+            sourceUrl: item.source_url,
+            audioUrl: item.audio_url,
+            region: item.region || 'Brazil',
+          };
+        });
+
+        // Apply topic filter
+        if (topicFilter && topicFilter !== 'Todos') {
+          newsItems = newsItems.filter(news => 
+            news.topics.some(t => t.toLowerCase().includes(topicFilter.toLowerCase()))
+          );
+        }
+
+        console.log('Final news items:', newsItems.length);
+        return newsItems;
+      } catch (err) {
+        console.error('useNews query error:', err);
+        throw err;
       }
-
-      // Transform to NewsItem format
-      let newsItems: NewsItem[] = filteredNews.map((item) => {
-        const source = item.source_id ? sourceMap.get(item.source_id) : null;
-        const topics = Array.isArray(item.topics) 
-          ? item.topics as string[]
-          : JSON.parse(item.topics as string || '[]');
-        
-        return {
-          id: item.id,
-          title: item.title,
-          summary: item.summary_ai || '',
-          source: source?.name || 'Fonte desconhecida',
-          imageUrl: item.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
-          publishedAt: formatTimeAgo(item.published_at),
-          topics: topics,
-          readTime: item.read_time || '3 min',
-          trending: item.is_trending,
-          sourceUrl: item.source_url,
-          audioUrl: item.audio_url,
-          region: item.region || 'Brazil',
-        };
-      });
-
-      // Apply topic filter
-      if (topicFilter && topicFilter !== 'Todos') {
-        newsItems = newsItems.filter(news => 
-          news.topics.some(t => t.toLowerCase().includes(topicFilter.toLowerCase()))
-        );
-      }
-
-      return newsItems;
     },
   });
 };
