@@ -39,8 +39,9 @@ interface ProfileScreenProps {
   onLoginClick: () => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, profile, onLoginClick }) => {
-  const { signOut } = useAuth();
+const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
+  ({ user, profile, onLoginClick }, ref) => {
+    const { signOut } = useAuth();
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -141,10 +142,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, profile, onLoginCli
         <div className="text-center py-8">
           <Logo size="sm" className="justify-center mb-2 opacity-50" />
           <p className="text-xs text-muted-foreground">Versão 1.0.0</p>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  }
+);
+
+ProfileScreen.displayName = 'ProfileScreen';
 
 export default ProfileScreen;
