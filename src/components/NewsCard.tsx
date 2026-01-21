@@ -25,7 +25,23 @@ interface NewsCardProps {
   isSaved?: boolean;
 }
 
+const getRegionBadge = (region?: string) => {
+  switch (region) {
+    case 'USA':
+      return { flag: '🇺🇸', label: 'EUA' };
+    case 'Europe':
+      return { flag: '🇪🇺', label: 'Europa' };
+    case 'Middle East':
+      return { flag: '🌍', label: 'Oriente Médio' };
+    case 'Brazil':
+    default:
+      return null; // Don't show badge for Brazilian news (default)
+  }
+};
+
 const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isSaved = false }) => {
+  const regionBadge = getRegionBadge(news.region);
+
   return (
     <article 
       className="news-card overflow-hidden cursor-pointer group"
@@ -48,6 +64,14 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
           <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-accent text-accent-foreground px-2.5 py-1 rounded-full text-xs font-semibold">
             <TrendingUp className="w-3 h-3" />
             Em Alta
+          </div>
+        )}
+
+        {/* Region Badge - only for international news */}
+        {regionBadge && (
+          <div className="absolute top-3 right-3 flex items-center gap-1 bg-card/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-medium text-foreground">
+            <span>{regionBadge.flag}</span>
+            <span>{regionBadge.label}</span>
           </div>
         )}
         
