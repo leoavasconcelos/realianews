@@ -12,12 +12,27 @@ interface NewsDetailProps {
   isSaved?: boolean;
 }
 
+const getRegionBadge = (region?: string) => {
+  switch (region) {
+    case 'USA':
+      return { flag: '🇺🇸', label: 'EUA' };
+    case 'Europe':
+      return { flag: '🇪🇺', label: 'Europa' };
+    case 'Middle East':
+      return { flag: '🌍', label: 'Oriente Médio' };
+    case 'Brazil':
+    default:
+      return null;
+  }
+};
+
 const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, isSaved = false }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [progress, setProgress] = useState(0);
 
   const speeds = [0.75, 1, 1.25, 1.5, 2];
+  const regionBadge = getRegionBadge(news.region);
 
   const togglePlay = () => setIsPlaying(!isPlaying);
   
@@ -56,6 +71,13 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
         
         {/* Actions */}
         <div className="absolute top-4 right-4 flex gap-2">
+          {/* Region Badge */}
+          {regionBadge && (
+            <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-sm px-3 py-2 rounded-lg text-sm font-medium text-white">
+              <span>{regionBadge.flag}</span>
+              <span>{regionBadge.label}</span>
+            </div>
+          )}
           <Button
             variant="ghost"
             size="icon"
