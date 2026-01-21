@@ -66,8 +66,11 @@ export const useNews = (topicFilter?: string) => {
 
       const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
 
+      // Filter to only show news with AI summary (processed and relevant)
+      const filteredNews = (news || []).filter(item => item.summary_ai && item.summary_ai.trim().length > 0);
+
       // Transform to NewsItem format
-      let newsItems: NewsItem[] = (news || []).map((item) => {
+      let newsItems: NewsItem[] = filteredNews.map((item) => {
         const source = item.source_id ? sourceMap.get(item.source_id) : null;
         const topics = Array.isArray(item.topics) 
           ? item.topics as string[]
