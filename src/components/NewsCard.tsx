@@ -7,6 +7,7 @@ export interface NewsItem {
   title: string;
   summary: string;
   source: string;
+  sourceLogo?: string | null;
   imageUrl: string;
   publishedAt: string;
   topics: string[];
@@ -75,9 +76,23 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
           </div>
         )}
         
-        {/* Source Badge */}
-        <div className="absolute bottom-3 left-3 bg-card/90 backdrop-blur-sm px-2.5 py-1 rounded-md text-xs font-medium text-foreground">
-          {news.source}
+        {/* Source Badge with Logo */}
+        <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-card/90 backdrop-blur-sm px-2.5 py-1.5 rounded-md">
+          {news.sourceLogo ? (
+            <img 
+              src={news.sourceLogo} 
+              alt={news.source}
+              className="w-4 h-4 object-contain rounded-sm"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="w-4 h-4 bg-primary/20 rounded-sm flex items-center justify-center text-[10px] font-bold text-primary">
+              {news.source.charAt(0)}
+            </div>
+          )}
+          <span className="text-xs font-medium text-foreground">{news.source}</span>
         </div>
       </div>
       

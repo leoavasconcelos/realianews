@@ -153,6 +153,7 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter) => {
             title: item.title,
             summary: item.summary_ai || '',
             source: source?.name || extractSourceFromUrl(item.source_url),
+            sourceLogo: source?.logo_url || null,
             imageUrl: item.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
             publishedAt: formatTimeAgo(item.published_at),
             topics: topics,
