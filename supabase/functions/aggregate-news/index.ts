@@ -50,6 +50,54 @@ const RSS_FEEDS = [
   },
 ];
 
+// Real estate specific keywords for relevance filtering
+const REAL_ESTATE_KEYWORDS = [
+  // Core terms
+  "imóvel", "imóveis", "imobiliário", "imobiliária", "imobiliárias",
+  "incorporadora", "incorporadoras", "incorporação",
+  // Property types
+  "apartamento", "apartamentos", "casa", "casas", "terreno", "terrenos",
+  "lote", "lotes", "sala comercial", "salas comerciais", "galpão", "galpões",
+  "loja", "lojas", "escritório", "escritórios", "cobertura", "coberturas",
+  "kitnet", "kitnets", "studio", "studios", "flat", "flats",
+  // Market terms
+  "construtora", "construtoras", "construção civil", "lançamento imobiliário",
+  "empreendimento", "empreendimentos", "condomínio", "condomínios",
+  "prédio", "prédios", "edifício", "edifícios", "residencial", "residenciais",
+  // Financial terms
+  "financiamento imobiliário", "crédito imobiliário", "hipoteca",
+  "fgts habitação", "fgts moradia", "fii", "fiis", "fundos imobiliários",
+  "fundo imobiliário", "cri", "cris", "lci", "lcis",
+  // Rental terms
+  "aluguel", "aluguéis", "locação", "locações", "inquilino", "inquilinos",
+  "locador", "locadores", "igp-m", "reajuste aluguel",
+  // Government programs
+  "minha casa minha vida", "mcmv", "casa verde amarela",
+  "programa habitacional", "habitação popular", "moradia popular",
+  // Major companies
+  "mrv", "cyrela", "eztec", "tenda", "direcional", "cury", "moura dubeux",
+  "even", "gafisa", "tecnisa", "helbor", "trisul", "lavvi", "plano&plano",
+  "mitre", "melnick", "rni", "tegra",
+  // Industry associations
+  "abrainc", "secovi", "sinduscon", "cbic",
+  // Related terms
+  "setor imobiliário", "mercado imobiliário", "corretor de imóveis",
+  "corretagem", "compra e venda de imóveis", "metro quadrado", "m²",
+];
+
+// Check if article is relevant to real estate market
+function isRealEstateRelevant(title: string, description: string): boolean {
+  const text = `${title} ${description}`.toLowerCase();
+  
+  // Check for keyword matches
+  const matchCount = REAL_ESTATE_KEYWORDS.filter(keyword => 
+    text.includes(keyword.toLowerCase())
+  ).length;
+  
+  // Require at least 1 keyword match
+  return matchCount >= 1;
+}
+
 interface ParsedArticle {
   title: string;
   link: string;
@@ -196,14 +244,15 @@ function detectTopics(title: string, description: string): string[] {
   const topics: string[] = [];
   
   const topicKeywords: Record<string, string[]> = {
-    "Mercado": ["mercado", "setor", "economia", "crescimento", "queda", "alta"],
-    "Financiamento": ["financiamento", "crédito", "juros", "taxa", "banco", "selic"],
-    "Lançamentos": ["lançamento", "novo", "empreendimento", "projeto", "construção"],
-    "Investimentos": ["investimento", "fii", "fundo", "rendimento", "retorno"],
-    "Aluguel": ["aluguel", "locação", "inquilino", "locador"],
-    "Comercial": ["comercial", "escritório", "loja", "shopping", "galpão"],
-    "Residencial": ["residencial", "casa", "apartamento", "condomínio"],
-    "Legislação": ["lei", "legislação", "regulamentação", "imposto", "tributo"],
+    "Mercado Imobiliário": ["mercado imobiliário", "setor imobiliário", "imóveis", "imobiliário"],
+    "Financiamento": ["financiamento", "crédito imobiliário", "hipoteca", "fgts", "selic"],
+    "Lançamentos": ["lançamento", "empreendimento", "incorporação", "construção", "obra"],
+    "FIIs": ["fii", "fiis", "fundo imobiliário", "fundos imobiliários", "cri", "lci"],
+    "Aluguel": ["aluguel", "locação", "inquilino", "locador", "igp-m"],
+    "Comercial": ["comercial", "escritório", "loja", "shopping", "galpão", "logístico"],
+    "Residencial": ["residencial", "apartamento", "casa", "condomínio", "moradia"],
+    "Governo": ["minha casa minha vida", "mcmv", "casa verde amarela", "programa habitacional"],
+    "Construtoras": ["construtora", "incorporadora", "mrv", "cyrela", "eztec", "tenda", "direcional"],
   };
   
   for (const [topic, keywords] of Object.entries(topicKeywords)) {
@@ -279,6 +328,12 @@ serve(async (req) => {
 
           if (existing) {
             results.duplicates++;
+            continue;
+          }
+
+          // Check if article is relevant to real estate
+          if (!isRealEstateRelevant(article.title, article.description)) {
+            console.log(`Skipping non-real-estate article: ${article.title.substring(0, 50)}...`);
             continue;
           }
 
