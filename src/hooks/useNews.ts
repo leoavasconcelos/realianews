@@ -35,6 +35,38 @@ export interface DbTopic {
   icon: string | null;
 }
 
+// Helper to extract source name from URL when source_id is missing
+const extractSourceFromUrl = (url: string): string => {
+  try {
+    const hostname = new URL(url).hostname.replace('www.', '');
+    const domainMap: Record<string, string> = {
+      'valor.globo.com': 'Valor Econômico',
+      'folha.uol.com.br': 'Folha de S.Paulo',
+      'estadao.com.br': 'Estadão',
+      'infomoney.com.br': 'InfoMoney',
+      'exame.com': 'Exame',
+      'forbes.com.br': 'Forbes Brasil',
+      'reuters.com': 'Reuters',
+      'bloomberg.com': 'Bloomberg',
+      'wsj.com': 'Wall Street Journal',
+      'ft.com': 'Financial Times',
+      'cnbc.com': 'CNBC',
+      'inman.com': 'Inman News',
+      'housingwire.com': 'HousingWire',
+      'realtor.com': 'Realtor.com',
+      'propertyweek.com': 'Property Week',
+      'portalvgv.com.br': 'Portal VGV',
+      'imovelweb.com.br': 'Imovelweb',
+      'zapimoveis.com.br': 'ZAP Imóveis',
+      'vivareal.com.br': 'VivaReal',
+      'abrainc.org.br': 'ABRAINC',
+    };
+    return domainMap[hostname] || hostname.split('.')[0].charAt(0).toUpperCase() + hostname.split('.')[0].slice(1);
+  } catch {
+    return 'Fonte desconhecida';
+  }
+};
+
 // Helper to format time ago
 const formatTimeAgo = (dateString: string): string => {
   const date = new Date(dateString);
@@ -120,7 +152,7 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter) => {
             id: item.id,
             title: item.title,
             summary: item.summary_ai || '',
-            source: source?.name || 'Fonte desconhecida',
+            source: source?.name || extractSourceFromUrl(item.source_url),
             imageUrl: item.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
             publishedAt: formatTimeAgo(item.published_at),
             topics: topics,
