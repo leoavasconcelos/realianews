@@ -1,1 +1,7 @@
 project_id = "pmilalvjbgllzfarmhfn"
+
+[functions.summarize-news]
+verify_jwt = false
+
+[functions.process-news-summaries]
+verify_jwt = false
