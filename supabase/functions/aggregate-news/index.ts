@@ -145,6 +145,75 @@ const RSS_FEEDS = [
     sourceId: null as string | null,
     region: "Middle East",
   },
+  // International sources - Asia
+  {
+    name: "South China Morning Post Property",
+    url: "https://www.scmp.com/rss/91/feed",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  {
+    name: "Mingtiandi",
+    url: "https://www.mingtiandi.com/feed/",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  {
+    name: "EdgeProp Singapore",
+    url: "https://www.edgeprop.sg/rss.xml",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  {
+    name: "Nikkei Asia Real Estate",
+    url: "https://asia.nikkei.com/rss/feed/Business",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  // International sources - Oceania
+  {
+    name: "Domain Australia",
+    url: "https://www.domain.com.au/news/feed/",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  {
+    name: "Australian Financial Review Property",
+    url: "https://www.afr.com/rss/property",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  {
+    name: "Property Council Australia",
+    url: "https://www.propertycouncil.com.au/feed/",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  // Global real estate consultancies
+  {
+    name: "Knight Frank Global",
+    url: "https://www.knightfrank.com/rss/research",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  {
+    name: "JLL Research",
+    url: "https://www.jll.com/rss/insights",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  {
+    name: "CBRE Insights",
+    url: "https://www.cbre.com/rss/insights",
+    sourceId: null as string | null,
+    region: "World",
+  },
+  {
+    name: "Savills Research",
+    url: "https://www.savills.com/rss/research",
+    sourceId: null as string | null,
+    region: "World",
+  },
 ];
 
 // Real estate specific keywords for relevance filtering (Portuguese)
