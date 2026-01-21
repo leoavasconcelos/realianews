@@ -6,8 +6,9 @@ interface LogoProps {
   className?: string;
 }
 
-const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true, className = '' }) => {
-  const sizeClasses = {
+const Logo = React.forwardRef<HTMLDivElement, LogoProps>(
+  ({ size = 'md', showText = true, className = '' }, ref) => {
+    const sizeClasses = {
     sm: 'w-8 h-8',
     md: 'w-10 h-10',
     lg: 'w-14 h-14',
@@ -70,9 +71,12 @@ const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true, className = '
             </span>
           )}
         </div>
-      )}
-    </div>
-  );
-};
+        )}
+      </div>
+    );
+  }
+);
+
+Logo.displayName = 'Logo';
 
 export default Logo;

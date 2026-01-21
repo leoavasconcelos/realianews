@@ -96,6 +96,9 @@ export type RegionFilter = typeof REGIONS[number]['id'];
 export const useNews = (topicFilter?: string, regionFilter?: RegionFilter) => {
   return useQuery({
     queryKey: ['news', topicFilter, regionFilter],
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 30000,
     queryFn: async () => {
       try {
         const { data: news, error } = await supabase
