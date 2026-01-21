@@ -8,44 +8,66 @@ const corsHeaders = {
 
 // RSS feed sources for Brazilian real estate news
 const RSS_FEEDS = [
+  // Specialized real estate sources
   {
-    name: "InfoMoney Imóveis",
+    name: "Portal VGV",
+    url: "https://www.vgv.com.br/feed/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "Imovelweb Notícias",
+    url: "https://www.imovelweb.com.br/noticias/feed/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "ZAP Imóveis",
+    url: "https://revista.zapimoveis.com.br/feed/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "VivaReal",
+    url: "https://www.vivareal.com.br/blog/feed/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "ABRAINC",
+    url: "https://www.abrainc.org.br/feed/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "Secovi-SP",
+    url: "https://www.secovi.com.br/noticias/rss",
+    sourceId: null as string | null,
+  },
+  {
+    name: "CBIC",
+    url: "https://cbic.org.br/feed/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "Estadão Imóveis",
+    url: "https://www.estadao.com.br/rss/economia.xml",
+    sourceId: null as string | null,
+  },
+  // General economy sources (filtered for real estate)
+  {
+    name: "InfoMoney",
     url: "https://www.infomoney.com.br/feed/",
     sourceId: null as string | null,
   },
   {
-    name: "Estadão Economia",
-    url: "https://www.estadao.com.br/rss/economia.xml",
+    name: "Valor Econômico",
+    url: "https://valor.globo.com/rss/",
     sourceId: null as string | null,
   },
   {
-    name: "G1 Economia",
-    url: "https://g1.globo.com/rss/g1/economia/",
+    name: "Exame",
+    url: "https://exame.com/feed/",
     sourceId: null as string | null,
   },
   {
-    name: "Folha Mercado",
-    url: "https://feeds.folha.uol.com.br/mercado/rss091.xml",
-    sourceId: null as string | null,
-  },
-  {
-    name: "Exame Economia",
-    url: "https://exame.com/feed/economia/",
-    sourceId: null as string | null,
-  },
-  {
-    name: "CNN Brasil Economia",
-    url: "https://www.cnnbrasil.com.br/economia/feed/",
-    sourceId: null as string | null,
-  },
-  {
-    name: "UOL Economia",
-    url: "https://rss.uol.com.br/feed/economia.xml",
-    sourceId: null as string | null,
-  },
-  {
-    name: "Terra Economia",
-    url: "https://www.terra.com.br/economia/rss.xml",
+    name: "Money Times",
+    url: "https://www.moneytimes.com.br/feed/",
     sourceId: null as string | null,
   },
 ];
