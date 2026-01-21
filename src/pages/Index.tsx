@@ -8,6 +8,7 @@ import RegionFilter from '@/components/RegionFilter';
 import OnboardingModal from '@/components/OnboardingModal';
 import ProfileScreen from '@/components/ProfileScreen';
 import PlaceholderScreen from '@/components/PlaceholderScreen';
+import ExploreScreen from '@/components/ExploreScreen';
 import AuthModal from '@/components/AuthModal';
 import { Compass, GraduationCap, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -150,10 +151,11 @@ const Index = () => {
             <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40 px-4 py-4">
               <h1 className="text-xl font-bold text-foreground">Explorar</h1>
             </header>
-            <PlaceholderScreen
-              title="Explorar"
-              description="Descubra novas fontes, tópicos e tendências do mercado imobiliário. Em breve!"
-              icon={<Compass className="w-10 h-10 text-primary" />}
+            <ExploreScreen
+              onNewsClick={setSelectedNews}
+              onSaveNews={handleSaveNews}
+              onShareNews={handleShareNews}
+              savedItems={savedItems}
             />
           </div>
         );
