@@ -88,6 +88,7 @@ export const REGIONS = [
   { id: 'USA', label: '🇺🇸 EUA' },
   { id: 'Europe', label: '🇪🇺 Europa' },
   { id: 'Middle East', label: '🌍 Oriente Médio' },
+  { id: 'World', label: '🌐 Mundo' },
 ] as const;
 
 export type RegionFilter = typeof REGIONS[number]['id'];
