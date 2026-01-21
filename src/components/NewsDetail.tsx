@@ -9,9 +9,10 @@ interface NewsDetailProps {
   onBack: () => void;
   onSave: (id: string) => void;
   onShare: (id: string) => void;
+  isSaved?: boolean;
 }
 
-const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare }) => {
+const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, isSaved = false }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [progress, setProgress] = useState(0);
@@ -37,6 +38,9 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare }
           src={news.imageUrl}
           alt={news.title}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800';
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         
@@ -56,9 +60,9 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare }
             variant="ghost"
             size="icon"
             onClick={() => onSave(news.id)}
-            className="bg-black/30 backdrop-blur-sm text-white hover:bg-black/50"
+            className={`bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 ${isSaved ? 'text-accent' : ''}`}
           >
-            <Bookmark className="w-5 h-5" />
+            <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
           </Button>
           <Button
             variant="ghost"
@@ -142,7 +146,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare }
           
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Volume2 className="w-3.5 h-3.5" />
-            <span>Ouvir resumo em áudio</span>
+            <span>Ouvir resumo em áudio (em breve)</span>
           </div>
         </div>
         
@@ -166,7 +170,9 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare }
         
         {/* Source Link */}
         <a
-          href="#"
+          href={news.sourceUrl || '#'}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center justify-between p-4 bg-secondary rounded-xl hover:bg-muted transition-colors"
         >
           <div>

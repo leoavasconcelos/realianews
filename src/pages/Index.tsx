@@ -7,98 +7,80 @@ import FilterPills from '@/components/FilterPills';
 import OnboardingModal from '@/components/OnboardingModal';
 import ProfileScreen from '@/components/ProfileScreen';
 import PlaceholderScreen from '@/components/PlaceholderScreen';
-import { Compass, GraduationCap, Users } from 'lucide-react';
+import AuthModal from '@/components/AuthModal';
+import { Compass, GraduationCap, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Import images
-import newsHero1 from '@/assets/news-hero-1.jpg';
-import newsHero2 from '@/assets/news-hero-2.jpg';
-import newsHero3 from '@/assets/news-hero-3.jpg';
-import newsHero4 from '@/assets/news-hero-4.jpg';
-
-const filters = ['Todos', 'Residencial', 'Comercial', 'Investimentos', 'PropTech', 'Financiamento'];
-
-const mockNews: NewsItem[] = [
-  {
-    id: '1',
-    title: 'Mercado imobiliário brasileiro supera expectativas no primeiro trimestre de 2025',
-    summary: 'Vendas de imóveis novos crescem 23% em comparação ao mesmo período do ano anterior, impulsionadas por programas habitacionais e queda de juros.',
-    source: 'Valor Econômico',
-    imageUrl: newsHero1,
-    publishedAt: '2h atrás',
-    topics: ['Residencial', 'Mercado'],
-    readTime: '4 min',
-    trending: true,
-  },
-  {
-    id: '2',
-    title: 'Novo condomínio de alto padrão em São Paulo redefine conceito de moradia sustentável',
-    summary: 'Empreendimento de R$ 800 milhões incorpora tecnologias verdes e espaços compartilhados inovadores, atraindo investidores institucionais.',
-    source: 'Estadão',
-    imageUrl: newsHero2,
-    publishedAt: '4h atrás',
-    topics: ['Residencial', 'Sustentabilidade'],
-    readTime: '3 min',
-  },
-  {
-    id: '3',
-    title: 'Escritórios corporativos voltam a atrair inquilinos após anos de vacância',
-    summary: 'Taxa de ocupação em prédios comerciais AAA atinge 78% em São Paulo, maior nível desde a pandemia. Tendência de flexibilização impulsiona demanda.',
-    source: 'Exame',
-    imageUrl: newsHero3,
-    publishedAt: '6h atrás',
-    topics: ['Comercial', 'Corporativo'],
-    readTime: '5 min',
-  },
-  {
-    id: '4',
-    title: 'FIIs de logística registram captação recorde em janeiro',
-    summary: 'Fundos imobiliários do segmento logístico captaram R$ 2,3 bilhões no mês, refletindo expansão do e-commerce e nearshoring.',
-    source: 'InfoMoney',
-    imageUrl: newsHero4,
-    publishedAt: '8h atrás',
-    topics: ['Investimentos', 'Logística'],
-    readTime: '4 min',
-    trending: true,
-  },
-];
+import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems } from '@/hooks/useNews';
+import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem('realia_onboarding_complete');
+  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [activeTab, setActiveTab] = useState('atelier');
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
-  const [userInterests, setUserInterests] = useState<string[]>([]);
 
-  const handleOnboardingComplete = (interests: string[]) => {
-    setUserInterests(interests);
+  const { user, profile, updateProfile } = useAuth();
+  const { data: news, isLoading: newsLoading } = useNews(activeFilter);
+  const { data: topics } = useTopics();
+  const { data: savedItems } = useSavedItems(user?.id);
+  const saveNewsMutation = useSaveNews();
+  const unsaveNewsMutation = useUnsaveNews();
+
+  const filters = ['Todos', ...(topics?.map(t => t.name) || [])];
+
+  const handleOnboardingComplete = async (interests: string[]) => {
+    localStorage.setItem('realia_onboarding_complete', 'true');
     setShowOnboarding(false);
+    
     if (interests.length > 0) {
+      if (user) {
+        await updateProfile({ interests });
+      }
       toast.success('Feed personalizado!', {
         description: `Seu feed foi configurado com ${interests.length} interesses.`,
       });
     }
   };
 
-  const handleSaveNews = (id: string) => {
-    toast.success('Notícia salva!', {
-      description: 'Você pode acessá-la em Perfil > Salvos',
-    });
+  const handleSaveNews = async (id: string) => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    const isSaved = savedItems?.includes(id);
+    
+    try {
+      if (isSaved) {
+        await unsaveNewsMutation.mutateAsync({ userId: user.id, newsId: id });
+        toast.success('Removido dos salvos');
+      } else {
+        await saveNewsMutation.mutateAsync({ userId: user.id, newsId: id });
+        toast.success('Notícia salva!', {
+          description: 'Você pode acessá-la em Perfil > Salvos',
+        });
+      }
+    } catch (error) {
+      toast.error('Erro ao salvar notícia');
+    }
   };
 
-  const handleShareNews = (id: string) => {
-    navigator.share?.({
-      title: 'REalia',
-      text: 'Confira esta notícia do mercado imobiliário',
-      url: window.location.href,
-    }).catch(() => {
+  const handleShareNews = async (id: string) => {
+    const newsItem = news?.find(n => n.id === id);
+    try {
+      await navigator.share?.({
+        title: newsItem?.title || 'REalia',
+        text: newsItem?.summary || 'Confira esta notícia do mercado imobiliário',
+        url: newsItem?.sourceUrl || window.location.href,
+      });
+    } catch {
+      navigator.clipboard.writeText(newsItem?.sourceUrl || window.location.href);
       toast.info('Link copiado!');
-    });
+    }
   };
-
-  const filteredNews = activeFilter === 'Todos' 
-    ? mockNews 
-    : mockNews.filter(news => news.topics.some(t => t.toLowerCase().includes(activeFilter.toLowerCase())));
 
   // Render content based on active tab
   const renderContent = () => {
@@ -119,28 +101,35 @@ const Index = () => {
             
             {/* News Feed */}
             <main className="flex-1 px-4 py-4">
-              <div className="space-y-4">
-                {filteredNews.map((news, index) => (
-                  <div
-                    key={news.id}
-                    className="animate-slide-up"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    <NewsCard
-                      news={news}
-                      onSave={handleSaveNews}
-                      onShare={handleShareNews}
-                      onClick={setSelectedNews}
-                    />
-                  </div>
-                ))}
-                
-                {filteredNews.length === 0 && (
-                  <div className="text-center py-12">
-                    <p className="text-muted-foreground">Nenhuma notícia encontrada para este filtro.</p>
-                  </div>
-                )}
-              </div>
+              {newsLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {news?.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="animate-slide-up"
+                      style={{ animationDelay: `${index * 0.1}s` }}
+                    >
+                      <NewsCard
+                        news={item}
+                        onSave={handleSaveNews}
+                        onShare={handleShareNews}
+                        onClick={setSelectedNews}
+                        isSaved={savedItems?.includes(item.id)}
+                      />
+                    </div>
+                  ))}
+                  
+                  {(!news || news.length === 0) && (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">Nenhuma notícia encontrada para este filtro.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </main>
           </div>
         );
@@ -193,7 +182,11 @@ const Index = () => {
             <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40 px-4 py-4">
               <h1 className="text-xl font-bold text-foreground">Perfil</h1>
             </header>
-            <ProfileScreen />
+            <ProfileScreen 
+              user={user} 
+              profile={profile} 
+              onLoginClick={() => setShowAuthModal(true)} 
+            />
           </div>
         );
       
@@ -207,6 +200,11 @@ const Index = () => {
       {/* Onboarding Modal */}
       {showOnboarding && (
         <OnboardingModal onComplete={handleOnboardingComplete} />
+      )}
+      
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <AuthModal onClose={() => setShowAuthModal(false)} />
       )}
       
       {/* Main Content */}
@@ -224,6 +222,7 @@ const Index = () => {
               onBack={() => setSelectedNews(null)}
               onSave={handleSaveNews}
               onShare={handleShareNews}
+              isSaved={savedItems?.includes(selectedNews.id)}
             />
           )}
         </>
