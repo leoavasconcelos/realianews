@@ -8,9 +8,14 @@ import {
   LogOut, 
   ChevronRight,
   Settings,
-  Heart
+  Heart,
+  LogIn
 } from 'lucide-react';
 import Logo from './Logo';
+import { Button } from './ui/button';
+import { useAuth, Profile } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+import type { User as AuthUser } from '@supabase/supabase-js';
 
 interface MenuItem {
   id: string;
@@ -20,7 +25,7 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { id: 'saved', label: 'Salvos', icon: <Bookmark className="w-5 h-5" />, badge: '12' },
+  { id: 'saved', label: 'Salvos', icon: <Bookmark className="w-5 h-5" /> },
   { id: 'interests', label: 'Meus Interesses', icon: <Heart className="w-5 h-5" /> },
   { id: 'notifications', label: 'Notificações', icon: <Bell className="w-5 h-5" /> },
   { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" /> },
@@ -28,7 +33,42 @@ const menuItems: MenuItem[] = [
   { id: 'help', label: 'Ajuda e Suporte', icon: <HelpCircle className="w-5 h-5" /> },
 ];
 
-const ProfileScreen: React.FC = () => {
+interface ProfileScreenProps {
+  user?: AuthUser | null;
+  profile?: Profile | null;
+  onLoginClick: () => void;
+}
+
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, profile, onLoginClick }) => {
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error('Erro ao sair');
+    } else {
+      toast.success('Até logo!');
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center px-8 py-16 text-center">
+        <div className="w-20 h-20 rounded-full bg-gradient-hero flex items-center justify-center mb-6">
+          <User className="w-10 h-10 text-white" />
+        </div>
+        <h2 className="text-xl font-bold text-foreground mb-2">Entre na sua conta</h2>
+        <p className="text-muted-foreground mb-6 max-w-sm">
+          Faça login para salvar notícias, personalizar seu feed e acessar todos os recursos do REalia.
+        </p>
+        <Button variant="hero" size="lg" onClick={onLoginClick}>
+          <LogIn className="w-4 h-4 mr-2" />
+          Entrar ou Cadastrar
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 bg-background">
       {/* Header */}
@@ -38,23 +78,27 @@ const ProfileScreen: React.FC = () => {
             <User className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Usuário REalia</h1>
-            <p className="text-sm text-muted-foreground">usuario@email.com</p>
+            <h1 className="text-xl font-bold text-foreground">
+              {profile?.display_name || 'Usuário REalia'}
+            </h1>
+            <p className="text-sm text-muted-foreground">{user.email}</p>
           </div>
         </div>
         
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-card rounded-xl p-4 text-center shadow-card">
-            <p className="text-2xl font-bold text-foreground">127</p>
+            <p className="text-2xl font-bold text-foreground">--</p>
             <p className="text-xs text-muted-foreground">Notícias lidas</p>
           </div>
           <div className="bg-card rounded-xl p-4 text-center shadow-card">
-            <p className="text-2xl font-bold text-foreground">12</p>
+            <p className="text-2xl font-bold text-foreground">--</p>
             <p className="text-xs text-muted-foreground">Salvos</p>
           </div>
           <div className="bg-card rounded-xl p-4 text-center shadow-card">
-            <p className="text-2xl font-bold text-foreground">5</p>
+            <p className="text-2xl font-bold text-foreground">
+              {profile?.interests?.length || 0}
+            </p>
             <p className="text-xs text-muted-foreground">Interesses</p>
           </div>
         </div>
@@ -85,7 +129,10 @@ const ProfileScreen: React.FC = () => {
         </div>
         
         {/* Logout */}
-        <button className="w-full flex items-center gap-4 px-4 py-4 mt-4 text-destructive hover:bg-destructive/10 rounded-xl transition-colors">
+        <button 
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-4 px-4 py-4 mt-4 text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
+        >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Sair da Conta</span>
         </button>

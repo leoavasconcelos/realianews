@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bookmark, Share2, Clock, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { Bookmark, Share2, Clock, TrendingUp } from 'lucide-react';
 import { Button } from './ui/button';
 
 export interface NewsItem {
@@ -12,6 +12,8 @@ export interface NewsItem {
   topics: string[];
   readTime: string;
   trending?: boolean;
+  sourceUrl?: string;
+  audioUrl?: string | null;
 }
 
 interface NewsCardProps {
@@ -19,9 +21,10 @@ interface NewsCardProps {
   onSave: (id: string) => void;
   onShare: (id: string) => void;
   onClick: (news: NewsItem) => void;
+  isSaved?: boolean;
 }
 
-const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick }) => {
+const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isSaved = false }) => {
   return (
     <article 
       className="news-card overflow-hidden cursor-pointer group"
@@ -33,6 +36,9 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick }) =
           src={news.imageUrl}
           alt={news.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800';
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         
@@ -87,13 +93,13 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick }) =
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className={`h-8 w-8 ${isSaved ? 'text-accent' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onSave(news.id);
               }}
             >
-              <Bookmark className="w-4 h-4" />
+              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
             </Button>
             <Button
               variant="ghost"
