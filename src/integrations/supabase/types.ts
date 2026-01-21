@@ -24,6 +24,7 @@ export type Database = {
           is_trending: boolean
           published_at: string
           read_time: string | null
+          region: string | null
           source_id: string | null
           source_url: string
           summary_ai: string | null
@@ -39,6 +40,7 @@ export type Database = {
           is_trending?: boolean
           published_at?: string
           read_time?: string | null
+          region?: string | null
           source_id?: string | null
           source_url: string
           summary_ai?: string | null
@@ -54,6 +56,7 @@ export type Database = {
           is_trending?: boolean
           published_at?: string
           read_time?: string | null
+          region?: string | null
           source_id?: string | null
           source_url?: string
           summary_ai?: string | null

@@ -16,6 +16,7 @@ export interface DbNews {
   is_trending: boolean;
   read_time: string;
   created_at: string;
+  region: string | null;
 }
 
 export interface DbSource {
@@ -48,10 +49,21 @@ const formatTimeAgo = (dateString: string): string => {
   return `${diffDays} dias atrás`;
 };
 
+// Available regions for filtering
+export const REGIONS = [
+  { id: 'all', label: 'Todas' },
+  { id: 'Brazil', label: '🇧🇷 Brasil' },
+  { id: 'USA', label: '🇺🇸 EUA' },
+  { id: 'Europe', label: '🇪🇺 Europa' },
+  { id: 'Middle East', label: '🌍 Oriente Médio' },
+] as const;
+
+export type RegionFilter = typeof REGIONS[number]['id'];
+
 // Fetch all news with source info
-export const useNews = (topicFilter?: string) => {
+export const useNews = (topicFilter?: string, regionFilter?: RegionFilter) => {
   return useQuery({
-    queryKey: ['news', topicFilter],
+    queryKey: ['news', topicFilter, regionFilter],
     queryFn: async () => {
       const { data: news, error } = await supabase
         .from('news')
@@ -67,7 +79,12 @@ export const useNews = (topicFilter?: string) => {
       const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
 
       // Filter to only show news with AI summary (processed and relevant)
-      const filteredNews = (news || []).filter(item => item.summary_ai && item.summary_ai.trim().length > 0);
+      let filteredNews = (news || []).filter(item => item.summary_ai && item.summary_ai.trim().length > 0);
+
+      // Apply region filter
+      if (regionFilter && regionFilter !== 'all') {
+        filteredNews = filteredNews.filter(item => item.region === regionFilter);
+      }
 
       // Transform to NewsItem format
       let newsItems: NewsItem[] = filteredNews.map((item) => {
@@ -88,6 +105,7 @@ export const useNews = (topicFilter?: string) => {
           trending: item.is_trending,
           sourceUrl: item.source_url,
           audioUrl: item.audio_url,
+          region: item.region || 'Brazil',
         };
       });
 

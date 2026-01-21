@@ -14,6 +14,7 @@ export interface NewsItem {
   trending?: boolean;
   sourceUrl?: string;
   audioUrl?: string | null;
+  region?: string;
 }
 
 interface NewsCardProps {
