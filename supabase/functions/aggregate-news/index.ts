@@ -84,11 +84,57 @@ const RSS_FEEDS = [
     name: "Money Times",
     url: "https://www.moneytimes.com.br/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
+  },
+  // International sources - USA
+  {
+    name: "Inman News",
+    url: "https://feeds.feedburner.com/inmannews",
+    sourceId: null as string | null,
+    region: "USA",
+  },
+  {
+    name: "HousingWire",
+    url: "https://www.housingwire.com/feed/",
+    sourceId: null as string | null,
+    region: "USA",
+  },
+  {
+    name: "Realtor.com",
+    url: "https://www.realtor.com/news/feed/",
+    sourceId: null as string | null,
+    region: "USA",
+  },
+  {
+    name: "Commercial Property Executive",
+    url: "https://www.commercialsearch.com/news/feed/",
+    sourceId: null as string | null,
+    region: "USA",
+  },
+  // International sources - Europe
+  {
+    name: "Property Week UK",
+    url: "https://www.propertyweek.com/news/feed",
+    sourceId: null as string | null,
+    region: "Europe",
+  },
+  {
+    name: "Property Week Residential",
+    url: "https://www.propertyweek.com/markets/residential/feed",
+    sourceId: null as string | null,
+    region: "Europe",
+  },
+  // International sources - Middle East
+  {
+    name: "Zawya MENA",
+    url: "https://www.zawya.com/en/rss-feed",
+    sourceId: null as string | null,
+    region: "Middle East",
   },
 ];
 
-// Real estate specific keywords for relevance filtering
-const REAL_ESTATE_KEYWORDS = [
+// Real estate specific keywords for relevance filtering (Portuguese)
+const REAL_ESTATE_KEYWORDS_PT = [
   // Core terms
   "imóvel", "imóveis", "imobiliário", "imobiliária", "imobiliárias",
   "incorporadora", "incorporadoras", "incorporação",
@@ -122,12 +168,38 @@ const REAL_ESTATE_KEYWORDS = [
   "corretagem", "compra e venda de imóveis", "metro quadrado", "m²",
 ];
 
+// Real estate specific keywords for relevance filtering (English)
+const REAL_ESTATE_KEYWORDS_EN = [
+  // Core terms
+  "real estate", "property", "properties", "housing", "home", "homes",
+  "residential", "commercial", "industrial", "retail",
+  // Property types
+  "apartment", "apartments", "condo", "condos", "condominium",
+  "townhouse", "duplex", "mansion", "penthouse", "loft",
+  "office", "offices", "warehouse", "retail space",
+  // Market terms
+  "developer", "developers", "construction", "building", "buildings",
+  "reit", "reits", "real estate investment trust",
+  "mortgage", "mortgages", "home loan", "home loans",
+  // Rental terms
+  "rent", "rental", "rentals", "lease", "leasing", "tenant", "landlord",
+  // Major companies
+  "zillow", "redfin", "realtor", "keller williams", "coldwell banker",
+  "cbre", "jll", "cushman wakefield", "colliers",
+  // Industry terms
+  "nar", "national association of realtors",
+  "housing market", "property market", "home sales", "home prices",
+  "interest rates", "fed rate", "federal reserve",
+];
+
 // Check if article is relevant to real estate market
-function isRealEstateRelevant(title: string, description: string): boolean {
+function isRealEstateRelevant(title: string, description: string, isInternational: boolean = false): boolean {
   const text = `${title} ${description}`.toLowerCase();
   
+  const keywords = isInternational ? REAL_ESTATE_KEYWORDS_EN : REAL_ESTATE_KEYWORDS_PT;
+  
   // Check for keyword matches
-  const matchCount = REAL_ESTATE_KEYWORDS.filter(keyword => 
+  const matchCount = keywords.filter(keyword => 
     text.includes(keyword.toLowerCase())
   ).length;
   
@@ -211,11 +283,12 @@ async function generateAISummary(
       ? `Tópicos relacionados: ${topics.join(", ")}.` 
       : "";
 
-    const systemPrompt = `Você é um especialista em resumir notícias do mercado imobiliário brasileiro. 
-Seu objetivo é criar resumos concisos, informativos e em português brasileiro.
+    const systemPrompt = `Você é um especialista em resumir notícias do mercado imobiliário. 
+Seu objetivo é criar resumos concisos, informativos e SEMPRE em português brasileiro.
 
 Diretrizes:
-- Escreva em português brasileiro formal mas acessível
+- SEMPRE escreva o resumo em português brasileiro, mesmo se a notícia original estiver em inglês ou outro idioma
+- Traduza termos técnicos para equivalentes em português quando apropriado
 - O resumo deve ter no máximo 3-4 frases (cerca de 50-80 palavras)
 - Destaque os pontos mais importantes e impactantes
 - Inclua números e dados relevantes quando disponíveis
@@ -369,7 +442,8 @@ serve(async (req) => {
           }
 
           // Check if article is relevant to real estate
-          if (!isRealEstateRelevant(article.title, article.description)) {
+          const isInternational = feed.region !== "Brazil";
+          if (!isRealEstateRelevant(article.title, article.description, isInternational)) {
             console.log(`Skipping non-real-estate article: ${article.title.substring(0, 50)}...`);
             continue;
           }
