@@ -14,7 +14,178 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      news: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          full_text: string | null
+          id: string
+          image_url: string | null
+          is_trending: boolean
+          published_at: string
+          read_time: string | null
+          source_id: string | null
+          source_url: string
+          summary_ai: string | null
+          title: string
+          topics: Json | null
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          full_text?: string | null
+          id?: string
+          image_url?: string | null
+          is_trending?: boolean
+          published_at?: string
+          read_time?: string | null
+          source_id?: string | null
+          source_url: string
+          summary_ai?: string | null
+          title: string
+          topics?: Json | null
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          full_text?: string | null
+          id?: string
+          image_url?: string | null
+          is_trending?: boolean
+          published_at?: string
+          read_time?: string | null
+          source_id?: string | null
+          source_url?: string
+          summary_ai?: string | null
+          title?: string
+          topics?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          blocked_sources: Json | null
+          created_at: string
+          display_name: string | null
+          id: string
+          interests: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          blocked_sources?: Json | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          interests?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          blocked_sources?: Json | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          interests?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sources: {
+        Row: {
+          base_url: string
+          created_at: string
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      topics: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      user_saved_items: {
+        Row: {
+          id: string
+          news_id: string
+          saved_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          news_id: string
+          saved_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          news_id?: string
+          saved_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_saved_items_news_id_fkey"
+            columns: ["news_id"]
+            isOneToOne: false
+            referencedRelation: "news"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
