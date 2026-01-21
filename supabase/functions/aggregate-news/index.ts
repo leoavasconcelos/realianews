@@ -13,72 +13,86 @@ const RSS_FEEDS = [
     name: "Portal VGV",
     url: "https://www.vgv.com.br/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "Imovelweb Notícias",
     url: "https://www.imovelweb.com.br/noticias/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "ZAP Imóveis",
     url: "https://revista.zapimoveis.com.br/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "VivaReal",
     url: "https://www.vivareal.com.br/blog/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "ABRAINC",
     url: "https://www.abrainc.org.br/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "Secovi-SP",
     url: "https://www.secovi.com.br/noticias/rss",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "CBIC",
     url: "https://cbic.org.br/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "Portal DF Imóveis",
     url: "https://www.dfimoveis.com.br/blog/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "Imobi Report",
     url: "https://imobireport.com.br/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "Forbes Brasil",
     url: "https://forbes.com.br/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "Estadão Imóveis",
     url: "https://www.estadao.com.br/rss/economia.xml",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   // General economy sources (filtered for real estate)
   {
     name: "InfoMoney",
     url: "https://www.infomoney.com.br/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "Valor Econômico",
     url: "https://valor.globo.com/rss/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "Exame",
     url: "https://exame.com/feed/",
     sourceId: null as string | null,
+    region: "Brazil",
   },
   {
     name: "Money Times",
@@ -473,6 +487,7 @@ serve(async (req) => {
               topics: topics,
               published_at: publishedAt,
               is_trending: false,
+              region: feed.region || "Brazil",
             })
             .select("id")
             .single();

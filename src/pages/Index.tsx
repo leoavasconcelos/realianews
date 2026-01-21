@@ -4,13 +4,14 @@ import BottomNav from '@/components/BottomNav';
 import NewsCard, { NewsItem } from '@/components/NewsCard';
 import NewsDetail from '@/components/NewsDetail';
 import FilterPills from '@/components/FilterPills';
+import RegionFilter from '@/components/RegionFilter';
 import OnboardingModal from '@/components/OnboardingModal';
 import ProfileScreen from '@/components/ProfileScreen';
 import PlaceholderScreen from '@/components/PlaceholderScreen';
 import AuthModal from '@/components/AuthModal';
 import { Compass, GraduationCap, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems } from '@/hooks/useNews';
+import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType } from '@/hooks/useNews';
 import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
@@ -20,10 +21,11 @@ const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [activeTab, setActiveTab] = useState('atelier');
   const [activeFilter, setActiveFilter] = useState('Todos');
+  const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
   const { user, profile, updateProfile } = useAuth();
-  const { data: news, isLoading: newsLoading } = useNews(activeFilter);
+  const { data: news, isLoading: newsLoading } = useNews(activeFilter, activeRegion);
   const { data: topics } = useTopics();
   const { data: savedItems } = useSavedItems(user?.id);
   const saveNewsMutation = useSaveNews();
@@ -92,11 +94,19 @@ const Index = () => {
             
             {/* Filters */}
             <div className="px-4 py-3 border-b border-border bg-background/50 backdrop-blur-sm sticky top-[57px] z-30">
-              <FilterPills
-                filters={filters}
-                activeFilter={activeFilter}
-                onFilterChange={setActiveFilter}
-              />
+              <div className="flex items-center gap-3">
+                <div className="flex-1 overflow-hidden">
+                  <FilterPills
+                    filters={filters}
+                    activeFilter={activeFilter}
+                    onFilterChange={setActiveFilter}
+                  />
+                </div>
+                <RegionFilter 
+                  activeRegion={activeRegion} 
+                  onRegionChange={setActiveRegion} 
+                />
+              </div>
             </div>
             
             {/* News Feed */}
