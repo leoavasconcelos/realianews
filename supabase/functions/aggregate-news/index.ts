@@ -45,6 +45,21 @@ const RSS_FEEDS = [
     sourceId: null as string | null,
   },
   {
+    name: "Portal DF Imóveis",
+    url: "https://www.dfimoveis.com.br/blog/feed/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "Imobi Report",
+    url: "https://imobireport.com.br/feed/",
+    sourceId: null as string | null,
+  },
+  {
+    name: "Forbes Brasil",
+    url: "https://forbes.com.br/feed/",
+    sourceId: null as string | null,
+  },
+  {
     name: "Estadão Imóveis",
     url: "https://www.estadao.com.br/rss/economia.xml",
     sourceId: null as string | null,
