@@ -79,8 +79,11 @@ export type Database = {
           blocked_sources: Json | null
           created_at: string
           display_name: string | null
+          email_notifications_enabled: boolean
           id: string
           interests: Json | null
+          notification_time: string
+          push_notifications_enabled: boolean
           updated_at: string
           user_id: string
         }
@@ -89,8 +92,11 @@ export type Database = {
           blocked_sources?: Json | null
           created_at?: string
           display_name?: string | null
+          email_notifications_enabled?: boolean
           id?: string
           interests?: Json | null
+          notification_time?: string
+          push_notifications_enabled?: boolean
           updated_at?: string
           user_id: string
         }
@@ -99,9 +105,39 @@ export type Database = {
           blocked_sources?: Json | null
           created_at?: string
           display_name?: string | null
+          email_notifications_enabled?: boolean
           id?: string
           interests?: Json | null
+          notification_time?: string
+          push_notifications_enabled?: boolean
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
           user_id?: string
         }
         Relationships: []
