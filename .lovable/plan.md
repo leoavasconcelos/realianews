@@ -1,199 +1,201 @@
 
-# Plano: Sistema de Notificações com Resumo Diário
+# Plano: Melhorar Template do E-mail de Resumo Diário
 
 ## Visão Geral
-Implementar sistema de notificações via **Push Web (PWA)** e **E-mail** que envia um resumo diário das principais notícias do mercado imobiliário para os usuários.
+Atualizar o template HTML do e-mail `send-daily-digest` para incluir imagens das notícias, cores mais vibrantes e uma formatação visual mais atraente e profissional.
 
 ---
 
-## Pré-requisito: Adicionar Secret RESEND_API_KEY
+## Melhorias Planejadas
 
-Antes de implementar, você precisa adicionar a chave da API do Resend:
-1. Clique no botão "Add Secret" que aparecerá
-2. Cole a chave API do Resend que você criou
+### 1. Cards de Notícia com Imagem
+Cada notícia terá:
+- Imagem destacada (thumbnail) à esquerda ou no topo
+- Layout em card com bordas arredondadas e sombra sutil
+- Melhor hierarquia visual do conteúdo
+
+### 2. Cores Mais Vibrantes
+- Header com gradiente mais chamativo (tons de azul/roxo)
+- Badges de tópicos coloridos por categoria
+- Botões de ação com cores vibrantes
+- Indicador visual de notícias em alta (trending)
+
+### 3. Formatação Visual Aprimorada
+- Espaçamento mais generoso entre elementos
+- Tipografia com melhor contraste
+- Separadores visuais entre seções
+- Ícones para enriquecer a comunicação
+- Badge de região para notícias internacionais
+
+### 4. Seções Adicionais
+- Data do resumo no header
+- Contador de notícias
+- Seção de "notícia destaque" para a principal
 
 ---
 
-## Arquitetura da Solução
+## Estrutura do Novo Layout
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                      SISTEMA DE NOTIFICAÇÕES                     │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────┐     ┌──────────────────┐     ┌─────────────┐  │
-│  │   Frontend   │────▶│  Edge Function   │────▶│   Resend    │  │
-│  │  (Service    │     │  send-daily-     │     │   (Email)   │  │
-│  │   Worker)    │     │  digest          │     └─────────────┘  │
-│  └──────────────┘     └──────────────────┘                      │
-│         │                      │                                 │
-│         │                      ▼                                 │
-│         │             ┌──────────────────┐                      │
-│         └────────────▶│   Supabase DB    │                      │
-│           Push Token  │  - profiles      │                      │
-│           Storage     │  - push_tokens   │                      │
-│                       │  - news          │                      │
-│                       └──────────────────┘                      │
-│                                │                                 │
-│                                ▼                                 │
-│                       ┌──────────────────┐                      │
-│                       │   Cron Job       │                      │
-│                       │   (08:00 BRT)    │                      │
-│                       └──────────────────┘                      │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│          HEADER (Gradiente Azul/Roxo)       │
+│   ┌─────┐                                   │
+│   │Logo │  REalia                           │
+│   └─────┘  Resumo Diário • 27 Jan 2026      │
+└─────────────────────────────────────────────┘
+│                                             │
+│  Bom dia, Leonardo! 👋                      │
+│  5 notícias selecionadas para você          │
+│                                             │
+├─────────────────────────────────────────────┤
+│  ★ DESTAQUE                                 │
+│  ┌─────────────────────────────────────┐    │
+│  │        [IMAGEM DA NOTÍCIA]          │    │
+│  │                                     │    │
+│  │  🏷️ Mercado                         │    │
+│  │  Título da Notícia Principal        │    │
+│  │  Resumo com mais caracteres...      │    │
+│  │         [Ler Notícia →]             │    │
+│  └─────────────────────────────────────┘    │
+├─────────────────────────────────────────────┤
+│  MAIS NOTÍCIAS                              │
+│                                             │
+│  ┌───────────────────────────────────────┐  │
+│  │ 📷 │ 🏷️ Tópico                        │  │
+│  │    │ Título da notícia 2              │  │
+│  │    │ Resumo curto...       [Ler →]    │  │
+│  └───────────────────────────────────────┘  │
+│                                             │
+│  ┌───────────────────────────────────────┐  │
+│  │ 📷 │ 🏷️ Tópico                        │  │
+│  │    │ Título da notícia 3              │  │
+│  │    │ Resumo curto...       [Ler →]    │  │
+│  └───────────────────────────────────────┘  │
+│                                             │
+├─────────────────────────────────────────────┤
+│              [Ver Todas as Notícias]        │
+├─────────────────────────────────────────────┤
+│             FOOTER                          │
+│  Gerenciar preferências | Cancelar inscrição│
+└─────────────────────────────────────────────┘
 ```
 
 ---
 
-## Componentes a Implementar
+## Alterações Técnicas
 
-### 1. Alterações no Banco de Dados
+### Arquivo a Modificar
+- `supabase/functions/send-daily-digest/index.ts`
 
-**Nova tabela `push_subscriptions`:**
-- `id` (UUID, chave primária)
-- `user_id` (UUID, referência ao perfil do usuário)
-- `endpoint` (TEXT, URL do serviço de push)
-- `p256dh` (TEXT, chave pública do navegador)
-- `auth` (TEXT, token de autenticação)
-- `created_at` (TIMESTAMP)
+### Mudanças na Função `generateEmailHtml`
 
-**Novos campos na tabela `profiles`:**
-- `email_notifications_enabled` (BOOLEAN, default true)
-- `push_notifications_enabled` (BOOLEAN, default false)
-- `notification_time` (TEXT, default "08:00" - horário do digest)
-
-### 2. Edge Functions (Backend)
-
-**`send-daily-digest`** - Função principal que:
-- Busca as top 5 notícias das últimas 24 horas
-- Para cada usuário com notificações ativas:
-  - Filtra notícias pelos interesses do usuário
-  - Envia e-mail via Resend com template HTML bonito
-  - Envia push notification (se habilitado)
-- Será executada via cron job às 08:00 BRT
-
-**`manage-push-subscription`** - Gerencia tokens push:
-- Salva/atualiza subscription do navegador
-- Remove subscription quando usuário desativa
-
-### 3. Service Worker (PWA)
-
-**`public/sw.js`:**
-- Registra service worker para push notifications
-- Processa e exibe notificações recebidas
-- Gerencia cliques nas notificações (abre o app)
-
-### 4. Componentes Frontend
-
-**`NotificationSettings.tsx`:**
-- Toggle para e-mail notifications
-- Toggle para push notifications (com solicitação de permissão)
-- Seletor de horário preferido para o digest
-- Preview do próximo envio
-
-**Atualização do `ProfileScreen.tsx`:**
-- Conectar item "Notificações" ao modal de configurações
-
-### 5. Hooks Customizados
-
-**`usePushNotifications.ts`:**
-- Verificar suporte do navegador
-- Solicitar permissão
-- Gerenciar subscription
-- Sincronizar com backend
-
-**`useNotificationSettings.ts`:**
-- Gerenciar preferências do usuário
-- Atualizar perfil no banco de dados
-
----
-
-## Template do E-mail (Resumo Diário)
-
-Design limpo e responsivo com:
-- Logo REalia no header
-- Saudação personalizada
-- Lista das 5 principais notícias com:
-  - Título
-  - Resumo curto (2 linhas)
-  - Badge de tópico
-  - Link "Ler mais"
-- Footer com links para configurações e app
-
----
-
-## Cron Job
-
-Configuração para executar às 08:00 horário de Brasília:
-```sql
-SELECT cron.schedule(
-  'send-daily-digest',
-  '0 11 * * *',  -- 11:00 UTC = 08:00 BRT
-  -- chamada da edge function
-);
-```
-
----
-
-## Fluxo do Usuário
-
-1. Usuário acessa Perfil > Notificações
-2. Ativa "Resumo por E-mail" e/ou "Push Notifications"
-3. Se ativar Push, navegador solicita permissão
-4. Preferências são salvas no banco
-5. Diariamente às 08:00 BRT, recebe o resumo
-
----
-
-## Sequência de Implementação
-
-1. **Fase 1 - Infraestrutura:**
-   - Adicionar secret RESEND_API_KEY
-   - Criar migration para novas colunas/tabelas
-   - Criar edge function `send-daily-digest`
-
-2. **Fase 2 - E-mail:**
-   - Implementar template de e-mail
-   - Testar envio manual
-
-3. **Fase 3 - Push Web:**
-   - Criar service worker
-   - Implementar hook de push notifications
-   - Edge function para gerenciar subscriptions
-
-4. **Fase 4 - Interface:**
-   - Criar tela de configurações de notificações
-   - Integrar com ProfileScreen
-
-5. **Fase 5 - Automação:**
-   - Configurar cron job para envio diário
-
----
-
-## Detalhes Técnicos
-
-### Edge Function: send-daily-digest
-
+1. **Adicionar função helper para cores de tópicos:**
 ```typescript
-// Estrutura principal
-- Buscar top 5 notícias (últimas 24h, ordenadas por is_trending)
-- Buscar usuários com email_notifications_enabled = true
-- Para cada usuário:
-  - Filtrar notícias pelos interesses (se houver)
-  - Montar HTML do e-mail
-  - Enviar via Resend
-- Retornar estatísticas de envio
+const getTopicColor = (topic: string) => {
+  const colors: Record<string, { bg: string; text: string }> = {
+    "Mercado": { bg: "#dbeafe", text: "#1e40af" },
+    "Economia": { bg: "#fef3c7", text: "#b45309" },
+    "Investimentos": { bg: "#d1fae5", text: "#065f46" },
+    // ... mais tópicos
+  };
+  return colors[topic] || { bg: "#f3f4f6", text: "#374151" };
+};
 ```
 
-### Service Worker
-
-```javascript
-// Eventos principais
-- 'push': Receber e exibir notificação
-- 'notificationclick': Abrir app na notícia
-- 'install/activate': Lifecycle do SW
+2. **Adicionar função para badge de região:**
+```typescript
+const getRegionBadge = (region: string | null) => {
+  switch(region) {
+    case "USA": return "🇺🇸";
+    case "Europe": return "🇪🇺";
+    // ... mais regiões
+  }
+};
 ```
 
-### Domínio de E-mail
+3. **Separar notícia destaque das demais:**
+- Primeira notícia com imagem grande no topo
+- Demais notícias com layout horizontal (imagem pequena à esquerda)
 
-O e-mail será enviado de `noreply@SEU-DOMINIO-VERIFICADO.com` (você precisará verificar um domínio no Resend, ou usar o sandbox para testes).
+4. **Fallback para imagens:**
+- URL de imagem placeholder quando `image_url` é null
+
+---
+
+## Detalhes Visuais
+
+### Paleta de Cores
+| Elemento | Cor Atual | Nova Cor |
+|----------|-----------|----------|
+| Header BG | `#1e40af → #3b82f6` | `#4f46e5 → #7c3aed` (Indigo/Purple) |
+| Badge Tópico | Cinza único | Cores por categoria |
+| Botão CTA | Azul gradiente | Roxo vibrante com hover |
+| Trending Badge | Não existe | `#f97316` (Laranja) |
+
+### Tipografia
+- Títulos: 18px → 20px, font-weight: 700
+- Resumos: 14px → 15px, line-height: 1.7
+- Badges: 11px → 12px, uppercase
+
+### Espaçamento
+- Padding entre cards: 20px → 24px
+- Margin interno dos cards: 16px → 20px
+- Border radius: 12px → 16px
+
+---
+
+## Exemplo de Card com Imagem
+
+```html
+<tr>
+  <td style="padding: 0 0 20px 0;">
+    <table width="100%" cellpadding="0" cellspacing="0" 
+           style="background: #ffffff; border-radius: 16px; 
+                  overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+      <tr>
+        <td style="width: 120px; vertical-align: top;">
+          <img src="[IMAGE_URL]" alt="" 
+               style="width: 120px; height: 100px; object-fit: cover;"/>
+        </td>
+        <td style="padding: 16px; vertical-align: top;">
+          <span style="background: #dbeafe; color: #1e40af; 
+                       font-size: 11px; padding: 4px 8px; 
+                       border-radius: 6px; font-weight: 600;">
+            MERCADO
+          </span>
+          <h3 style="margin: 8px 0; font-size: 16px; 
+                     font-weight: 600; color: #111827;">
+            Título da Notícia
+          </h3>
+          <p style="margin: 0; font-size: 14px; color: #6b7280;">
+            Resumo da notícia...
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+```
+
+---
+
+## Compatibilidade
+
+O template será otimizado para:
+- Gmail (Web e Mobile)
+- Apple Mail
+- Outlook (2016+)
+- Mobile (responsivo com max-width)
+
+Usaremos tabelas para layout (padrão em emails) e estilos inline para máxima compatibilidade.
+
+---
+
+## Resultado Esperado
+
+Um e-mail visualmente atraente que:
+- Destaca a notícia principal com imagem grande
+- Apresenta notícias secundárias em formato compacto com thumbnails
+- Usa cores vibrantes que identificam categorias
+- Mantém boa legibilidade em dispositivos móveis
+- Incentiva cliques com CTAs bem posicionados
