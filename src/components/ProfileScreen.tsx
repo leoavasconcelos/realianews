@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   User, 
   Bookmark, 
@@ -16,22 +16,21 @@ import { Button } from './ui/button';
 import { useAuth, Profile } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { User as AuthUser } from '@supabase/supabase-js';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import NotificationSettings from './NotificationSettings';
 
 interface MenuItem {
   id: string;
   label: string;
   icon: React.ReactNode;
   badge?: string;
+  onClick?: () => void;
 }
-
-const menuItems: MenuItem[] = [
-  { id: 'saved', label: 'Salvos', icon: <Bookmark className="w-5 h-5" /> },
-  { id: 'interests', label: 'Meus Interesses', icon: <Heart className="w-5 h-5" /> },
-  { id: 'notifications', label: 'Notificações', icon: <Bell className="w-5 h-5" /> },
-  { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" /> },
-  { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
-  { id: 'help', label: 'Ajuda e Suporte', icon: <HelpCircle className="w-5 h-5" /> },
-];
 
 interface ProfileScreenProps {
   user?: AuthUser | null;
@@ -42,6 +41,16 @@ interface ProfileScreenProps {
 const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
   ({ user, profile, onLoginClick }, ref) => {
     const { signOut } = useAuth();
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+    const menuItems: MenuItem[] = [
+      { id: 'saved', label: 'Salvos', icon: <Bookmark className="w-5 h-5" /> },
+      { id: 'interests', label: 'Meus Interesses', icon: <Heart className="w-5 h-5" /> },
+      { id: 'notifications', label: 'Notificações', icon: <Bell className="w-5 h-5" />, onClick: () => setNotificationsOpen(true) },
+      { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" /> },
+      { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
+      { id: 'help', label: 'Ajuda e Suporte', icon: <HelpCircle className="w-5 h-5" /> },
+    ];
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -111,6 +120,7 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
           {menuItems.map((item, index) => (
             <button
               key={item.id}
+              onClick={item.onClick}
               className={`w-full flex items-center gap-4 px-4 py-4 hover:bg-secondary transition-colors ${
                 index !== menuItems.length - 1 ? 'border-b border-border' : ''
               }`}
@@ -142,9 +152,24 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
         <div className="text-center py-8">
           <Logo size="sm" className="justify-center mb-2 opacity-50" />
           <p className="text-xs text-muted-foreground">Versão 1.0.0</p>
-          </div>
         </div>
       </div>
+
+      {/* Notifications Dialog */}
+      <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Configurações de Notificações</DialogTitle>
+          </DialogHeader>
+          {user && (
+            <NotificationSettings 
+              userId={user.id} 
+              onClose={() => setNotificationsOpen(false)} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
     );
   }
 );
