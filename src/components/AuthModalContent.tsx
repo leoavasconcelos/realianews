@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Mail, Lock, User, Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -57,6 +57,13 @@ const AuthModalContent: React.FC<AuthModalContentProps> = ({
 
   const { signIn, signUp, signInWithOAuth, resetPassword } = useAuth();
 
+  // Track if component is still mounted to avoid state updates after unmount
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -77,23 +84,33 @@ const AuthModalContent: React.FC<AuthModalContentProps> = ({
       if (mode === 'login') {
         const { error } = await signIn(email, password);
         if (error) throw error;
-        toast.success('Bem-vindo de volta!');
-        onSuccess?.();
+        if (isMountedRef.current) {
+          toast.success('Bem-vindo de volta!');
+          onSuccess?.();
+        }
       } else if (mode === 'signup') {
         const { error } = await signUp(email, password, displayName);
         if (error) throw error;
-        toast.success('Conta criada com sucesso!');
-        onSuccess?.();
+        if (isMountedRef.current) {
+          toast.success('Conta criada com sucesso!');
+          onSuccess?.();
+        }
       } else if (mode === 'forgot') {
         const { error } = await resetPassword(email);
         if (error) throw error;
-        setResetEmailSent(true);
-        toast.success('Email de recuperação enviado!');
+        if (isMountedRef.current) {
+          setResetEmailSent(true);
+          toast.success('Email de recuperação enviado!');
+        }
       }
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao processar solicitação');
+      if (isMountedRef.current) {
+        toast.error(error.message || 'Erro ao processar solicitação');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
