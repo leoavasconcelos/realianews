@@ -1,131 +1,96 @@
 
-# Correção dos Problemas de Travamento, Logout e Preferências
 
-## Diagnóstico Completo
+# Adicionar Interesse "IA Imobiliária" ao Onboarding e Perfil
 
-Após análise detalhada do código e testes no browser, identifiquei **3 problemas principais**:
+## Objetivo
+Criar uma nova categoria de interesse focada em **Inteligência Artificial aplicada ao mercado imobiliário**, separada da categoria genérica "PropTech".
 
-### Problema 1: Estado "stale" no localStorage do iframe
-O iframe do Lovable preserva o localStorage entre edições de código, mas o estado pode ficar inconsistente quando:
-- O usuário está logado mas a sessão expirou
-- Os dados de preferências são de uma versão anterior do código
-- O `regionInitializedRef` foi resetado mas o localStorage mantém dados antigos
+## Análise Atual
 
-### Problema 2: useMemo criando novos arrays a cada render
-O `useMemo` de `preferredRegions` (linhas 93-106 do Index.tsx) chama `JSON.parse()` quando `profile` é undefined. Cada chamada a `JSON.parse()` cria um **novo array**, mesmo com os mesmos valores. Isso invalida a queryKey do React Query (`['news', activeFilter, activeRegion, preferredRegions]`), causando re-fetches infinitos.
+### Interesses Existentes (6 categorias)
+| ID | Label | Descrição |
+|---|---|---|
+| residencial | Residencial | Casas, apartamentos e lançamentos |
+| comercial | Comercial | Escritórios, lojas e galpões |
+| corporativo | Corporativo | M&A, fundos e grandes players |
+| financiamento | Financiamento | Crédito, taxas e bancos |
+| investimentos | Investimentos | FIIs, CRIs e oportunidades |
+| proptech | PropTech | Tecnologia e inovação |
 
-### Problema 3: Função signOut não está limpando estado corretamente
-Quando o usuário faz logout, a função `signOut` em `useAuth.ts` não limpa explicitamente o estado local (`user` e `profile`), dependendo apenas do `onAuthStateChange`. Se houver atraso ou falha nesse callback, o UI fica em estado inconsistente.
-
----
+### Problema
+- PropTech é muito ampla, misturando startups, apps, automação e IA
+- Usuários interessados especificamente em IA não têm opção dedicada
+- Tema de IA está crescendo rapidamente no setor (avaliações automatizadas, análise de mercado, chatbots, etc.)
 
 ## Solução
 
-### Arquivo 1: `src/pages/Index.tsx`
-
-**Problema**: O `useMemo` de `preferredRegions` cria novos arrays a cada render quando lê do localStorage.
-
-**Solução**: Armazenar o valor do localStorage em um `useRef` para evitar recriação do array.
-
+### Novo Interesse a Adicionar
 ```typescript
-// Antes (problemático)
-const preferredRegions = useMemo(() => {
-  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
-    return profile.preferred_regions;
-  }
-  const stored = localStorage.getItem('realia_preferred_regions');
-  if (stored) {
-    try {
-      return JSON.parse(stored) as string[]; // Novo array a cada render!
-    } catch {
-      return undefined;
-    }
-  }
-  return undefined;
-}, [profile?.preferred_regions]);
-
-// Depois (corrigido)
-const storedRegionsRef = useRef<string[] | undefined>(undefined);
-
-// Inicializar ref do localStorage apenas uma vez
-useEffect(() => {
-  if (storedRegionsRef.current === undefined) {
-    const stored = localStorage.getItem('realia_preferred_regions');
-    if (stored) {
-      try {
-        storedRegionsRef.current = JSON.parse(stored);
-      } catch {
-        storedRegionsRef.current = undefined;
-      }
-    }
-  }
-}, []);
-
-const preferredRegions = useMemo(() => {
-  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
-    return profile.preferred_regions;
-  }
-  return storedRegionsRef.current;
-}, [profile?.preferred_regions]);
+{
+  id: 'ia-imobiliaria',
+  label: 'IA Imobiliária',
+  icon: <Brain className="w-5 h-5" />, // ou Sparkles
+  description: 'IA, machine learning e automação inteligente'
+}
 ```
 
-### Arquivo 2: `src/hooks/useAuth.ts`
-
-**Problema**: A função `signOut` não limpa o estado local imediatamente.
-
-**Solução**: Limpar `user` e `profile` antes de chamar o signOut do Supabase.
-
-```typescript
-// Antes
-const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
-  return { error };
-};
-
-// Depois
-const signOut = async () => {
-  // Limpar estado local imediatamente para feedback instantâneo
-  setUser(null);
-  setProfile(null);
-  
-  const { error } = await supabase.auth.signOut();
-  return { error };
-};
-```
-
-### Arquivo 3: `src/pages/Index.tsx` (adicional)
-
-**Problema**: O `regionInitializedRef` é resetado quando o componente remonta (por exemplo, após refresh/rebuild), mas as preferências já existem.
-
-**Solução**: Usar uma chave mais robusta no localStorage para detectar se já foi inicializado na sessão atual.
-
----
-
-## Arquivos a Modificar
+### Arquivos a Modificar
 
 | Arquivo | Modificação |
 |---------|-------------|
-| `src/pages/Index.tsx` | Usar `useRef` para armazenar preferredRegions do localStorage e evitar recriação de arrays |
-| `src/hooks/useAuth.ts` | Limpar estado local imediatamente no signOut para feedback instantâneo |
+| `src/components/OnboardingModal.tsx` | Adicionar novo interesse "IA Imobiliária" com ícone Brain |
+| `src/components/ProfileScreen.tsx` | Adicionar mesmo interesse na lista do perfil |
 
----
+### Layout Atualizado
+Com 7 interesses, o grid 2x3 ficaria com uma última linha com 1 item centralizado ou podemos manter o grid simétrico alterando para um layout que acomode 7 ou 8 itens.
 
-## Solução Imediata para Desbloquear
+**Opções de layout:**
+- **Opção A**: Manter grid 2 colunas (3 linhas + 1 item na 4ª linha)
+- **Opção B**: Adicionar um 8º interesse para manter simetria (ex: "Urbanismo" ou "Smart Cities")
 
-Se o usuário estiver travado, ele pode executar o seguinte no console do browser (F12):
+## Implementação Detalhada
 
-```javascript
-localStorage.clear();
-window.location.reload();
+### 1. OnboardingModal.tsx
+
+Adicionar import do ícone e novo interesse:
+
+```typescript
+import { Check, Building2, Home, Briefcase, TrendingUp, Landmark, Cpu, ArrowRight, Globe, ArrowLeft, Brain } from 'lucide-react';
+
+const interests: Interest[] = [
+  { id: 'residencial', label: 'Residencial', icon: <Home className="w-5 h-5" />, description: 'Casas, apartamentos e lançamentos' },
+  { id: 'comercial', label: 'Comercial', icon: <Building2 className="w-5 h-5" />, description: 'Escritórios, lojas e galpões' },
+  { id: 'corporativo', label: 'Corporativo', icon: <Briefcase className="w-5 h-5" />, description: 'M&A, fundos e grandes players' },
+  { id: 'financiamento', label: 'Financiamento', icon: <Landmark className="w-5 h-5" />, description: 'Crédito, taxas e bancos' },
+  { id: 'investimentos', label: 'Investimentos', icon: <TrendingUp className="w-5 h-5" />, description: 'FIIs, CRIs e oportunidades' },
+  { id: 'proptech', label: 'PropTech', icon: <Cpu className="w-5 h-5" />, description: 'Startups e inovação digital' },
+  { id: 'ia-imobiliaria', label: 'IA Imobiliária', icon: <Brain className="w-5 h-5" />, description: 'Machine learning e automação' },
+];
 ```
 
-Isso limpará todos os dados persistidos e permitirá um fresh start.
+### 2. ProfileScreen.tsx
 
----
+Mesma atualização no array `allInterests`:
+
+```typescript
+import { Brain } from 'lucide-react';
+
+const allInterests: Interest[] = [
+  // ... interesses existentes ...
+  { id: 'ia-imobiliaria', label: 'IA Imobiliária', icon: <Brain className="w-5 h-5" />, description: 'Machine learning e automação' },
+];
+```
+
+## Consideração Opcional
+
+Para manter o grid simétrico (8 itens = 4 linhas de 2), podemos adicionar também:
+```typescript
+{ id: 'urbanismo', label: 'Urbanismo', icon: <MapPin className="w-5 h-5" />, description: 'Cidades, zoneamento e mobilidade' },
+```
 
 ## Resultado Esperado
+- Nova opção "IA Imobiliária" visível no onboarding (step 2)
+- Mesma opção disponível na edição de interesses no Perfil
+- Ícone de cérebro (Brain) para diferenciar visualmente
+- Usuários podem selecionar IA como interesse específico
 
-1. Feed não fica mais em loading infinito
-2. Logout funciona imediatamente e limpa o estado
-3. Preferências são salvas e carregadas corretamente
-4. App funciona consistentemente tanto no iframe quanto em nova aba
