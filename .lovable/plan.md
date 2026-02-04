@@ -1,102 +1,133 @@
 
-# Correção do Bug de Travamento na Inicialização do Filtro de Regiões
+# Correção Definitiva do Travamento na Inicialização
 
-## Problema Identificado
+## Diagnóstico
 
-O `useEffect` que inicializa o filtro de região tem uma condição de corrida:
+Após análise detalhada dos logs e código, identifiquei **3 problemas principais** que podem estar causando o travamento:
 
-```typescript
-// Problema atual (linhas 35-73)
-useEffect(() => {
-  if (regionInitialized) return;  // Sai imediatamente se já inicializado
-  
-  // ... lógica de preferências ...
-  
-  if (!authLoading) {
-    setRegionInitialized(true);  // Marca como inicializado quando auth termina
-  }
-}, [profile, authLoading, regionInitialized]);  // regionInitialized como dependência causa loops
+### Problema 1: Warnings de forwardRef causando erros de renderização
+Os logs mostram:
+```
+Warning: Function components cannot be given refs. Check the render method of `ProfileScreen`.
+Warning: Function components cannot be given refs. Check the render method of `DialogContent`.
 ```
 
-**Cenário de falha:**
-1. Componente monta com `authLoading = true`
-2. `authLoading` muda para `false` (auth termina sem sessão)
-3. `regionInitialized` é setado para `true` antes de `profile` existir
-4. Usuário faz login, `profile` carrega
-5. Efeito não roda porque `regionInitialized` já é `true`
-6. Regiões não são aplicadas corretamente
+O `NotificationSettings` está sendo renderizado dentro de `DialogContent` sem usar `forwardRef`, o que pode causar problemas de renderização.
+
+### Problema 2: Race condition no hook `useAuth`
+O callback `onAuthStateChange` faz operações assíncronas que podem não completar antes de outros efeitos reagirem:
+```typescript
+supabase.auth.onAuthStateChange(async (event, session) => {
+  setUser(session?.user ?? null);
+  if (session?.user) {
+    // await assíncrono aqui...
+  }
+  setLoading(false); // Pode setar false antes do profile carregar
+});
+```
+
+### Problema 3: Dependências do useEffect no Index.tsx
+O `useMemo` de `preferredRegions` depende de `profile?.preferred_regions`, mas a leitura do localStorage acontece em cada render quando profile é null.
 
 ---
 
 ## Solução
 
-Simplificar a lógica removendo `regionInitialized` das dependências e usando uma abordagem mais direta:
+### 1. Adicionar forwardRef ao NotificationSettings
+**Arquivo:** `src/components/NotificationSettings.tsx`
 
-### Mudanças no `src/pages/Index.tsx`
+Envolver o componente com `React.forwardRef` para eliminar o warning e possíveis problemas de renderização.
 
-**1. Corrigir o useEffect de inicialização (linhas 34-73):**
+### 2. Separar estado de loading do auth e do profile
+**Arquivo:** `src/hooks/useAuth.ts`
 
+Garantir que `loading` só seja `false` quando tanto a sessão quanto o profile estejam completamente carregados.
+
+### 3. Melhorar a lógica de inicialização de região
+**Arquivo:** `src/pages/Index.tsx`
+
+Usar um `useRef` para controlar a inicialização ao invés de estado, evitando loops de dependência.
+
+---
+
+## Mudanças Detalhadas
+
+### `src/components/NotificationSettings.tsx`
 ```typescript
-// Inicializar região apenas uma vez quando auth carregar
-useEffect(() => {
-  // Só inicializa quando auth terminar de carregar
-  if (authLoading) return;
-  
-  // Já inicializado? Não fazer nada
-  if (regionInitialized) return;
-  
-  // Marcar como inicializado PRIMEIRO para evitar re-runs
-  setRegionInitialized(true);
-  
-  // Obter preferências do profile ou localStorage
-  let regions: string[] = [];
-  
-  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
-    regions = profile.preferred_regions;
-  } else {
-    const stored = localStorage.getItem('realia_preferred_regions');
-    if (stored) {
-      try {
-        regions = JSON.parse(stored);
-      } catch {
-        regions = [];
-      }
-    }
+// Adicionar forwardRef
+const NotificationSettings = React.forwardRef<HTMLDivElement, NotificationSettingsProps>(
+  ({ userId, onClose }, ref) => {
+    // ... código existente ...
+    return (
+      <div ref={ref} className="space-y-6">
+        {/* ... */}
+      </div>
+    );
   }
-  
-  // Aplicar filtro baseado nas preferências
-  if (regions.length === 1) {
-    setActiveRegion(regions[0] as RegionFilterType);
-  }
-  // Múltiplas regiões: manter 'all' (valor padrão)
-  
-}, [authLoading, profile, regionInitialized]);
+);
+NotificationSettings.displayName = 'NotificationSettings';
 ```
 
-**Mudanças-chave:**
-- Verifica `authLoading` primeiro e retorna se ainda carregando
-- Seta `regionInitialized = true` ANTES de aplicar lógica
-- Remove lógica duplicada de hasOnlyBrazil/hasInternational (simplifica)
-- Dependências ordenadas corretamente
-
-**2. Simplificar obtenção de preferredRegions (linhas 98-109):**
-
+### `src/hooks/useAuth.ts`
 ```typescript
-// Usar useMemo para evitar recriação em cada render
-const preferredRegions = useMemo(() => {
-  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
-    return profile.preferred_regions;
-  }
-  const stored = localStorage.getItem('realia_preferred_regions');
-  if (stored) {
-    try {
-      return JSON.parse(stored) as string[];
-    } catch {
-      return undefined;
+useEffect(() => {
+  let isMounted = true;
+  
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      if (!isMounted) return;
+      
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Buscar profile de forma síncrona com o auth state
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+        
+        if (isMounted && data) {
+          setProfile(/* ... */);
+        }
+      } else {
+        setProfile(null);
+      }
+      
+      if (isMounted) {
+        setLoading(false);
+      }
     }
-  }
-  return undefined;
-}, [profile?.preferred_regions]);
+  );
+
+  // Verificar sessão inicial
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!isMounted) return;
+    if (!session?.user) {
+      setLoading(false);
+    }
+  });
+
+  return () => {
+    isMounted = false;
+    subscription.unsubscribe();
+  };
+}, []);
+```
+
+### `src/pages/Index.tsx`
+```typescript
+// Usar useRef ao invés de useState para evitar re-renders
+const regionInitializedRef = useRef(false);
+
+useEffect(() => {
+  if (authLoading) return;
+  if (regionInitializedRef.current) return;
+  
+  regionInitializedRef.current = true;
+  
+  // Lógica de inicialização...
+}, [authLoading, profile]);
 ```
 
 ---
@@ -105,13 +136,15 @@ const preferredRegions = useMemo(() => {
 
 | Arquivo | Modificação |
 |---------|-------------|
-| `src/pages/Index.tsx` | Corrigir useEffect de inicialização e simplificar preferredRegions |
+| `src/components/NotificationSettings.tsx` | Adicionar `forwardRef` |
+| `src/hooks/useAuth.ts` | Adicionar flag `isMounted` para evitar race conditions |
+| `src/pages/Index.tsx` | Usar `useRef` ao invés de `useState` para `regionInitialized` |
 
 ---
 
 ## Resultado Esperado
 
-1. App não trava mais durante inicialização
-2. Filtro de região é aplicado corretamente após login
-3. Preferências são carregadas do profile ou localStorage conforme apropriado
-4. Sem loops infinitos de renderização
+1. Warnings de forwardRef eliminados
+2. Nenhum loop de renderização ou travamento
+3. Inicialização de auth e região funciona corretamente em todos os cenários
+4. App funciona tanto com usuário logado quanto deslogado
