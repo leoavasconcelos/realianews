@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, Loader2 } from 'lucide-react';
+import { X, Mail, Lock, User, Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import Logo from './Logo';
@@ -40,15 +40,16 @@ const AppleIcon = () => (
 );
 
 const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
-  const { signIn, signUp, signInWithOAuth } = useAuth();
+  const { signIn, signUp, signInWithOAuth, resetPassword } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,14 +61,19 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
         if (error) throw error;
         toast.success('Bem-vindo de volta!');
         onClose();
-      } else {
+      } else if (mode === 'signup') {
         const { error } = await signUp(email, password, displayName);
         if (error) throw error;
         toast.success('Conta criada com sucesso!');
         onClose();
+      } else if (mode === 'forgot') {
+        const { error } = await resetPassword(email);
+        if (error) throw error;
+        setResetEmailSent(true);
+        toast.success('Email de recuperação enviado!');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao autenticar');
+      toast.error(error.message || 'Erro ao processar solicitação');
     } finally {
       setLoading(false);
     }
@@ -86,6 +92,91 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
       setProviderLoading(false);
     }
   };
+
+  const handleBackToLogin = () => {
+    setMode('login');
+    setResetEmailSent(false);
+  };
+
+  // Forgot password screen
+  if (mode === 'forgot') {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl w-full max-w-md shadow-xl animate-scale-in">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <button
+              onClick={handleBackToLogin}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Voltar
+            </button>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Content */}
+          <div className="p-6">
+            {resetEmailSent ? (
+              <div className="text-center py-4">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Mail className="w-8 h-8 text-primary" />
+                </div>
+                <h2 className="text-xl font-bold text-foreground mb-2">
+                  Email enviado!
+                </h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Enviamos um link de recuperação para <strong>{email}</strong>. 
+                  Verifique sua caixa de entrada e spam.
+                </p>
+                <Button variant="outline" onClick={handleBackToLogin} className="w-full">
+                  Voltar para o login
+                </Button>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold text-foreground mb-2">
+                  Esqueceu sua senha?
+                </h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Digite seu email e enviaremos um link para redefinir sua senha.
+                </p>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    variant="hero"
+                    className="w-full"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      'Enviar link de recuperação'
+                    )}
+                  </Button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -193,6 +284,18 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
                 minLength={6}
               />
             </div>
+
+            {mode === 'login' && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setMode('forgot')}
+                  className="text-sm text-primary hover:text-primary/80 transition-colors"
+                >
+                  Esqueci minha senha
+                </button>
+              </div>
+            )}
 
             <Button
               type="submit"
