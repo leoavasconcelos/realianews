@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import FeedHeader from '@/components/FeedHeader';
 import BottomNav from '@/components/BottomNav';
 import NewsCard, { NewsItem } from '@/components/NewsCard';
@@ -31,46 +31,40 @@ const Index = () => {
 
   const { user, profile, loading: authLoading, updateProfile } = useAuth();
 
-  // Initialize region filter from user preferences
+  // Initialize region filter from user preferences - runs once when auth finishes loading
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+    
+    // Already initialized? Do nothing
     if (regionInitialized) return;
     
+    // Mark as initialized FIRST to prevent re-runs
+    setRegionInitialized(true);
+    
     // Get preferred regions from profile or localStorage
-    let preferredRegions: string[] = [];
+    let regions: string[] = [];
     
     if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
-      preferredRegions = profile.preferred_regions;
+      regions = profile.preferred_regions;
     } else {
-      const storedRegions = localStorage.getItem('realia_preferred_regions');
-      if (storedRegions) {
+      const stored = localStorage.getItem('realia_preferred_regions');
+      if (stored) {
         try {
-          preferredRegions = JSON.parse(storedRegions);
+          regions = JSON.parse(stored);
         } catch {
-          preferredRegions = [];
+          regions = [];
         }
       }
     }
     
-    // Set initial region filter based on preferences
-    if (preferredRegions.length > 0) {
-      // If user has only Brazil or only international regions, set appropriate filter
-      const hasOnlyBrazil = preferredRegions.length === 1 && preferredRegions[0] === 'Brazil';
-      const hasInternational = preferredRegions.some(r => r !== 'Brazil');
-      
-      if (hasOnlyBrazil) {
-        setActiveRegion('Brazil');
-      } else if (preferredRegions.length === 1 && hasInternational) {
-        // Single international region selected
-        setActiveRegion(preferredRegions[0] as RegionFilterType);
-      }
-      // If multiple regions including Brazil, keep 'all' to show everything the user is interested in
+    // Apply filter based on preferences - only set specific region if exactly one selected
+    if (regions.length === 1) {
+      setActiveRegion(regions[0] as RegionFilterType);
     }
+    // Multiple regions: keep 'all' (default value)
     
-    // Only mark as initialized once we have profile data or auth loading is complete
-    if (!authLoading) {
-      setRegionInitialized(true);
-    }
-  }, [profile, authLoading, regionInitialized]);
+  }, [authLoading, profile, regionInitialized]);
 
   // Detect password recovery event from Supabase
   useEffect(() => {
@@ -95,8 +89,11 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Get preferred regions for filtering
-  const preferredRegions = profile?.preferred_regions || (() => {
+  // Get preferred regions for filtering - memoized to avoid recreation on each render
+  const preferredRegions = useMemo(() => {
+    if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
+      return profile.preferred_regions;
+    }
     const stored = localStorage.getItem('realia_preferred_regions');
     if (stored) {
       try {
@@ -106,7 +103,7 @@ const Index = () => {
       }
     }
     return undefined;
-  })();
+  }, [profile?.preferred_regions]);
 
   const { data: news, isLoading: newsLoading } = useNews(activeFilter, activeRegion, preferredRegions);
   const { data: topics } = useTopics();
