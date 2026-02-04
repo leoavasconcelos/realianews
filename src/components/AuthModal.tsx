@@ -3,7 +3,9 @@ import { X, Mail, Lock, User, Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import Logo from './Logo';
+import PasswordStrengthIndicator from './PasswordStrengthIndicator';
 import { useAuth } from '@/hooks/useAuth';
+import { validatePassword } from '@/lib/passwordValidation';
 import { toast } from 'sonner';
 
 interface AuthModalProps {
@@ -53,6 +55,18 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate password strength on signup
+    if (mode === 'signup') {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        toast.error('Senha fraca', {
+          description: passwordValidation.errors.join(', '),
+        });
+        return;
+      }
+    }
+    
     setLoading(true);
 
     try {
@@ -272,17 +286,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
               />
             </div>
 
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="password"
-                placeholder="Sua senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10"
-                required
-                minLength={6}
-              />
+            <div className="space-y-2">
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="password"
+                  placeholder="Sua senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                  minLength={8}
+                />
+              </div>
+              {mode === 'signup' && password && (
+                <PasswordStrengthIndicator password={password} />
+              )}
             </div>
 
             {mode === 'login' && (
