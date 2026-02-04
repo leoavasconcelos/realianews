@@ -1,134 +1,103 @@
 
-# Correção Definitiva do Travamento na Inicialização
+# Correção dos Problemas de Travamento, Logout e Preferências
 
-## Diagnóstico
+## Diagnóstico Completo
 
-Após análise detalhada dos logs e código, identifiquei **3 problemas principais** que podem estar causando o travamento:
+Após análise detalhada do código e testes no browser, identifiquei **3 problemas principais**:
 
-### Problema 1: Warnings de forwardRef causando erros de renderização
-Os logs mostram:
-```
-Warning: Function components cannot be given refs. Check the render method of `ProfileScreen`.
-Warning: Function components cannot be given refs. Check the render method of `DialogContent`.
-```
+### Problema 1: Estado "stale" no localStorage do iframe
+O iframe do Lovable preserva o localStorage entre edições de código, mas o estado pode ficar inconsistente quando:
+- O usuário está logado mas a sessão expirou
+- Os dados de preferências são de uma versão anterior do código
+- O `regionInitializedRef` foi resetado mas o localStorage mantém dados antigos
 
-O `NotificationSettings` está sendo renderizado dentro de `DialogContent` sem usar `forwardRef`, o que pode causar problemas de renderização.
+### Problema 2: useMemo criando novos arrays a cada render
+O `useMemo` de `preferredRegions` (linhas 93-106 do Index.tsx) chama `JSON.parse()` quando `profile` é undefined. Cada chamada a `JSON.parse()` cria um **novo array**, mesmo com os mesmos valores. Isso invalida a queryKey do React Query (`['news', activeFilter, activeRegion, preferredRegions]`), causando re-fetches infinitos.
 
-### Problema 2: Race condition no hook `useAuth`
-O callback `onAuthStateChange` faz operações assíncronas que podem não completar antes de outros efeitos reagirem:
-```typescript
-supabase.auth.onAuthStateChange(async (event, session) => {
-  setUser(session?.user ?? null);
-  if (session?.user) {
-    // await assíncrono aqui...
-  }
-  setLoading(false); // Pode setar false antes do profile carregar
-});
-```
-
-### Problema 3: Dependências do useEffect no Index.tsx
-O `useMemo` de `preferredRegions` depende de `profile?.preferred_regions`, mas a leitura do localStorage acontece em cada render quando profile é null.
+### Problema 3: Função signOut não está limpando estado corretamente
+Quando o usuário faz logout, a função `signOut` em `useAuth.ts` não limpa explicitamente o estado local (`user` e `profile`), dependendo apenas do `onAuthStateChange`. Se houver atraso ou falha nesse callback, o UI fica em estado inconsistente.
 
 ---
 
 ## Solução
 
-### 1. Adicionar forwardRef ao NotificationSettings
-**Arquivo:** `src/components/NotificationSettings.tsx`
+### Arquivo 1: `src/pages/Index.tsx`
 
-Envolver o componente com `React.forwardRef` para eliminar o warning e possíveis problemas de renderização.
+**Problema**: O `useMemo` de `preferredRegions` cria novos arrays a cada render quando lê do localStorage.
 
-### 2. Separar estado de loading do auth e do profile
-**Arquivo:** `src/hooks/useAuth.ts`
+**Solução**: Armazenar o valor do localStorage em um `useRef` para evitar recriação do array.
 
-Garantir que `loading` só seja `false` quando tanto a sessão quanto o profile estejam completamente carregados.
-
-### 3. Melhorar a lógica de inicialização de região
-**Arquivo:** `src/pages/Index.tsx`
-
-Usar um `useRef` para controlar a inicialização ao invés de estado, evitando loops de dependência.
-
----
-
-## Mudanças Detalhadas
-
-### `src/components/NotificationSettings.tsx`
 ```typescript
-// Adicionar forwardRef
-const NotificationSettings = React.forwardRef<HTMLDivElement, NotificationSettingsProps>(
-  ({ userId, onClose }, ref) => {
-    // ... código existente ...
-    return (
-      <div ref={ref} className="space-y-6">
-        {/* ... */}
-      </div>
-    );
+// Antes (problemático)
+const preferredRegions = useMemo(() => {
+  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
+    return profile.preferred_regions;
   }
-);
-NotificationSettings.displayName = 'NotificationSettings';
-```
+  const stored = localStorage.getItem('realia_preferred_regions');
+  if (stored) {
+    try {
+      return JSON.parse(stored) as string[]; // Novo array a cada render!
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}, [profile?.preferred_regions]);
 
-### `src/hooks/useAuth.ts`
-```typescript
+// Depois (corrigido)
+const storedRegionsRef = useRef<string[] | undefined>(undefined);
+
+// Inicializar ref do localStorage apenas uma vez
 useEffect(() => {
-  let isMounted = true;
-  
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    async (event, session) => {
-      if (!isMounted) return;
-      
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Buscar profile de forma síncrona com o auth state
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
-        
-        if (isMounted && data) {
-          setProfile(/* ... */);
-        }
-      } else {
-        setProfile(null);
-      }
-      
-      if (isMounted) {
-        setLoading(false);
+  if (storedRegionsRef.current === undefined) {
+    const stored = localStorage.getItem('realia_preferred_regions');
+    if (stored) {
+      try {
+        storedRegionsRef.current = JSON.parse(stored);
+      } catch {
+        storedRegionsRef.current = undefined;
       }
     }
-  );
-
-  // Verificar sessão inicial
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (!isMounted) return;
-    if (!session?.user) {
-      setLoading(false);
-    }
-  });
-
-  return () => {
-    isMounted = false;
-    subscription.unsubscribe();
-  };
+  }
 }, []);
+
+const preferredRegions = useMemo(() => {
+  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
+    return profile.preferred_regions;
+  }
+  return storedRegionsRef.current;
+}, [profile?.preferred_regions]);
 ```
 
-### `src/pages/Index.tsx`
+### Arquivo 2: `src/hooks/useAuth.ts`
+
+**Problema**: A função `signOut` não limpa o estado local imediatamente.
+
+**Solução**: Limpar `user` e `profile` antes de chamar o signOut do Supabase.
+
 ```typescript
-// Usar useRef ao invés de useState para evitar re-renders
-const regionInitializedRef = useRef(false);
+// Antes
+const signOut = async () => {
+  const { error } = await supabase.auth.signOut();
+  return { error };
+};
 
-useEffect(() => {
-  if (authLoading) return;
-  if (regionInitializedRef.current) return;
+// Depois
+const signOut = async () => {
+  // Limpar estado local imediatamente para feedback instantâneo
+  setUser(null);
+  setProfile(null);
   
-  regionInitializedRef.current = true;
-  
-  // Lógica de inicialização...
-}, [authLoading, profile]);
+  const { error } = await supabase.auth.signOut();
+  return { error };
+};
 ```
+
+### Arquivo 3: `src/pages/Index.tsx` (adicional)
+
+**Problema**: O `regionInitializedRef` é resetado quando o componente remonta (por exemplo, após refresh/rebuild), mas as preferências já existem.
+
+**Solução**: Usar uma chave mais robusta no localStorage para detectar se já foi inicializado na sessão atual.
 
 ---
 
@@ -136,15 +105,27 @@ useEffect(() => {
 
 | Arquivo | Modificação |
 |---------|-------------|
-| `src/components/NotificationSettings.tsx` | Adicionar `forwardRef` |
-| `src/hooks/useAuth.ts` | Adicionar flag `isMounted` para evitar race conditions |
-| `src/pages/Index.tsx` | Usar `useRef` ao invés de `useState` para `regionInitialized` |
+| `src/pages/Index.tsx` | Usar `useRef` para armazenar preferredRegions do localStorage e evitar recriação de arrays |
+| `src/hooks/useAuth.ts` | Limpar estado local imediatamente no signOut para feedback instantâneo |
+
+---
+
+## Solução Imediata para Desbloquear
+
+Se o usuário estiver travado, ele pode executar o seguinte no console do browser (F12):
+
+```javascript
+localStorage.clear();
+window.location.reload();
+```
+
+Isso limpará todos os dados persistidos e permitirá um fresh start.
 
 ---
 
 ## Resultado Esperado
 
-1. Warnings de forwardRef eliminados
-2. Nenhum loop de renderização ou travamento
-3. Inicialização de auth e região funciona corretamente em todos os cenários
-4. App funciona tanto com usuário logado quanto deslogado
+1. Feed não fica mais em loading infinito
+2. Logout funciona imediatamente e limpa o estado
+3. Preferências são salvas e carregadas corretamente
+4. App funciona consistentemente tanto no iframe quanto em nova aba
