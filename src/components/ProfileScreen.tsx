@@ -9,7 +9,9 @@ import {
   ChevronRight,
   Settings,
   Heart,
-  LogIn
+  LogIn,
+  Globe,
+  Check
 } from 'lucide-react';
 import Logo from './Logo';
 import { Button } from './ui/button';
@@ -32,6 +34,21 @@ interface MenuItem {
   onClick?: () => void;
 }
 
+interface Region {
+  id: string;
+  label: string;
+  description: string;
+  flag: string;
+}
+
+const allRegions: Region[] = [
+  { id: 'Brazil', label: 'Brasil', description: 'Notícias nacionais', flag: '🇧🇷' },
+  { id: 'USA', label: 'EUA', description: 'Estados Unidos', flag: '🇺🇸' },
+  { id: 'Europe', label: 'Europa', description: 'Reino Unido, Alemanha, França...', flag: '🇪🇺' },
+  { id: 'Middle East', label: 'Oriente Médio', description: 'Dubai, Arábia Saudita...', flag: '🇦🇪' },
+  { id: 'World', label: 'Mundo', description: 'Ásia, Oceania, consultorias globais', flag: '🌍' },
+];
+
 interface ProfileScreenProps {
   user?: AuthUser | null;
   profile?: Profile | null;
@@ -40,12 +57,42 @@ interface ProfileScreenProps {
 
 const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
   ({ user, profile, onLoginClick }, ref) => {
-    const { signOut } = useAuth();
+    const { signOut, updateProfile } = useAuth();
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [regionsOpen, setRegionsOpen] = useState(false);
+    const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+    const [savingRegions, setSavingRegions] = useState(false);
+
+    const handleOpenRegions = () => {
+      setSelectedRegions(profile?.preferred_regions || ['Brazil']);
+      setRegionsOpen(true);
+    };
+
+    const toggleRegion = (id: string) => {
+      setSelectedRegions((prev) => {
+        // Brazil is always required
+        if (id === 'Brazil') return prev;
+        return prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id];
+      });
+    };
+
+    const handleSaveRegions = async () => {
+      setSavingRegions(true);
+      const { error } = await updateProfile({ preferred_regions: selectedRegions });
+      setSavingRegions(false);
+      
+      if (error) {
+        toast.error('Erro ao salvar preferências');
+      } else {
+        toast.success('Preferências de região atualizadas!');
+        setRegionsOpen(false);
+      }
+    };
 
     const menuItems: MenuItem[] = [
       { id: 'saved', label: 'Salvos', icon: <Bookmark className="w-5 h-5" /> },
       { id: 'interests', label: 'Meus Interesses', icon: <Heart className="w-5 h-5" /> },
+      { id: 'regions', label: 'Regiões de Interesse', icon: <Globe className="w-5 h-5" />, onClick: handleOpenRegions },
       { id: 'notifications', label: 'Notificações', icon: <Bell className="w-5 h-5" />, onClick: () => setNotificationsOpen(true) },
       { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" /> },
       { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
@@ -78,6 +125,8 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
       </div>
     );
   }
+
+  const regionCount = (profile?.preferred_regions?.length || 1);
 
   return (
     <div className="flex-1 bg-background">
@@ -129,6 +178,11 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
               <span className="flex-1 text-left font-medium text-foreground">
                 {item.label}
               </span>
+              {item.id === 'regions' && (
+                <span className="text-xs text-muted-foreground">
+                  {regionCount} {regionCount === 1 ? 'região' : 'regiões'}
+                </span>
+              )}
               {item.badge && (
                 <span className="bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5 rounded-full">
                   {item.badge}
@@ -167,6 +221,73 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
               onClose={() => setNotificationsOpen(false)} 
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Regions Dialog */}
+      <Dialog open={regionsOpen} onOpenChange={setRegionsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-primary" />
+              Regiões de Interesse
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Selecione as regiões cujas notícias você deseja acompanhar. Brasil está sempre incluído.
+            </p>
+            
+            <div className="space-y-2">
+              {allRegions.map((region) => (
+                <button
+                  key={region.id}
+                  onClick={() => toggleRegion(region.id)}
+                  disabled={region.id === 'Brazil'}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 ${
+                    selectedRegions.includes(region.id)
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-card hover:border-muted-foreground/30'
+                  } ${region.id === 'Brazil' ? 'opacity-75' : ''}`}
+                >
+                  <span className="text-2xl">{region.flag}</span>
+                  <div className="flex-1 text-left">
+                    <h3 className="font-semibold text-foreground text-sm">
+                      {region.label}
+                      {region.id === 'Brazil' && (
+                        <span className="text-xs text-muted-foreground ml-2">(sempre ativo)</span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">{region.description}</p>
+                  </div>
+                  {selectedRegions.includes(region.id) && (
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="w-3 h-3 text-primary-foreground" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => setRegionsOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant="hero" 
+              className="flex-1"
+              onClick={handleSaveRegions}
+              disabled={savingRegions}
+            >
+              {savingRegions ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
