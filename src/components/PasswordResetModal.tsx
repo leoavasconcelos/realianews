@@ -3,7 +3,9 @@ import { X, Lock, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import Logo from './Logo';
+import PasswordStrengthIndicator from './PasswordStrengthIndicator';
 import { useAuth } from '@/hooks/useAuth';
+import { validatePassword } from '@/lib/passwordValidation';
 import { toast } from 'sonner';
 
 interface PasswordResetModalProps {
@@ -19,6 +21,8 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ onClose, onSucc
 
   const { updatePassword } = useAuth();
 
+  const passwordValidation = validatePassword(password);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -27,8 +31,10 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ onClose, onSucc
       return;
     }
 
-    if (password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+    if (!passwordValidation.isValid) {
+      toast.error('Senha fraca', {
+        description: passwordValidation.errors.join(', '),
+      });
       return;
     }
 
@@ -95,21 +101,26 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ onClose, onSucc
             Redefinir senha
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Digite sua nova senha abaixo. Ela deve ter pelo menos 6 caracteres.
+            Digite sua nova senha abaixo. Ela deve ter pelo menos 8 caracteres, incluindo letras e números.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="password"
-                placeholder="Nova senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10"
-                required
-                minLength={6}
-              />
+            <div className="space-y-2">
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="password"
+                  placeholder="Nova senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                  minLength={8}
+                />
+              </div>
+              {password && (
+                <PasswordStrengthIndicator password={password} />
+              )}
             </div>
 
             <div className="relative">
@@ -121,7 +132,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ onClose, onSucc
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="pl-10"
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
 
@@ -135,7 +146,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ onClose, onSucc
               type="submit"
               variant="hero"
               className="w-full"
-              disabled={loading || password !== confirmPassword}
+              disabled={loading || password !== confirmPassword || !passwordValidation.isValid}
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
