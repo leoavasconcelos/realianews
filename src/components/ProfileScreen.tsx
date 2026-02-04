@@ -11,7 +11,13 @@ import {
   Heart,
   LogIn,
   Globe,
-  Check
+  Check,
+  Home,
+  Building2,
+  Briefcase,
+  Landmark,
+  TrendingUp,
+  Cpu
 } from 'lucide-react';
 import Logo from './Logo';
 import { Button } from './ui/button';
@@ -41,6 +47,22 @@ interface Region {
   flag: string;
 }
 
+interface Interest {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  description: string;
+}
+
+const allInterests: Interest[] = [
+  { id: 'residencial', label: 'Residencial', icon: <Home className="w-5 h-5" />, description: 'Casas, apartamentos e lançamentos' },
+  { id: 'comercial', label: 'Comercial', icon: <Building2 className="w-5 h-5" />, description: 'Escritórios, lojas e galpões' },
+  { id: 'corporativo', label: 'Corporativo', icon: <Briefcase className="w-5 h-5" />, description: 'M&A, fundos e grandes players' },
+  { id: 'financiamento', label: 'Financiamento', icon: <Landmark className="w-5 h-5" />, description: 'Crédito, taxas e bancos' },
+  { id: 'investimentos', label: 'Investimentos', icon: <TrendingUp className="w-5 h-5" />, description: 'FIIs, CRIs e oportunidades' },
+  { id: 'proptech', label: 'PropTech', icon: <Cpu className="w-5 h-5" />, description: 'Tecnologia e inovação' },
+];
+
 const allRegions: Region[] = [
   { id: 'Brazil', label: 'Brasil', description: 'Notícias nacionais', flag: '🇧🇷' },
   { id: 'USA', label: 'EUA', description: 'Estados Unidos', flag: '🇺🇸' },
@@ -60,12 +82,20 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
     const { signOut, updateProfile } = useAuth();
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [regionsOpen, setRegionsOpen] = useState(false);
+    const [interestsOpen, setInterestsOpen] = useState(false);
     const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+    const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
     const [savingRegions, setSavingRegions] = useState(false);
+    const [savingInterests, setSavingInterests] = useState(false);
 
     const handleOpenRegions = () => {
       setSelectedRegions(profile?.preferred_regions || ['Brazil']);
       setRegionsOpen(true);
+    };
+
+    const handleOpenInterests = () => {
+      setSelectedInterests(profile?.interests || []);
+      setInterestsOpen(true);
     };
 
     const toggleRegion = (id: string) => {
@@ -74,6 +104,12 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
         if (id === 'Brazil') return prev;
         return prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id];
       });
+    };
+
+    const toggleInterest = (id: string) => {
+      setSelectedInterests((prev) =>
+        prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+      );
     };
 
     const handleSaveRegions = async () => {
@@ -89,9 +125,22 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
       }
     };
 
+    const handleSaveInterests = async () => {
+      setSavingInterests(true);
+      const { error } = await updateProfile({ interests: selectedInterests });
+      setSavingInterests(false);
+      
+      if (error) {
+        toast.error('Erro ao salvar interesses');
+      } else {
+        toast.success('Interesses atualizados!');
+        setInterestsOpen(false);
+      }
+    };
+
     const menuItems: MenuItem[] = [
       { id: 'saved', label: 'Salvos', icon: <Bookmark className="w-5 h-5" /> },
-      { id: 'interests', label: 'Meus Interesses', icon: <Heart className="w-5 h-5" /> },
+      { id: 'interests', label: 'Meus Interesses', icon: <Heart className="w-5 h-5" />, onClick: handleOpenInterests },
       { id: 'regions', label: 'Regiões de Interesse', icon: <Globe className="w-5 h-5" />, onClick: handleOpenRegions },
       { id: 'notifications', label: 'Notificações', icon: <Bell className="w-5 h-5" />, onClick: () => setNotificationsOpen(true) },
       { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" /> },
@@ -178,6 +227,11 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
               <span className="flex-1 text-left font-medium text-foreground">
                 {item.label}
               </span>
+              {item.id === 'interests' && (
+                <span className="text-xs text-muted-foreground">
+                  {profile?.interests?.length || 0} selecionados
+                </span>
+              )}
               {item.id === 'regions' && (
                 <span className="text-xs text-muted-foreground">
                   {regionCount} {regionCount === 1 ? 'região' : 'regiões'}
@@ -286,6 +340,71 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
               disabled={savingRegions}
             >
               {savingRegions ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Interests Dialog */}
+      <Dialog open={interestsOpen} onOpenChange={setInterestsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Heart className="w-5 h-5 text-primary" />
+              Meus Interesses
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Selecione os temas do mercado imobiliário que você deseja acompanhar.
+            </p>
+            
+            <div className="grid grid-cols-2 gap-2">
+              {allInterests.map((interest) => (
+                <button
+                  key={interest.id}
+                  onClick={() => toggleInterest(interest.id)}
+                  className={`relative p-3 rounded-xl border-2 text-left transition-all duration-200 ${
+                    selectedInterests.includes(interest.id)
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-card hover:border-muted-foreground/30'
+                  }`}
+                >
+                  {selectedInterests.includes(interest.id) && (
+                    <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                    </div>
+                  )}
+                  <div className={`mb-1.5 ${selectedInterests.includes(interest.id) ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {interest.icon}
+                  </div>
+                  <h3 className="font-semibold text-foreground text-sm mb-0.5">
+                    {interest.label}
+                  </h3>
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {interest.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => setInterestsOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant="hero" 
+              className="flex-1"
+              onClick={handleSaveInterests}
+              disabled={savingInterests}
+            >
+              {savingInterests ? 'Salvando...' : 'Salvar'}
             </Button>
           </div>
         </DialogContent>
