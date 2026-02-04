@@ -17,7 +17,8 @@ import {
   Briefcase,
   Landmark,
   TrendingUp,
-  Cpu
+  Cpu,
+  Brain
 } from 'lucide-react';
 import Logo from './Logo';
 import { Button } from './ui/button';
@@ -60,7 +61,8 @@ const allInterests: Interest[] = [
   { id: 'corporativo', label: 'Corporativo', icon: <Briefcase className="w-5 h-5" />, description: 'M&A, fundos e grandes players' },
   { id: 'financiamento', label: 'Financiamento', icon: <Landmark className="w-5 h-5" />, description: 'Crédito, taxas e bancos' },
   { id: 'investimentos', label: 'Investimentos', icon: <TrendingUp className="w-5 h-5" />, description: 'FIIs, CRIs e oportunidades' },
-  { id: 'proptech', label: 'PropTech', icon: <Cpu className="w-5 h-5" />, description: 'Tecnologia e inovação' },
+  { id: 'proptech', label: 'PropTech', icon: <Cpu className="w-5 h-5" />, description: 'Startups e inovação digital' },
+  { id: 'ia-imobiliaria', label: 'IA Imobiliária', icon: <Brain className="w-5 h-5" />, description: 'Machine learning e automação' },
 ];
 
 const allRegions: Region[] = [
