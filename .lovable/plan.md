@@ -1,96 +1,146 @@
 
+# Correção Definitiva: Estado Inconsistente Após Hot Reload
 
-# Adicionar Interesse "IA Imobiliária" ao Onboarding e Perfil
+## Diagnóstico Detalhado
 
-## Objetivo
-Criar uma nova categoria de interesse focada em **Inteligência Artificial aplicada ao mercado imobiliário**, separada da categoria genérica "PropTech".
+Após análise completa, identifiquei a **causa raiz** do problema que persiste mesmo após mudança de browser:
 
-## Análise Atual
+### O Problema Principal: Conflito entre useRef e Hot Module Replacement (HMR)
 
-### Interesses Existentes (6 categorias)
-| ID | Label | Descrição |
-|---|---|---|
-| residencial | Residencial | Casas, apartamentos e lançamentos |
-| comercial | Comercial | Escritórios, lojas e galpões |
-| corporativo | Corporativo | M&A, fundos e grandes players |
-| financiamento | Financiamento | Crédito, taxas e bancos |
-| investimentos | Investimentos | FIIs, CRIs e oportunidades |
-| proptech | PropTech | Tecnologia e inovação |
+Quando você faz edições no código:
+1. O Vite executa "hot reload" no iframe
+2. Os componentes React são remontados
+3. **Os `useRef` são re-inicializados com `undefined`**, mas o useEffect que deveria populá-los pode não executar na ordem correta
+4. O `useMemo` de `preferredRegions` retorna `undefined` na primeira renderização
+5. A queryKey do React Query muda de `['news', 'Todos', 'all', ['Brazil']]` para `['news', 'Todos', 'all', undefined]`
+6. React Query cancela a query anterior e inicia uma nova
+7. Se o componente remonta novamente (por causa do auth state change), isso cria um loop
 
-### Problema
-- PropTech é muito ampla, misturando startups, apps, automação e IA
-- Usuários interessados especificamente em IA não têm opção dedicada
-- Tema de IA está crescendo rapidamente no setor (avaliações automatizadas, análise de mercado, chatbots, etc.)
+### Problemas Específicos Encontrados
+
+1. **`storedRegionsRef` inicializado incorretamente**: O useEffect que popula o ref tem array de dependências vazio, mas o valor inicial é `undefined`. Se o componente renderiza antes do useEffect executar, o `useMemo` retorna `undefined`.
+
+2. **Dois useEffects conflitantes para regions**: Linhas 35-67 e 96-107 ambos lidam com preferredRegions de formas diferentes.
+
+3. **`regionInitializedRef` resetado no hot reload**: O ref é resetado quando o módulo é recarregado, causando re-execução da lógica de inicialização.
+
+4. **Warning de forwardRef ainda presente**: Os logs mostram que ainda há um componente sem forwardRef no render path.
+
+---
 
 ## Solução
 
-### Novo Interesse a Adicionar
+### Arquivo 1: `src/pages/Index.tsx`
+
+**Mudanças:**
+- Consolidar toda lógica de região em um único lugar
+- Inicializar `storedRegionsRef` sincronicamente (não em useEffect)
+- Usar um valor padrão estável ao invés de `undefined`
+- Remover useEffect redundante
+
 ```typescript
-{
-  id: 'ia-imobiliaria',
-  label: 'IA Imobiliária',
-  icon: <Brain className="w-5 h-5" />, // ou Sparkles
-  description: 'IA, machine learning e automação inteligente'
-}
+// ANTES (problemático)
+const storedRegionsRef = useRef<string[] | undefined>(undefined);
+
+useEffect(() => {
+  if (storedRegionsRef.current === undefined) {
+    const stored = localStorage.getItem('realia_preferred_regions');
+    // ...
+  }
+}, []);
+
+// DEPOIS (corrigido)
+// Inicialização síncrona - executa apenas uma vez na criação do ref
+const storedRegionsRef = useRef<string[] | null>(() => {
+  const stored = localStorage.getItem('realia_preferred_regions');
+  if (stored) {
+    try {
+      return JSON.parse(stored) as string[];
+    } catch {
+      return null;
+    }
+  }
+  return null;
+})();
+
+// Nota: useRef com função é avaliado apenas uma vez
 ```
 
-### Arquivos a Modificar
+**E atualizar o useMemo:**
+```typescript
+const preferredRegions = useMemo(() => {
+  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
+    return profile.preferred_regions;
+  }
+  // Retornar valor padrão ['Brazil'] se não houver preferências
+  return storedRegionsRef.current || ['Brazil'];
+}, [profile?.preferred_regions]);
+```
+
+### Arquivo 2: `src/hooks/useAuth.ts`
+
+**Mudanças:**
+- Adicionar um estado intermediário `profileLoading` para evitar race conditions
+- Garantir que `loading` só seja `false` quando AMBOS auth e profile estejam resolvidos
+
+```typescript
+const [authLoading, setAuthLoading] = useState(true);
+const [profileLoading, setProfileLoading] = useState(false);
+
+// loading agora é combinação dos dois
+const loading = authLoading || profileLoading;
+```
+
+### Arquivo 3: Remover useEffect redundante
+
+Remover o useEffect das linhas 96-107 em Index.tsx já que a inicialização será síncrona.
+
+---
+
+## Arquivos a Modificar
 
 | Arquivo | Modificação |
 |---------|-------------|
-| `src/components/OnboardingModal.tsx` | Adicionar novo interesse "IA Imobiliária" com ícone Brain |
-| `src/components/ProfileScreen.tsx` | Adicionar mesmo interesse na lista do perfil |
+| `src/pages/Index.tsx` | Inicialização síncrona do storedRegionsRef + remover useEffect redundante + valor padrão no useMemo |
+| `src/hooks/useAuth.ts` | Separar loading states para evitar race condition |
 
-### Layout Atualizado
-Com 7 interesses, o grid 2x3 ficaria com uma última linha com 1 item centralizado ou podemos manter o grid simétrico alterando para um layout que acomode 7 ou 8 itens.
+---
 
-**Opções de layout:**
-- **Opção A**: Manter grid 2 colunas (3 linhas + 1 item na 4ª linha)
-- **Opção B**: Adicionar um 8º interesse para manter simetria (ex: "Urbanismo" ou "Smart Cities")
+## Código Final Proposto
 
-## Implementação Detalhada
-
-### 1. OnboardingModal.tsx
-
-Adicionar import do ícone e novo interesse:
+### Index.tsx (linhas relevantes)
 
 ```typescript
-import { Check, Building2, Home, Briefcase, TrendingUp, Landmark, Cpu, ArrowRight, Globe, ArrowLeft, Brain } from 'lucide-react';
+// Inicialização síncrona do localStorage - não usa useEffect
+const getStoredRegions = (): string[] | null => {
+  try {
+    const stored = localStorage.getItem('realia_preferred_regions');
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
 
-const interests: Interest[] = [
-  { id: 'residencial', label: 'Residencial', icon: <Home className="w-5 h-5" />, description: 'Casas, apartamentos e lançamentos' },
-  { id: 'comercial', label: 'Comercial', icon: <Building2 className="w-5 h-5" />, description: 'Escritórios, lojas e galpões' },
-  { id: 'corporativo', label: 'Corporativo', icon: <Briefcase className="w-5 h-5" />, description: 'M&A, fundos e grandes players' },
-  { id: 'financiamento', label: 'Financiamento', icon: <Landmark className="w-5 h-5" />, description: 'Crédito, taxas e bancos' },
-  { id: 'investimentos', label: 'Investimentos', icon: <TrendingUp className="w-5 h-5" />, description: 'FIIs, CRIs e oportunidades' },
-  { id: 'proptech', label: 'PropTech', icon: <Cpu className="w-5 h-5" />, description: 'Startups e inovação digital' },
-  { id: 'ia-imobiliaria', label: 'IA Imobiliária', icon: <Brain className="w-5 h-5" />, description: 'Machine learning e automação' },
-];
+// useRef com valor inicial computado uma única vez
+const storedRegionsRef = useRef<string[] | null>(getStoredRegions());
+
+// Remover completamente o useEffect que inicializava storedRegionsRef
+
+// useMemo com valor padrão garantido (nunca undefined)
+const preferredRegions = useMemo(() => {
+  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
+    return profile.preferred_regions;
+  }
+  return storedRegionsRef.current || ['Brazil'];
+}, [profile?.preferred_regions]);
 ```
 
-### 2. ProfileScreen.tsx
-
-Mesma atualização no array `allInterests`:
-
-```typescript
-import { Brain } from 'lucide-react';
-
-const allInterests: Interest[] = [
-  // ... interesses existentes ...
-  { id: 'ia-imobiliaria', label: 'IA Imobiliária', icon: <Brain className="w-5 h-5" />, description: 'Machine learning e automação' },
-];
-```
-
-## Consideração Opcional
-
-Para manter o grid simétrico (8 itens = 4 linhas de 2), podemos adicionar também:
-```typescript
-{ id: 'urbanismo', label: 'Urbanismo', icon: <MapPin className="w-5 h-5" />, description: 'Cidades, zoneamento e mobilidade' },
-```
+---
 
 ## Resultado Esperado
-- Nova opção "IA Imobiliária" visível no onboarding (step 2)
-- Mesma opção disponível na edição de interesses no Perfil
-- Ícone de cérebro (Brain) para diferenciar visualmente
-- Usuários podem selecionar IA como interesse específico
 
+1. Feed nunca fica em loading infinito porque `preferredRegions` sempre tem um valor válido
+2. Hot reload não quebra o estado porque a inicialização é síncrona
+3. Logout funciona imediatamente
+4. Preferências são persistidas corretamente
+5. Funciona consistentemente no iframe e em nova aba
