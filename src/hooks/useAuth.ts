@@ -9,6 +9,7 @@ export interface Profile {
   avatar_url: string | null;
   interests: string[];
   blocked_sources: string[];
+  preferred_regions: string[];
 }
 
 export const useAuth = () => {
@@ -35,6 +36,7 @@ export const useAuth = () => {
               ...data,
               interests: Array.isArray(data.interests) ? data.interests as string[] : [],
               blocked_sources: Array.isArray(data.blocked_sources) ? data.blocked_sources as string[] : [],
+              preferred_regions: Array.isArray(data.preferred_regions) ? data.preferred_regions as string[] : ['Brazil'],
             });
           }
         } else {
@@ -97,7 +99,7 @@ export const useAuth = () => {
     return { error };
   };
 
-  const updateProfile = async (updates: Partial<Pick<Profile, 'display_name' | 'interests' | 'blocked_sources'>>) => {
+  const updateProfile = async (updates: Partial<Pick<Profile, 'display_name' | 'interests' | 'blocked_sources' | 'preferred_regions'>>) => {
     if (!user) return { error: new Error('Not authenticated') };
 
     const { error } = await supabase

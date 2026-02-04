@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import Logo from './Logo';
-import { Check, Building2, Home, Briefcase, TrendingUp, Landmark, Cpu, ArrowRight } from 'lucide-react';
+import AuthModalContent from './AuthModalContent';
+import { Check, Building2, Home, Briefcase, TrendingUp, Landmark, Cpu, ArrowRight, Globe, ArrowLeft } from 'lucide-react';
 
 interface Interest {
   id: string;
@@ -19,13 +20,29 @@ const interests: Interest[] = [
   { id: 'proptech', label: 'PropTech', icon: <Cpu className="w-5 h-5" />, description: 'Tecnologia e inovação' },
 ];
 
+interface Region {
+  id: string;
+  label: string;
+  description: string;
+  flag: string;
+}
+
+const internationalRegions: Region[] = [
+  { id: 'USA', label: 'EUA', description: 'Estados Unidos', flag: '🇺🇸' },
+  { id: 'Europe', label: 'Europa', description: 'Reino Unido, Alemanha, França...', flag: '🇪🇺' },
+  { id: 'Middle East', label: 'Oriente Médio', description: 'Dubai, Arábia Saudita...', flag: '🇦🇪' },
+  { id: 'World', label: 'Mundo', description: 'Ásia, Oceania, consultorias globais', flag: '🌍' },
+];
+
 interface OnboardingModalProps {
-  onComplete: (selectedInterests: string[]) => void;
+  onComplete: (selectedInterests: string[], preferredRegions: string[]) => void;
 }
 
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [step, setStep] = useState(0);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [interestedInInternational, setInterestedInInternational] = useState<boolean | null>(null);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
 
   const toggleInterest = (id: string) => {
     setSelectedInterests((prev) =>
@@ -33,19 +50,86 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
     );
   };
 
-  const handleContinue = () => {
-    if (step === 0) {
-      setStep(1);
+  const toggleRegion = (id: string) => {
+    setSelectedRegions((prev) =>
+      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
+    );
+  };
+
+  const handleNext = () => {
+    if (step < 3) {
+      setStep(step + 1);
     } else {
-      onComplete(selectedInterests);
+      // Final step - complete onboarding
+      const finalRegions = interestedInInternational ? ['Brazil', ...selectedRegions] : ['Brazil'];
+      onComplete(selectedInterests, finalRegions);
     }
+  };
+
+  const handleBack = () => {
+    if (step > 0) {
+      setStep(step - 1);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    // Move to next step after successful auth
+    setStep(2);
+  };
+
+  const handleSkipAuth = () => {
+    // Skip auth and go to interests selection
+    setStep(2);
+  };
+
+  const canProceed = () => {
+    switch (step) {
+      case 0: return true; // Welcome step
+      case 1: return true; // Auth step (can skip)
+      case 2: return selectedInterests.length > 0; // Interests step
+      case 3: return interestedInInternational !== null && 
+                     (!interestedInInternational || selectedRegions.length > 0); // Regions step
+      default: return false;
+    }
+  };
+
+  const renderStepIndicator = () => {
+    if (step === 0) return null;
+    
+    return (
+      <div className="flex items-center justify-center gap-2 mb-6">
+        {[1, 2, 3].map((s) => (
+          <div
+            key={s}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              s <= step ? 'w-8 bg-primary' : 'w-4 bg-muted'
+            }`}
+          />
+        ))}
+      </div>
+    );
   };
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      {/* Header */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-        {step === 0 ? (
+      {/* Header with back button */}
+      {step > 0 && step !== 1 && (
+        <div className="p-4">
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </button>
+        </div>
+      )}
+      
+      {/* Content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
+        {renderStepIndicator()}
+        
+        {step === 0 && (
           // Welcome Step
           <div className="text-center animate-fade-in max-w-md">
             <div className="mb-8">
@@ -80,7 +164,31 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
               </div>
             </div>
           </div>
-        ) : (
+        )}
+        
+        {step === 1 && (
+          // Auth Step
+          <div className="w-full max-w-md animate-fade-in">
+            <div className="text-center mb-6">
+              <Logo size="lg" showText={false} className="justify-center mb-4" />
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                Entre ou crie sua conta
+              </h2>
+              <p className="text-muted-foreground">
+                Salve notícias e sincronize suas preferências
+              </p>
+            </div>
+            
+            <AuthModalContent 
+              inline 
+              onSuccess={handleAuthSuccess} 
+              onSkip={handleSkipAuth}
+              showSkip
+            />
+          </div>
+        )}
+        
+        {step === 2 && (
           // Interests Step
           <div className="w-full max-w-md animate-fade-in">
             <div className="text-center mb-8">
@@ -122,39 +230,140 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
             </div>
           </div>
         )}
+        
+        {step === 3 && (
+          // International Preferences Step
+          <div className="w-full max-w-md animate-fade-in">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Globe className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                Notícias Internacionais
+              </h2>
+              <p className="text-muted-foreground">
+                Deseja acompanhar mercados imobiliários globais?
+              </p>
+            </div>
+            
+            {/* Yes/No Selection */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <button
+                onClick={() => setInterestedInInternational(true)}
+                className={`p-4 rounded-xl border-2 text-center transition-all duration-200 ${
+                  interestedInInternational === true
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border bg-card hover:border-muted-foreground/30'
+                }`}
+              >
+                <span className="text-2xl mb-2 block">🌍</span>
+                <h3 className="font-semibold text-foreground">Sim, me interessa</h3>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setInterestedInInternational(false);
+                  setSelectedRegions([]);
+                }}
+                className={`p-4 rounded-xl border-2 text-center transition-all duration-200 ${
+                  interestedInInternational === false
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border bg-card hover:border-muted-foreground/30'
+                }`}
+              >
+                <span className="text-2xl mb-2 block">🇧🇷</span>
+                <h3 className="font-semibold text-foreground">Não, apenas Brasil</h3>
+              </button>
+            </div>
+            
+            {/* Region Selection (only if interested in international) */}
+            {interestedInInternational && (
+              <div className="animate-fade-in">
+                <h3 className="text-lg font-semibold text-foreground mb-4 text-center">
+                  Quais regiões?
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {internationalRegions.map((region) => (
+                    <button
+                      key={region.id}
+                      onClick={() => toggleRegion(region.id)}
+                      className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                        selectedRegions.includes(region.id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border bg-card hover:border-muted-foreground/30'
+                      }`}
+                    >
+                      {selectedRegions.includes(region.id) && (
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-3 h-3 text-primary-foreground" />
+                        </div>
+                      )}
+                      <span className="text-2xl mb-2 block">{region.flag}</span>
+                      <h3 className="font-semibold text-foreground text-sm mb-0.5">
+                        {region.label}
+                      </h3>
+                      <p className="text-xs text-muted-foreground line-clamp-1">
+                        {region.description}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       
       {/* Footer */}
-      <div className="p-6 pb-8">
-        <Button
-          variant="hero"
-          size="xl"
-          className="w-full"
-          onClick={handleContinue}
-          disabled={step === 1 && selectedInterests.length === 0}
-        >
-          {step === 0 ? (
-            <>
-              Começar
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </>
-          ) : (
-            <>
-              Personalizar Meu Feed
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </>
-          )}
-        </Button>
-        
-        {step === 1 && (
-          <button
-            onClick={() => onComplete([])}
-            className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      {step !== 1 && (
+        <div className="p-6 pb-8">
+          <Button
+            variant="hero"
+            size="xl"
+            className="w-full"
+            onClick={handleNext}
+            disabled={!canProceed()}
           >
-            Pular por agora
-          </button>
-        )}
-      </div>
+            {step === 0 ? (
+              <>
+                Começar
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </>
+            ) : step === 3 ? (
+              <>
+                Personalizar Meu Feed
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </>
+            ) : (
+              <>
+                Continuar
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </>
+            )}
+          </Button>
+          
+          {step === 2 && (
+            <button
+              onClick={() => {
+                setSelectedInterests([]);
+                handleNext();
+              }}
+              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Pular por agora
+            </button>
+          )}
+          
+          {step === 3 && (
+            <button
+              onClick={() => onComplete(selectedInterests, ['Brazil'])}
+              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Pular por agora
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
