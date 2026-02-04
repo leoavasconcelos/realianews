@@ -90,6 +90,13 @@ export const useAuth = () => {
     return { error };
   };
 
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    return { error };
+  };
+
   const updateProfile = async (updates: Partial<Pick<Profile, 'display_name' | 'interests' | 'blocked_sources'>>) => {
     if (!user) return { error: new Error('Not authenticated') };
 
@@ -122,6 +129,7 @@ export const useAuth = () => {
     signOut,
     signInWithOAuth,
     resetPassword,
+    updatePassword,
     updateProfile,
   };
 };
