@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef } from 'react';
 import { Bell, Mail, Smartphone, Clock, Info } from 'lucide-react';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -23,7 +23,8 @@ const timeOptions = [
   { value: '20:00', label: '20:00' },
 ];
 
-const NotificationSettings: React.FC<NotificationSettingsProps> = ({ userId, onClose }) => {
+const NotificationSettings = forwardRef<HTMLDivElement, NotificationSettingsProps>(
+  ({ userId, onClose }, ref) => {
   const { settings, isLoading, updateSettings } = useNotificationSettings(userId);
   const {
     isSupported: isPushSupported,
@@ -72,8 +73,8 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ userId, onC
     );
   }
 
-  return (
-    <div className="space-y-6">
+    return (
+      <div ref={ref} className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-border">
         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -185,8 +186,11 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ userId, onC
           Fechar
         </Button>
       )}
-    </div>
-  );
-};
+      </div>
+    );
+  }
+);
+
+NotificationSettings.displayName = 'NotificationSettings';
 
 export default NotificationSettings;
