@@ -1,98 +1,117 @@
 
-# Plano: Tornar Criação de Conta Obrigatória
+# Correção do Bug de Travamento na Inicialização do Filtro de Regiões
 
-## Objetivo
-Remover todas as opções que permitem ao usuário acessar a plataforma sem criar uma conta. O usuário **deve** se autenticar antes de poder usar o aplicativo.
+## Problema Identificado
 
----
+O `useEffect` que inicializa o filtro de região tem uma condição de corrida:
 
-## Situação Atual
+```typescript
+// Problema atual (linhas 35-73)
+useEffect(() => {
+  if (regionInitialized) return;  // Sai imediatamente se já inicializado
+  
+  // ... lógica de preferências ...
+  
+  if (!authLoading) {
+    setRegionInitialized(true);  // Marca como inicializado quando auth termina
+  }
+}, [profile, authLoading, regionInitialized]);  // regionInitialized como dependência causa loops
+```
 
-O onboarding permite "pular" a autenticação em vários pontos:
-
-| Local | Elemento | Linha |
-|-------|----------|-------|
-| AuthModalContent.tsx | Botão "Continuar sem conta" | 335-341 |
-| OnboardingModal.tsx | Prop `showSkip={true}` | 185-186 |
-| OnboardingModal.tsx | Função `handleSkipAuth()` | 80-83 |
-| OnboardingModal.tsx | Botão "Pular por agora" (interesses) | 345-355 |
-| OnboardingModal.tsx | Botão "Pular por agora" (regiões) | 357-364 |
-
----
-
-## Mudanças Necessárias
-
-### 1. OnboardingModal.tsx
-
-**Remover:**
-- Prop `showSkip={true}` do AuthModalContent (linha 186)
-- Função `handleSkipAuth` (linhas 80-83)
-- Botão "Pular por agora" na etapa de interesses (linhas 345-355)
-- Botão "Pular por agora" na etapa de regiões (linhas 357-364)
-
-**Lógica ajustada:**
-- O usuário só avança da etapa 1 (auth) quando `handleAuthSuccess` é chamado
-- Não há mais caminho alternativo para pular
-
-### 2. AuthModalContent.tsx
-
-**Remover:**
-- Props `onSkip` e `showSkip` da interface (linhas 43-44)
-- Botão "Continuar sem conta" (linhas 335-341)
-- Lógica relacionada ao skip no componente
+**Cenário de falha:**
+1. Componente monta com `authLoading = true`
+2. `authLoading` muda para `false` (auth termina sem sessão)
+3. `regionInitialized` é setado para `true` antes de `profile` existir
+4. Usuário faz login, `profile` carrega
+5. Efeito não roda porque `regionInitialized` já é `true`
+6. Regiões não são aplicadas corretamente
 
 ---
 
-## Novo Fluxo de Onboarding
+## Solução
 
-```text
-Etapa 0: Boas-vindas
-     |
-     v
-Etapa 1: Login / Cadastro (OBRIGATÓRIO)
-     |
-     v (só avança após autenticação bem-sucedida)
-     |
-Etapa 2: Seleção de Interesses (obrigatório - mínimo 1)
-     |
-     v
-Etapa 3: Preferências Internacionais (obrigatório - escolher sim ou não)
-     |
-     v
-Feed Principal
+Simplificar a lógica removendo `regionInitialized` das dependências e usando uma abordagem mais direta:
+
+### Mudanças no `src/pages/Index.tsx`
+
+**1. Corrigir o useEffect de inicialização (linhas 34-73):**
+
+```typescript
+// Inicializar região apenas uma vez quando auth carregar
+useEffect(() => {
+  // Só inicializa quando auth terminar de carregar
+  if (authLoading) return;
+  
+  // Já inicializado? Não fazer nada
+  if (regionInitialized) return;
+  
+  // Marcar como inicializado PRIMEIRO para evitar re-runs
+  setRegionInitialized(true);
+  
+  // Obter preferências do profile ou localStorage
+  let regions: string[] = [];
+  
+  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
+    regions = profile.preferred_regions;
+  } else {
+    const stored = localStorage.getItem('realia_preferred_regions');
+    if (stored) {
+      try {
+        regions = JSON.parse(stored);
+      } catch {
+        regions = [];
+      }
+    }
+  }
+  
+  // Aplicar filtro baseado nas preferências
+  if (regions.length === 1) {
+    setActiveRegion(regions[0] as RegionFilterType);
+  }
+  // Múltiplas regiões: manter 'all' (valor padrão)
+  
+}, [authLoading, profile, regionInitialized]);
+```
+
+**Mudanças-chave:**
+- Verifica `authLoading` primeiro e retorna se ainda carregando
+- Seta `regionInitialized = true` ANTES de aplicar lógica
+- Remove lógica duplicada de hasOnlyBrazil/hasInternational (simplifica)
+- Dependências ordenadas corretamente
+
+**2. Simplificar obtenção de preferredRegions (linhas 98-109):**
+
+```typescript
+// Usar useMemo para evitar recriação em cada render
+const preferredRegions = useMemo(() => {
+  if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
+    return profile.preferred_regions;
+  }
+  const stored = localStorage.getItem('realia_preferred_regions');
+  if (stored) {
+    try {
+      return JSON.parse(stored) as string[];
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}, [profile?.preferred_regions]);
 ```
 
 ---
 
 ## Arquivos a Modificar
 
-### Arquivo 1: `src/components/OnboardingModal.tsx`
-
-- Remover `showSkip` da chamada do `AuthModalContent`
-- Remover `onSkip={handleSkipAuth}`
-- Remover função `handleSkipAuth`
-- Remover botões "Pular por agora" nas etapas 2 e 3
-
-### Arquivo 2: `src/components/AuthModalContent.tsx`
-
-- Remover props `onSkip` e `showSkip` da interface
-- Remover bloco do botão "Continuar sem conta"
+| Arquivo | Modificação |
+|---------|-------------|
+| `src/pages/Index.tsx` | Corrigir useEffect de inicialização e simplificar preferredRegions |
 
 ---
 
-## Comportamento Esperado
+## Resultado Esperado
 
-1. Usuário abre o app → vê tela de boas-vindas
-2. Clica "Começar" → vai para tela de login/cadastro
-3. **Não há opção de pular** → deve fazer login ou criar conta
-4. Após autenticação → avança para seleção de interesses
-5. Deve selecionar pelo menos 1 interesse → avança para regiões
-6. Deve escolher preferência de regiões → acessa o feed
-
----
-
-## Considerações de UX
-
-- O usuário fica "preso" na tela de autenticação até fazer login
-- Botão de voltar continua disponível para retornar à tela de boas-vindas
-- Mensagens claras sobre a necessidade de conta para usar o app
+1. App não trava mais durante inicialização
+2. Filtro de região é aplicado corretamente após login
+3. Preferências são carregadas do profile ou localStorage conforme apropriado
+4. Sem loops infinitos de renderização
