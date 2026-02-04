@@ -83,6 +83,7 @@ export type Database = {
           id: string
           interests: Json | null
           notification_time: string
+          preferred_regions: Json | null
           push_notifications_enabled: boolean
           updated_at: string
           user_id: string
@@ -96,6 +97,7 @@ export type Database = {
           id?: string
           interests?: Json | null
           notification_time?: string
+          preferred_regions?: Json | null
           push_notifications_enabled?: boolean
           updated_at?: string
           user_id: string
@@ -109,6 +111,7 @@ export type Database = {
           id?: string
           interests?: Json | null
           notification_time?: string
+          preferred_regions?: Json | null
           push_notifications_enabled?: boolean
           updated_at?: string
           user_id?: string

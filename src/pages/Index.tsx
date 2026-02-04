@@ -61,16 +61,23 @@ const Index = () => {
 
   const filters = ['Todos', ...(topics?.map(t => t.name) || [])];
 
-  const handleOnboardingComplete = async (interests: string[]) => {
+  const handleOnboardingComplete = async (interests: string[], preferredRegions: string[]) => {
     localStorage.setItem('realia_onboarding_complete', 'true');
     setShowOnboarding(false);
     
-    if (interests.length > 0) {
-      if (user) {
-        await updateProfile({ interests });
-      }
+    // Store preferred regions in localStorage for unauthenticated users
+    localStorage.setItem('realia_preferred_regions', JSON.stringify(preferredRegions));
+    
+    if (user) {
+      await updateProfile({ interests, preferred_regions: preferredRegions });
       toast.success('Feed personalizado!', {
         description: `Seu feed foi configurado com ${interests.length} interesses.`,
+      });
+    } else if (interests.length > 0) {
+      // Store interests in localStorage for later sync
+      localStorage.setItem('realia_interests', JSON.stringify(interests));
+      toast.success('Preferências salvas!', {
+        description: 'Faça login para sincronizar suas preferências.',
       });
     }
   };
