@@ -27,44 +27,43 @@ const Index = () => {
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const { user, profile, loading: authLoading, updateProfile } = useAuth();
+
+  // Synchronous localStorage read - stable across hot reloads
+  const getStoredRegions = (): string[] | null => {
+    try {
+      const stored = localStorage.getItem('realia_preferred_regions');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Ref initialized synchronously (not in useEffect) to avoid HMR issues
+  const storedRegionsRef = useRef<string[] | null>(getStoredRegions());
   const regionInitializedRef = useRef(false);
 
-  const { user, profile, loading: authLoading, updateProfile } = useAuth();
+  // Get preferred regions - stable value that never returns undefined
+  const preferredRegions = useMemo(() => {
+    if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
+      return profile.preferred_regions;
+    }
+    // Always return a valid array, never undefined
+    return storedRegionsRef.current || ['Brazil'];
+  }, [profile?.preferred_regions]);
 
   // Initialize region filter from user preferences - runs once when auth finishes loading
   useEffect(() => {
-    // Wait for auth to finish loading
     if (authLoading) return;
-    
-    // Already initialized? Do nothing (using ref to avoid dependency loops)
     if (regionInitializedRef.current) return;
     
-    // Mark as initialized FIRST to prevent re-runs
     regionInitializedRef.current = true;
     
-    // Get preferred regions from profile or localStorage
-    let regions: string[] = [];
-    
-    if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
-      regions = profile.preferred_regions;
-    } else {
-      const stored = localStorage.getItem('realia_preferred_regions');
-      if (stored) {
-        try {
-          regions = JSON.parse(stored);
-        } catch {
-          regions = [];
-        }
-      }
-    }
-    
     // Apply filter based on preferences - only set specific region if exactly one selected
-    if (regions.length === 1) {
-      setActiveRegion(regions[0] as RegionFilterType);
+    if (preferredRegions.length === 1) {
+      setActiveRegion(preferredRegions[0] as RegionFilterType);
     }
-    // Multiple regions: keep 'all' (default value)
-    
-  }, [authLoading, profile]);
+  }, [authLoading, preferredRegions]);
 
   // Detect password recovery event from Supabase
   useEffect(() => {
@@ -89,30 +88,7 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Store localStorage value in ref to avoid creating new arrays each render
-  const storedRegionsRef = useRef<string[] | undefined>(undefined);
-
-  // Initialize ref from localStorage only once
-  useEffect(() => {
-    if (storedRegionsRef.current === undefined) {
-      const stored = localStorage.getItem('realia_preferred_regions');
-      if (stored) {
-        try {
-          storedRegionsRef.current = JSON.parse(stored);
-        } catch {
-          storedRegionsRef.current = undefined;
-        }
-      }
-    }
-  }, []);
-
-  // Get preferred regions - uses stable ref to avoid React Query refetches
-  const preferredRegions = useMemo(() => {
-    if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
-      return profile.preferred_regions;
-    }
-    return storedRegionsRef.current;
-  }, [profile?.preferred_regions]);
+  // preferredRegions is now defined above with synchronous initialization
 
   const { data: news, isLoading: newsLoading } = useNews(activeFilter, activeRegion, preferredRegions);
   const { data: topics } = useTopics();

@@ -15,7 +15,11 @@ export interface Profile {
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+  
+  // Combined loading state - only false when BOTH auth and profile are resolved
+  const loading = authLoading || profileLoading;
 
   useEffect(() => {
     let isMounted = true;
@@ -28,6 +32,9 @@ export const useAuth = () => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // Start profile loading
+          setProfileLoading(true);
+          
           // Fetch profile
           const { data } = await supabase
             .from('profiles')
@@ -85,12 +92,17 @@ export const useAuth = () => {
             
             setProfile(profileData);
           }
+          
+          if (isMounted) {
+            setProfileLoading(false);
+          }
         } else {
           setProfile(null);
+          setProfileLoading(false);
         }
         
         if (isMounted) {
-          setLoading(false);
+          setAuthLoading(false);
         }
       }
     );
@@ -100,7 +112,7 @@ export const useAuth = () => {
       if (!isMounted) return;
       setUser(session?.user ?? null);
       if (!session?.user) {
-        setLoading(false);
+        setAuthLoading(false);
       }
     });
 
