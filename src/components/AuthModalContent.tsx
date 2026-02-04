@@ -40,15 +40,11 @@ const AppleIcon = () => (
 interface AuthModalContentProps {
   inline?: boolean;
   onSuccess?: () => void;
-  onSkip?: () => void;
-  showSkip?: boolean;
 }
 
 const AuthModalContent: React.FC<AuthModalContentProps> = ({ 
   inline = false, 
-  onSuccess, 
-  onSkip,
-  showSkip = false 
+  onSuccess 
 }) => {
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [email, setEmail] = useState('');
@@ -332,14 +328,6 @@ const AuthModalContent: React.FC<AuthModalContentProps> = ({
         </button>
       </div>
 
-      {showSkip && onSkip && (
-        <button
-          onClick={onSkip}
-          className="w-full mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Continuar sem conta
-        </button>
-      )}
     </div>
   );
 };

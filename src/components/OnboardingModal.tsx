@@ -77,11 +77,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
     setStep(2);
   };
 
-  const handleSkipAuth = () => {
-    // Skip auth and go to interests selection
-    setStep(2);
-  };
-
   const canProceed = () => {
     switch (step) {
       case 0: return true; // Welcome step
@@ -182,8 +177,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
             <AuthModalContent 
               inline 
               onSuccess={handleAuthSuccess} 
-              onSkip={handleSkipAuth}
-              showSkip
             />
           </div>
         )}
@@ -342,26 +335,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
             )}
           </Button>
           
-          {step === 2 && (
-            <button
-              onClick={() => {
-                setSelectedInterests([]);
-                handleNext();
-              }}
-              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Pular por agora
-            </button>
-          )}
-          
-          {step === 3 && (
-            <button
-              onClick={() => onComplete(selectedInterests, ['Brazil'])}
-              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Pular por agora
-            </button>
-          )}
         </div>
       )}
     </div>
