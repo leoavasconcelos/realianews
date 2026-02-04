@@ -29,6 +29,13 @@ const Index = () => {
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const { user, profile, loading: authLoading, updateProfile } = useAuth();
 
+  // Auto-close auth modal when user is authenticated
+  useEffect(() => {
+    if (user && showAuthModal) {
+      setShowAuthModal(false);
+    }
+  }, [user, showAuthModal]);
+
   // Synchronous localStorage read - stable across hot reloads
   const getStoredRegions = (): string[] | null => {
     try {
