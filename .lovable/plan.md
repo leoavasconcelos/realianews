@@ -1,126 +1,162 @@
 
-# Plano: Adicionar Login com Google e Apple
+# Plano: Reestruturar Onboarding com Login e Preferências Internacionais
 
-## Visão Geral
-Implementar autenticação social permitindo que usuários façam login usando suas contas Google ou Apple (iCloud), além do método tradicional por email/senha já existente.
+## Visao Geral
+Reestruturar o fluxo de onboarding para:
+1. Exibir a tela de login/cadastro antes da seleção de interesses
+2. Adicionar uma nova etapa para preferências de notícias internacionais
+3. Permitir que o usuário escolha quais regiões do mundo lhe interessam
+
+---
+
+## Novo Fluxo de Onboarding
+
+```text
+Etapa 0: Boas-vindas
+     |
+     v
+Etapa 1: Login / Cadastro (obrigatório ou pular)
+     |
+     v
+Etapa 2: Seleção de Interesses (Residencial, Comercial, etc.)
+     |
+     v
+Etapa 3: Preferências Internacionais
+     |
+     v
+Feed Principal
+```
 
 ---
 
 ## O que será feito
 
-### 1. Configurar Provedores OAuth
-Utilizar a ferramenta de configuração do Lovable Cloud para habilitar:
-- **Google OAuth** - Login com conta Google
-- **Apple OAuth** - Login com conta Apple (iCloud)
+### 1. Atualizar Banco de Dados
+Adicionar nova coluna `preferred_regions` na tabela `profiles` para armazenar as regiões selecionadas:
+- Tipo: `jsonb` com array de strings (ex: `["USA", "Europe"]`)
+- Default: `["Brazil"]` (apenas notícias nacionais)
 
-### 2. Atualizar o Hook de Autenticação
-Adicionar função `signInWithOAuth` ao hook `useAuth.ts`:
-- Suporte para Google e Apple
-- Integração com o módulo `lovable.auth`
-- Tratamento de erros específicos
+### 2. Refatorar OnboardingModal
+Transformar em um fluxo de 4 etapas:
 
-### 3. Redesenhar o Modal de Login
-Atualizar `AuthModal.tsx` com:
-- Botões estilizados para "Continuar com Google" e "Continuar com Apple"
-- Separador visual "ou" entre login social e email
-- Ícones oficiais do Google e Apple
-- Estados de loading individuais para cada botão
+| Etapa | Conteúdo |
+|-------|----------|
+| 0 | Tela de boas-vindas (já existe) |
+| 1 | Autenticação integrada (login/cadastro/social) |
+| 2 | Seleção de temas de interesse (já existe) |
+| 3 | Preferências de notícias internacionais |
 
----
-
-## Layout do Novo Modal
+### 3. Nova Tela de Preferências Internacionais (Etapa 3)
 
 ```text
-┌─────────────────────────────────────────┐
-│  [Logo]              REalia         [X] │
-├─────────────────────────────────────────┤
-│                                         │
-│  Entrar na sua conta                    │
-│  Acesse seu feed personalizado          │
-│                                         │
-│  ┌─────────────────────────────────────┐│
-│  │  [G]  Continuar com Google          ││
-│  └─────────────────────────────────────┘│
-│                                         │
-│  ┌─────────────────────────────────────┐│
-│  │  []  Continuar com Apple           ││
-│  └─────────────────────────────────────┘│
-│                                         │
-│  ─────────── ou ───────────             │
-│                                         │
-│  [📧] seu@email.com                     │
-│  [🔒] Sua senha                         │
-│                                         │
-│  [         Entrar         ]             │
-│                                         │
-│  Não tem uma conta? Cadastre-se         │
-│                                         │
-└─────────────────────────────────────────┘
++------------------------------------------+
+|                                          |
+|  Notícias Internacionais                 |
+|  Deseja acompanhar mercados globais?     |
+|                                          |
+|  [ ] Sim, me interessa                   |
+|  [ ] Não, apenas Brasil                  |
+|                                          |
+|  (Se "Sim" selecionado:)                 |
+|                                          |
+|  Quais regiões?                          |
+|  +------------------+ +----------------+ |
+|  | [x] EUA         | | [ ] Europa     | |
+|  | Americas        | | UK, Alemanha...| |
+|  +------------------+ +----------------+ |
+|  +------------------+ +----------------+ |
+|  | [ ] Oriente M.  | | [ ] Mundo      | |
+|  | Dubai, Arabia...| | Asia, Oceania  | |
+|  +------------------+ +----------------+ |
+|                                          |
++------------------------------------------+
 ```
 
+### 4. Atualizar Componente AuthModal
+Criar versão "inline" para ser usada dentro do OnboardingModal:
+- Remover backdrop/overlay
+- Adaptar layout para integração fluida
+- Manter todas as funcionalidades (Google, Apple, email)
+
+### 5. Atualizar useAuth Hook
+Adicionar `preferred_regions` ao tipo Profile e função updateProfile
+
 ---
 
-## Alterações Técnicas
+## Alterações Técnicas Detalhadas
 
-### Arquivo 1: `src/hooks/useAuth.ts`
-Adicionar função para login OAuth:
-
-```typescript
-const signInWithOAuth = async (provider: 'google' | 'apple') => {
-  const { lovable } = await import('@/integrations/lovable');
-  const { error } = await lovable.auth.signInWithOAuth(provider, {
-    redirect_uri: window.location.origin,
-  });
-  return { error };
-};
+### Arquivo 1: Migração do Banco de Dados
+```sql
+ALTER TABLE profiles 
+ADD COLUMN preferred_regions jsonb DEFAULT '["Brazil"]'::jsonb;
 ```
 
-### Arquivo 2: `src/components/AuthModal.tsx`
-Adicionar:
-- Botões de login social com ícones
-- Estados de loading separados
-- Handlers para cada provedor
-- Estilização consistente com a marca
+### Arquivo 2: `src/hooks/useAuth.ts`
+- Adicionar `preferred_regions: string[]` ao tipo Profile
+- Incluir na função updateProfile
 
-### Arquivo 3: Módulo Lovable (auto-gerado)
-Será criado automaticamente via ferramenta:
-- `src/integrations/lovable/index.ts`
-- Configuração dos provedores OAuth
+### Arquivo 3: `src/components/OnboardingModal.tsx`
+Refatorar completamente:
+- Novo estado: `step` (0-3), `selectedInterests`, `interestedInInternational`, `selectedRegions`
+- Importar AuthModalContent (versão inline)
+- Adicionar etapa 3 com seleção de regiões
+- Atualizar callback `onComplete` para receber interesses e regiões
 
----
+### Arquivo 4: `src/components/AuthModalContent.tsx` (novo)
+Extrair o conteúdo do AuthModal para componente reutilizável:
+- Aceitar prop `inline?: boolean` para estilo sem overlay
+- Aceitar prop `onSuccess?: () => void` para callback após login
 
-## Fluxo de Login Social
-
-1. Usuário clica em "Continuar com Google/Apple"
-2. Abre popup de autenticação do provedor
-3. Usuário autoriza o acesso
-4. Retorna ao app com sessão ativa
-5. Trigger `handle_new_user` cria perfil automaticamente
-6. Modal fecha e usuário está logado
-
----
-
-## Estilização dos Botões
-
-| Botão | Cor de Fundo | Cor do Texto | Borda |
-|-------|-------------|--------------|-------|
-| Google | Branco (`#ffffff`) | Cinza escuro (`#374151`) | Cinza claro |
-| Apple | Preto (`#000000`) | Branco (`#ffffff`) | Nenhuma |
+### Arquivo 5: `src/pages/Index.tsx`
+Atualizar handler `handleOnboardingComplete`:
+- Receber também `preferredRegions`
+- Salvar no perfil do usuário
+- Aplicar filtro inicial de região se usuário não quiser internacional
 
 ---
 
-## Compatibilidade
+## Regiões Disponíveis
 
-- O trigger existente `handle_new_user` já funciona para OAuth
-- Perfis serão criados com `display_name` do provedor OAuth
-- Preferências (interesses, notificações) podem ser configuradas depois
+Baseado no sistema existente (REGIONS em useNews.ts):
+
+| ID | Label | Descrição |
+|----|-------|-----------|
+| Brazil | Brasil | Notícias nacionais (padrão) |
+| USA | EUA | Estados Unidos |
+| Europe | Europa | Reino Unido, Alemanha, França, etc. |
+| Middle East | Oriente Médio | Dubai, Arabia Saudita, etc. |
+| World | Mundo | Asia, Oceania, consultorias globais |
+
+---
+
+## Fluxo do Usuário
+
+1. **Abre o app** - Vê tela de boas-vindas
+2. **Clica "Começar"** - Vai para etapa de login
+3. **Faz login/cadastro** - Ou clica "Continuar sem conta"
+4. **Seleciona interesses** - Escolhe temas do mercado imobiliário
+5. **Preferências internacionais** - Escolhe se quer notícias globais
+6. **Se sim** - Seleciona quais regiões (pode marcar várias)
+7. **Finaliza** - Dados salvos no perfil, feed personalizado
+
+---
+
+## Persistência de Dados
+
+Para usuários não autenticados:
+- Salvar preferências em `localStorage`
+- Aplicar ao perfil quando fizer login posteriormente
+
+Para usuários autenticados:
+- Salvar diretamente na tabela `profiles`
 
 ---
 
 ## Passos de Implementação
 
-1. Configurar Google OAuth via ferramenta do Cloud
-2. Configurar Apple OAuth via ferramenta do Cloud
-3. Atualizar `useAuth.ts` com função `signInWithOAuth`
-4. Redesenhar `AuthModal.tsx` com botões sociais
-5. Testar fluxo completo de login/cadastro
+1. Criar migração para adicionar coluna `preferred_regions`
+2. Atualizar tipo Profile no `useAuth.ts`
+3. Criar componente `AuthModalContent.tsx` (versão inline)
+4. Refatorar `OnboardingModal.tsx` com novo fluxo de 4 etapas
+5. Atualizar `Index.tsx` para lidar com novos dados do onboarding
+6. Testar fluxo completo
