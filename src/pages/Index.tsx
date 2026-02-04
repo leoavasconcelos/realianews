@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import FeedHeader from '@/components/FeedHeader';
 import BottomNav from '@/components/BottomNav';
 import NewsCard, { NewsItem } from '@/components/NewsCard';
@@ -10,22 +10,49 @@ import ProfileScreen from '@/components/ProfileScreen';
 import PlaceholderScreen from '@/components/PlaceholderScreen';
 import ExploreScreen from '@/components/ExploreScreen';
 import AuthModal from '@/components/AuthModal';
+import PasswordResetModal from '@/components/PasswordResetModal';
 import { Compass, GraduationCap, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType } from '@/hooks/useNews';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(() => {
     return !localStorage.getItem('realia_onboarding_complete');
   });
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [activeTab, setActiveTab] = useState('atelier');
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
   const { user, profile, updateProfile } = useAuth();
+
+  // Detect password recovery event from Supabase
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowPasswordReset(true);
+        // Clean the URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    });
+
+    // Also check URL for reset parameter (fallback)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reset') === 'true') {
+      // Wait a bit for Supabase to process the token
+      setTimeout(() => {
+        setShowPasswordReset(true);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 500);
+    }
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const { data: news, isLoading: newsLoading } = useNews(activeFilter, activeRegion);
   const { data: topics } = useTopics();
   const { data: savedItems } = useSavedItems(user?.id);
@@ -217,6 +244,14 @@ const Index = () => {
       {/* Auth Modal */}
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
+      )}
+
+      {/* Password Reset Modal */}
+      {showPasswordReset && (
+        <PasswordResetModal
+          onClose={() => setShowPasswordReset(false)}
+          onSuccess={() => setShowPasswordReset(false)}
+        />
       )}
       
       {/* Main Content */}
