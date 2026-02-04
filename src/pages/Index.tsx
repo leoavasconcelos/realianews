@@ -26,9 +26,51 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState('atelier');
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
+  const [regionInitialized, setRegionInitialized] = useState(false);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
-  const { user, profile, updateProfile } = useAuth();
+  const { user, profile, loading: authLoading, updateProfile } = useAuth();
+
+  // Initialize region filter from user preferences
+  useEffect(() => {
+    if (regionInitialized) return;
+    
+    // Get preferred regions from profile or localStorage
+    let preferredRegions: string[] = [];
+    
+    if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
+      preferredRegions = profile.preferred_regions;
+    } else {
+      const storedRegions = localStorage.getItem('realia_preferred_regions');
+      if (storedRegions) {
+        try {
+          preferredRegions = JSON.parse(storedRegions);
+        } catch {
+          preferredRegions = [];
+        }
+      }
+    }
+    
+    // Set initial region filter based on preferences
+    if (preferredRegions.length > 0) {
+      // If user has only Brazil or only international regions, set appropriate filter
+      const hasOnlyBrazil = preferredRegions.length === 1 && preferredRegions[0] === 'Brazil';
+      const hasInternational = preferredRegions.some(r => r !== 'Brazil');
+      
+      if (hasOnlyBrazil) {
+        setActiveRegion('Brazil');
+      } else if (preferredRegions.length === 1 && hasInternational) {
+        // Single international region selected
+        setActiveRegion(preferredRegions[0] as RegionFilterType);
+      }
+      // If multiple regions including Brazil, keep 'all' to show everything the user is interested in
+    }
+    
+    // Only mark as initialized once we have profile data or auth loading is complete
+    if (!authLoading) {
+      setRegionInitialized(true);
+    }
+  }, [profile, authLoading, regionInitialized]);
 
   // Detect password recovery event from Supabase
   useEffect(() => {
@@ -53,7 +95,20 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const { data: news, isLoading: newsLoading } = useNews(activeFilter, activeRegion);
+  // Get preferred regions for filtering
+  const preferredRegions = profile?.preferred_regions || (() => {
+    const stored = localStorage.getItem('realia_preferred_regions');
+    if (stored) {
+      try {
+        return JSON.parse(stored) as string[];
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  })();
+
+  const { data: news, isLoading: newsLoading } = useNews(activeFilter, activeRegion, preferredRegions);
   const { data: topics } = useTopics();
   const { data: savedItems } = useSavedItems(user?.id);
   const saveNewsMutation = useSaveNews();

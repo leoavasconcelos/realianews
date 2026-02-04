@@ -94,9 +94,9 @@ export const REGIONS = [
 export type RegionFilter = typeof REGIONS[number]['id'];
 
 // Fetch all news with source info
-export const useNews = (topicFilter?: string, regionFilter?: RegionFilter) => {
+export const useNews = (topicFilter?: string, regionFilter?: RegionFilter, preferredRegions?: string[]) => {
   return useQuery({
-    queryKey: ['news', topicFilter, regionFilter],
+    queryKey: ['news', topicFilter, regionFilter, preferredRegions],
     retry: 3,
     retryDelay: 1000,
     staleTime: 30000,
@@ -130,7 +130,13 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter) => {
 
         // Apply region filter
         if (regionFilter && regionFilter !== 'all') {
+          // Specific region selected by user
           filteredNews = filteredNews.filter(item => item.region === regionFilter);
+        } else if (preferredRegions && preferredRegions.length > 0) {
+          // Filter by user's preferred regions when 'all' is selected
+          filteredNews = filteredNews.filter(item => 
+            preferredRegions.includes(item.region || 'Brazil')
+          );
         }
 
         // Transform to NewsItem format
