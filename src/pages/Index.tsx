@@ -89,20 +89,29 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Get preferred regions for filtering - memoized to avoid recreation on each render
+  // Store localStorage value in ref to avoid creating new arrays each render
+  const storedRegionsRef = useRef<string[] | undefined>(undefined);
+
+  // Initialize ref from localStorage only once
+  useEffect(() => {
+    if (storedRegionsRef.current === undefined) {
+      const stored = localStorage.getItem('realia_preferred_regions');
+      if (stored) {
+        try {
+          storedRegionsRef.current = JSON.parse(stored);
+        } catch {
+          storedRegionsRef.current = undefined;
+        }
+      }
+    }
+  }, []);
+
+  // Get preferred regions - uses stable ref to avoid React Query refetches
   const preferredRegions = useMemo(() => {
     if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
       return profile.preferred_regions;
     }
-    const stored = localStorage.getItem('realia_preferred_regions');
-    if (stored) {
-      try {
-        return JSON.parse(stored) as string[];
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
+    return storedRegionsRef.current;
   }, [profile?.preferred_regions]);
 
   const { data: news, isLoading: newsLoading } = useNews(activeFilter, activeRegion, preferredRegions);

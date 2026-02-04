@@ -133,6 +133,10 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
+    // Clear local state immediately for instant UI feedback
+    setUser(null);
+    setProfile(null);
+    
     const { error } = await supabase.auth.signOut();
     return { error };
   };
