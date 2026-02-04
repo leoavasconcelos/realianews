@@ -193,7 +193,8 @@ const generateSecondaryNewsHtml = (news: NewsItem): string => {
 const generateEmailHtml = (
   userName: string,
   news: NewsItem[],
-  appUrl: string
+  appUrl: string,
+  unsubscribeUrl: string
 ): string => {
   const featuredNews = news[0];
   const secondaryNews = news.slice(1);
@@ -300,7 +301,7 @@ const generateEmailHtml = (
                     <p style="margin: 0; font-size: 12px;">
                       <a href="${appUrl}" style="color: #7c3aed; text-decoration: underline; font-weight: 500;">Gerenciar preferências</a>
                       <span style="color: #d1d5db; margin: 0 8px;">|</span>
-                      <a href="${appUrl}" style="color: #9ca3af; text-decoration: underline;">Cancelar inscrição</a>
+                      <a href="${unsubscribeUrl}" style="color: #9ca3af; text-decoration: underline;">Cancelar inscrição</a>
                     </p>
                   </td>
                 </tr>
@@ -419,10 +420,16 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       try {
+        // Generate unsubscribe URL with encoded user_id
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const unsubscribeToken = btoa(profile.user_id);
+        const unsubscribeUrl = `${supabaseUrl}/functions/v1/unsubscribe-email?token=${unsubscribeToken}&app=${encodeURIComponent(appUrl)}`;
+
         const emailHtml = generateEmailHtml(
           profile.display_name || email.split("@")[0],
           userNews.slice(0, 5),
-          appUrl
+          appUrl,
+          unsubscribeUrl
         );
 
         const { error: sendError } = await resend.emails.send({
