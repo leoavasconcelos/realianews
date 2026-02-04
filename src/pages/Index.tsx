@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import FeedHeader from '@/components/FeedHeader';
 import BottomNav from '@/components/BottomNav';
 import NewsCard, { NewsItem } from '@/components/NewsCard';
@@ -26,8 +26,8 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState('atelier');
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
-  const [regionInitialized, setRegionInitialized] = useState(false);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const regionInitializedRef = useRef(false);
 
   const { user, profile, loading: authLoading, updateProfile } = useAuth();
 
@@ -36,11 +36,11 @@ const Index = () => {
     // Wait for auth to finish loading
     if (authLoading) return;
     
-    // Already initialized? Do nothing
-    if (regionInitialized) return;
+    // Already initialized? Do nothing (using ref to avoid dependency loops)
+    if (regionInitializedRef.current) return;
     
     // Mark as initialized FIRST to prevent re-runs
-    setRegionInitialized(true);
+    regionInitializedRef.current = true;
     
     // Get preferred regions from profile or localStorage
     let regions: string[] = [];
@@ -64,7 +64,7 @@ const Index = () => {
     }
     // Multiple regions: keep 'all' (default value)
     
-  }, [authLoading, profile, regionInitialized]);
+  }, [authLoading, profile]);
 
   // Detect password recovery event from Supabase
   useEffect(() => {

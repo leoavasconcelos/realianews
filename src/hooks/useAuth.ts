@@ -18,9 +18,13 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Set up auth listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return;
+        
         setUser(session?.user ?? null);
         
         if (session?.user) {
@@ -30,6 +34,8 @@ export const useAuth = () => {
             .select('*')
             .eq('user_id', session.user.id)
             .single();
+          
+          if (!isMounted) return;
           
           if (data) {
             const profileData: Profile = {
@@ -83,19 +89,25 @@ export const useAuth = () => {
           setProfile(null);
         }
         
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     );
 
     // Then get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
       setUser(session?.user ?? null);
       if (!session?.user) {
         setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, displayName?: string) => {
