@@ -98,6 +98,14 @@ export const useAuth = () => {
     return { error };
   };
 
+  const signInWithOAuth = async (provider: 'google' | 'apple') => {
+    const { lovable } = await import('@/integrations/lovable');
+    const { error } = await lovable.auth.signInWithOAuth(provider, {
+      redirect_uri: window.location.origin,
+    });
+    return { error };
+  };
+
   return {
     user,
     profile,
@@ -105,6 +113,7 @@ export const useAuth = () => {
     signUp,
     signIn,
     signOut,
+    signInWithOAuth,
     updateProfile,
   };
 };
