@@ -3,11 +3,12 @@ import React from 'react';
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
+  useGradientText?: boolean;
   className?: string;
 }
 
 const Logo = React.forwardRef<HTMLDivElement, LogoProps>(
-  ({ size = 'md', showText = true, className = '' }, ref) => {
+  ({ size = 'md', showText = true, useGradientText = false, className = '' }, ref) => {
     const sizeClasses = {
     sm: 'w-8 h-8',
     md: 'w-10 h-10',
@@ -62,7 +63,7 @@ const Logo = React.forwardRef<HTMLDivElement, LogoProps>(
       
       {showText && (
         <div className="flex flex-col">
-          <span className={`font-bold tracking-tight text-foreground ${textSizeClasses[size]}`}>
+          <span className={`font-bold tracking-tight ${textSizeClasses[size]} ${useGradientText ? 'text-gradient-brand' : 'text-foreground'}`}>
             REalia
           </span>
           {size !== 'sm' && (

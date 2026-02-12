@@ -191,11 +191,38 @@
 
   /* News card styles */
   .news-card {
-    @apply bg-card rounded-xl shadow-card transition-all duration-300;
+    @apply bg-card rounded-xl transition-all duration-300;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+    border-top: 2px solid transparent;
+    background-image: linear-gradient(hsl(var(--card)), hsl(var(--card))), var(--gradient-accent);
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
   }
 
   .news-card:hover {
-    @apply shadow-card-hover -translate-y-0.5;
+    @apply shadow-card-hover -translate-y-1;
+  }
+
+  /* Glass card for premium surfaces */
+  .glass-card {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  /* Accent line - thin gradient bar */
+  .accent-line {
+    height: 2px;
+    background: var(--gradient-hero);
+  }
+
+  /* Brand text gradient */
+  .text-gradient-brand {
+    background: var(--gradient-hero);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   /* Filter pill styles */

@@ -10,9 +10,9 @@ interface FeedHeaderProps {
 
 const FeedHeader: React.FC<FeedHeaderProps> = ({ onSearchClick, onNotificationsClick }) => {
   return (
-    <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40">
+    <header className="sticky top-0 bg-background/95 backdrop-blur-lg z-40">
       <div className="flex items-center justify-between px-4 py-3">
-        <Logo size="sm" showText={true} />
+        <Logo size="sm" showText={true} useGradientText />
         
         <div className="flex items-center gap-1">
           <Button
@@ -35,6 +35,8 @@ const FeedHeader: React.FC<FeedHeaderProps> = ({ onSearchClick, onNotificationsC
           </Button>
         </div>
       </div>
+      {/* Accent gradient line */}
+      <div className="accent-line" />
     </header>
   );
 };
