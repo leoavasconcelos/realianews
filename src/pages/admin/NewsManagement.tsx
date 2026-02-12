@@ -31,7 +31,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -124,12 +125,64 @@ export const NewsManagement = () => {
   const news = data?.items;
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      let query = supabase
+        .from('news')
+        .select('title, source_url, region, published_at, is_trending, read_time, summary_ai, sources(name)')
+        .order('published_at', { ascending: false });
+
+      if (regionFilter !== 'All') query = query.eq('region', regionFilter);
+      if (search.trim()) query = query.ilike('title', `%${search.trim()}%`);
+
+      const { data: rows, error } = await query;
+      if (error) throw error;
+      if (!rows?.length) { toast.info('Nenhuma notícia para exportar'); return; }
+
+      const escape = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`;
+      const headers = ['Título', 'Fonte', 'Região', 'Data', 'Trending', 'Tempo de Leitura', 'Resumo', 'URL'];
+      const csvRows = rows.map(r => [
+        escape(r.title),
+        escape((r.sources as { name: string } | null)?.name || ''),
+        escape(r.region || ''),
+        escape(format(new Date(r.published_at), 'dd/MM/yyyy', { locale: ptBR })),
+        r.is_trending ? 'Sim' : 'Não',
+        escape(r.read_time || ''),
+        escape((r.summary_ai || '').substring(0, 200)),
+        escape(r.source_url),
+      ].join(','));
+
+      const bom = '\uFEFF';
+      const csv = bom + [headers.join(','), ...csvRows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `noticias_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${rows.length} notícias exportadas`);
+    } catch (err: any) {
+      toast.error('Erro ao exportar: ' + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Gerenciar Notícias</h1>
-        <Badge variant="secondary">{totalCount} notícias</Badge>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={exporting}>
+            {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            Exportar CSV
+          </Button>
+          <Badge variant="secondary">{totalCount} notícias</Badge>
+        </div>
       </div>
 
       {/* Filters */}
