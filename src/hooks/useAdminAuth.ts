@@ -12,7 +12,7 @@ interface UserRole {
 }
 
 export const useAdminAuth = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
 
@@ -59,6 +59,6 @@ export const useAdminAuth = () => {
     isAdmin,
     isModerator,
     hasAdminAccess,
-    loading: !user ? false : rolesLoading,
+    loading: authLoading || rolesLoading,
   };
 };
