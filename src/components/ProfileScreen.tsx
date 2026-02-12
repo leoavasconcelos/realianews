@@ -18,11 +18,14 @@ import {
   Landmark,
   TrendingUp,
   Cpu,
-  Brain
+  Brain,
+  Lock
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Logo from './Logo';
 import { Button } from './ui/button';
 import { useAuth, Profile } from '@/hooks/useAuth';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { toast } from 'sonner';
 import type { User as AuthUser } from '@supabase/supabase-js';
 import {
@@ -81,7 +84,9 @@ interface ProfileScreenProps {
 
 const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
   ({ user, profile, onLoginClick }, ref) => {
+    const navigate = useNavigate();
     const { signOut, updateProfile } = useAuth();
+    const { hasAdminAccess } = useAdminAuth();
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [regionsOpen, setRegionsOpen] = useState(false);
     const [interestsOpen, setInterestsOpen] = useState(false);
@@ -148,6 +153,7 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
       { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" /> },
       { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
       { id: 'help', label: 'Ajuda e Suporte', icon: <HelpCircle className="w-5 h-5" /> },
+      ...(hasAdminAccess ? [{ id: 'admin', label: 'Painel Administrativo', icon: <Lock className="w-5 h-5" />, onClick: () => navigate('/admin') }] : []),
     ];
 
   const handleSignOut = async () => {
