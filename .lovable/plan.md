@@ -1,84 +1,70 @@
 
-# Redesign Premium da Tela de Entrada e Interface do REalia
 
-## Diagnostico
+# Redesign da Barra de Filtros e Renomear "Atelier" para "Mercado"
 
-A tela de entrada (Step 0 do OnboardingModal) e a interface geral do app estao com visual generico e simplorio:
-- Fundo totalmente branco sem profundidade
-- Logo pequena e sem destaque
-- Elementos de apresentacao (Feed Personalizado, Resumos Inteligentes) parecem cards basicos
-- Sem uso efetivo das cores da marca (Navy, Teal, Burnt Orange)
-- Falta textura metalica e sensacao premium definidas no manual
+## Problema Atual
 
-## Mudancas Propostas
+A segunda linha do feed (abaixo do header) possui dois elementos competindo no mesmo espaco:
+- **FilterPills** (categorias como "Todos", "Residencial", etc.) ocupa o lado esquerdo
+- **RegionFilter** (botao "Todas" com icone de globo) ocupa o lado direito
+- Em telas pequenas ou com muitas categorias, os pills ficam cortados e sobrepostos ao botao de regiao
+- Visualmente confuso: "Todos" (categoria) e "Todas" (regiao) na mesma linha gera ambiguidade
 
-### 1. Tela de Boas-Vindas (OnboardingModal - Step 0) - Redesign Completo
+## Solucao Proposta
 
-**Antes:** Fundo branco liso, logo pequena, cards simples
-**Depois:** Tela de impacto com gradiente hero, logo grande e prominente, tipografia elegante
+### 1. Separar Filtros em Duas Linhas Distintas
 
-- Fundo com gradiente Navy-to-Teal sutil no topo (hero section), transicionando para branco
-- Logo em tamanho XL centralizada com efeito de brilho metalico
-- Nome "REalia" em tamanho grande com texto-gradient (navy-teal)
-- Subtitulo "Inteligencia Imobiliaria" com tracking largo e estilo editorial
-- Cards de feature com bordas sutis, icones coloridos maiores e fundo com leve gradiente
-- Adicionar um terceiro card de feature: "Cobertura Global" com icone Globe
-- Botao "Comecar" com gradiente hero mais pronunciado e sombra elegante
+Reorganizar a area de filtros em duas linhas visuais bem definidas:
 
-### 2. Tela de Autenticacao (OnboardingModal - Step 1)
+**Linha 1 - Regiao (contexto geografico):**
+- Mover o seletor de regiao para uma linha propria acima das categorias
+- Exibir como pills horizontais compactos (Brasil, EUA, Europa, etc.) em vez de dropdown
+- A regiao ativa tera destaque com a cor accent (Burnt Orange)
+- Adicionar label sutil "Regiao" a esquerda para clareza
 
-- Adicionar faixa de gradiente hero no topo da tela
-- Logo com destaque maior
-- Tipografia mais refinada
+**Linha 2 - Categorias (topicos):**
+- As FilterPills ocupam toda a largura sem competir com outro elemento
+- Scroll horizontal livre sem obstrucao
+- Mantido o visual atual dos pills
 
-### 3. Telas de Interesses e Regioes (Steps 2 e 3)
+Essa separacao elimina a sobreposicao e torna claro o que cada linha controla.
 
-- Manter layout atual funcional
-- Melhorar step indicator com cores da marca
-- Cards de selecao com hover mais sofisticado (sombra card-hover)
+### 2. Renomear "Atelier" para "Mercado"
 
-### 4. FeedHeader - Mais Premium
-
-- Adicionar linha fina de gradiente hero abaixo do header (accent line)
-- Logo com texto-gradient no nome "REalia"
-
-### 5. BottomNav - Acabamento Refinado
-
-- Indicador ativo com cor accent (burnt-orange) em vez de dot simples
-- Barra superior com linha fina de gradiente
-
-### 6. NewsCard - Elevacao Visual
-
-- Sombra mais pronunciada
-- Borda sutil na parte superior com cor accent
+Trocar todas as referencias de "atelier" para "mercado" no app:
+- BottomNav: label "Atelier" vira "Mercado"
+- Index.tsx: tab id "atelier" vira "mercado"
+- Icone mantem o Home (casa) que combina com mercado imobiliario
 
 ## Arquivos a Modificar
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/components/OnboardingModal.tsx` | Redesign completo do Step 0 com gradiente hero, logo grande, cards premium. Steps 1-3 com acabamento visual melhorado |
-| `src/components/Logo.tsx` | Adicionar variante com texto-gradient para uso no header |
-| `src/components/FeedHeader.tsx` | Adicionar accent line com gradiente, logo com texto-gradient |
-| `src/components/BottomNav.tsx` | Indicador ativo mais sofisticado com accent bar |
-| `src/components/NewsCard.tsx` | Sombra e bordas mais refinadas |
-| `src/index.css` | Adicionar classes utilitarias para novos efeitos visuais (glassmorphism, accent-line) |
+| `src/pages/Index.tsx` | Separar FilterPills e RegionFilter em duas linhas. Trocar "atelier" por "mercado" no activeTab e switch/case |
+| `src/components/RegionFilter.tsx` | Redesign de dropdown para pills horizontais inline com estilo premium |
+| `src/components/BottomNav.tsx` | Trocar id e label de "atelier"/"Atelier" para "mercado"/"Mercado" |
 
 ## Detalhes Tecnicos
 
-### Paleta em uso (ja definida no CSS):
-- **Navy:** `hsl(213 52% 24%)` - cor primaria dominante
-- **Teal:** `hsl(173 58% 39%)` - cor de apoio
-- **Burnt Orange:** `hsl(21 90% 48%)` - accent para CTAs e destaques
-- **Graphite:** `hsl(220 14% 35%)` - textos secundarios
-- **Gradiente Hero:** Navy -> Navy-light -> Teal (ja existe como `--gradient-hero`)
+### Layout da area de filtros (Index.tsx)
 
-### Novos efeitos CSS:
-- `.glass-card` - efeito glassmorphism para cards sobre gradiente
-- `.accent-line` - linha fina de 2px com gradiente hero
-- `.text-gradient-brand` - texto com gradiente para o nome REalia
-- Ajuste no `.metallic-texture` para maior subtileza
+A div atual com `flex items-center gap-3` que coloca tudo na mesma linha sera substituida por duas divs empilhadas:
 
-### Componentes que nao serao alterados:
-- `ExploreScreen.tsx` - mantem layout atual
-- `ProfileScreen.tsx` - mantem layout atual  
-- `AuthModalContent.tsx` - mantem formulario atual (apenas wrapper visual muda)
+```text
++--------------------------------------------------+
+| [Globe icon] Brasil | EUA | Europa | Oriente M.   |  <- Linha 1: Regioes (pills)
++--------------------------------------------------+
+| Todos | Residencial | Comercial | Luxo | ...      |  <- Linha 2: Categorias (pills)
++--------------------------------------------------+
+```
+
+### RegionFilter.tsx - De Dropdown para Pills
+
+O componente deixa de ser um `DropdownMenu` e passa a renderizar botoes inline usando o mesmo estilo dos FilterPills, mas com tamanho menor e cor accent para o estado ativo. Adiciona o icone Globe a esquerda como indicador visual de que sao regioes.
+
+### BottomNav.tsx
+
+Apenas uma troca de string:
+- `id: 'atelier'` -> `id: 'mercado'`
+- `label: 'Atelier'` -> `label: 'Mercado'`
+
