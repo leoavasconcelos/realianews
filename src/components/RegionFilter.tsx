@@ -1,14 +1,39 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { REGIONS, RegionFilter as RegionFilterType } from '@/hooks/useNews';
+import { REGIONS, RegionFilter as RegionFilterType, useNews } from '@/hooks/useNews';
 
 interface RegionFilterProps {
   activeRegion: RegionFilterType;
   onRegionChange: (region: RegionFilterType) => void;
+  activeFilter?: string;
 }
 
-const RegionFilter: React.FC<RegionFilterProps> = ({ activeRegion, onRegionChange }) => {
+const RegionFilter: React.FC<RegionFilterProps> = ({ activeRegion, onRegionChange, activeFilter = 'Todos' }) => {
+  // Fetch all news to count by region (ignoring region filter)
+  const { data: allNews } = useNews(activeFilter, 'all');
+
+  // Count news items by region
+  const newsByRegion = useMemo(() => {
+    if (!allNews) return {};
+    
+    const counts: Record<string, number> = {};
+    REGIONS.forEach(region => {
+      counts[region.id] = 0;
+    });
+
+    allNews.forEach(news => {
+      const region = news.region || 'Brazil';
+      if (region === 'Brazil') counts['Brazil'] = (counts['Brazil'] || 0) + 1;
+      else if (region === 'USA') counts['USA'] = (counts['USA'] || 0) + 1;
+      else if (region === 'Europe') counts['Europe'] = (counts['Europe'] || 0) + 1;
+      else if (region === 'Middle East') counts['Middle East'] = (counts['Middle East'] || 0) + 1;
+      else if (region === 'World') counts['World'] = (counts['World'] || 0) + 1;
+    });
+
+    return counts;
+  }, [allNews]);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -56,7 +81,7 @@ const RegionFilter: React.FC<RegionFilterProps> = ({ activeRegion, onRegionChang
           custom={index}
           initial="hidden"
           animate="visible"
-          className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
+          className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 flex items-center gap-1 ${
             activeRegion === region.id
               ? 'bg-accent text-accent-foreground shadow-sm'
               : 'bg-muted/50 text-muted-foreground hover:bg-muted'
@@ -64,7 +89,16 @@ const RegionFilter: React.FC<RegionFilterProps> = ({ activeRegion, onRegionChang
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          {region.label}
+          <span>{region.label}</span>
+          {newsByRegion[region.id] !== undefined && (
+            <span className={`text-[10px] font-semibold rounded-full px-1.5 ${
+              activeRegion === region.id
+                ? 'bg-accent-foreground/20'
+                : 'bg-muted'
+            }`}>
+              {newsByRegion[region.id]}
+            </span>
+          )}
         </motion.button>
       ))}
     </motion.div>

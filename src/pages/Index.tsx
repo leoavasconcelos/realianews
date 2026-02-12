@@ -201,7 +201,8 @@ const Index = () => {
             <div className="px-4 py-3 border-b border-border bg-background/50 backdrop-blur-sm sticky top-[57px] z-30 space-y-2">
               <RegionFilter 
                 activeRegion={activeRegion} 
-                onRegionChange={setActiveRegion} 
+                onRegionChange={setActiveRegion}
+                activeFilter={activeFilter}
               />
               <FilterPills
                 filters={filters}
