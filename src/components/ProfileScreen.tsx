@@ -80,12 +80,14 @@ interface ProfileScreenProps {
   user?: AuthUser | null;
   profile?: Profile | null;
   onLoginClick: () => void;
+  updateProfile?: (updates: Partial<Pick<Profile, 'display_name' | 'interests' | 'blocked_sources' | 'preferred_regions'>>) => Promise<{ error: Error | null }>;
 }
 
 const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
-  ({ user, profile, onLoginClick }, ref) => {
+  ({ user, profile, onLoginClick, updateProfile: updateProfileProp }, ref) => {
     const navigate = useNavigate();
-    const { signOut, updateProfile } = useAuth();
+    const { signOut, updateProfile: updateProfileFallback } = useAuth();
+    const updateProfile = updateProfileProp || updateProfileFallback;
     const { hasAdminAccess } = useAdminAuth();
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [regionsOpen, setRegionsOpen] = useState(false);

@@ -27,7 +27,7 @@ const Index = () => {
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
-  const { user, profile, loading: authLoading, updateProfile } = useAuth();
+  const { user, profile, loading: authLoading, authLoading: rawAuthLoading, updateProfile } = useAuth();
 
   // Auto-close auth modal when user is authenticated
   useEffect(() => {
@@ -276,6 +276,7 @@ const Index = () => {
               user={user} 
               profile={profile} 
               onLoginClick={() => setShowAuthModal(true)} 
+              updateProfile={updateProfile}
             />
           </div>
         );
@@ -289,7 +290,11 @@ const Index = () => {
     <div className="bg-background min-h-screen">
       {/* Onboarding Modal */}
       {showOnboarding && (
-        <OnboardingModal onComplete={handleOnboardingComplete} />
+        <OnboardingModal 
+          onComplete={handleOnboardingComplete} 
+          user={user} 
+          authLoading={rawAuthLoading} 
+        />
       )}
       
       {/* Auth Modal */}

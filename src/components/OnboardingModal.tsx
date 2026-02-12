@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import Logo from './Logo';
 import AuthModalContent from './AuthModalContent';
-import { Check, Building2, Home, Briefcase, TrendingUp, Landmark, Cpu, ArrowRight, Globe, ArrowLeft, Brain } from 'lucide-react';
+import { Check, Building2, Home, Briefcase, TrendingUp, Landmark, Cpu, ArrowRight, Globe, ArrowLeft, Brain, Loader2 } from 'lucide-react';
+import type { User } from '@supabase/supabase-js';
 
 interface Interest {
   id: string;
@@ -35,15 +36,63 @@ const internationalRegions: Region[] = [
   { id: 'World', label: 'Mundo', description: 'Ásia, Oceania, consultorias globais', flag: '🌍' },
 ];
 
+// localStorage keys for onboarding persistence
+const STORAGE_KEYS = {
+  step: 'realia_onboarding_step',
+  interests: 'realia_onboarding_interests',
+  regions: 'realia_onboarding_regions',
+  international: 'realia_onboarding_international',
+};
+
+const readStorage = <T,>(key: string, fallback: T): T => {
+  try {
+    const val = localStorage.getItem(key);
+    return val ? JSON.parse(val) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const clearOnboardingStorage = () => {
+  Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
+};
+
 interface OnboardingModalProps {
   onComplete: (selectedInterests: string[], preferredRegions: string[]) => void;
+  user?: User | null;
+  authLoading?: boolean;
 }
 
-const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
-  const [step, setStep] = useState(0);
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [interestedInInternational, setInterestedInInternational] = useState<boolean | null>(null);
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete, user, authLoading }) => {
+  // Initialize from localStorage to survive OAuth redirects
+  const [step, setStep] = useState(() => readStorage(STORAGE_KEYS.step, 0));
+  const [selectedInterests, setSelectedInterests] = useState<string[]>(() => readStorage(STORAGE_KEYS.interests, []));
+  const [interestedInInternational, setInterestedInInternational] = useState<boolean | null>(() => readStorage(STORAGE_KEYS.international, null));
+  const [selectedRegions, setSelectedRegions] = useState<string[]>(() => readStorage(STORAGE_KEYS.regions, []));
+
+  // Persist step changes to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.step, JSON.stringify(step));
+  }, [step]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.interests, JSON.stringify(selectedInterests));
+  }, [selectedInterests]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.regions, JSON.stringify(selectedRegions));
+  }, [selectedRegions]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.international, JSON.stringify(interestedInInternational));
+  }, [interestedInInternational]);
+
+  // Auto-skip auth step if user is already logged in (e.g. after OAuth redirect)
+  useEffect(() => {
+    if (!authLoading && user && step === 1) {
+      setStep(2);
+    }
+  }, [authLoading, user, step]);
 
   const toggleInterest = (id: string) => {
     setSelectedInterests((prev) =>
@@ -63,31 +112,46 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
     } else {
       // Final step - complete onboarding
       const finalRegions = interestedInInternational ? ['Brazil', ...selectedRegions] : ['Brazil'];
+      clearOnboardingStorage();
       onComplete(selectedInterests, finalRegions);
     }
   };
 
   const handleBack = () => {
     if (step > 0) {
-      setStep(step - 1);
+      // If user is logged in, skip back past auth step
+      if (step === 2 && user) {
+        setStep(0);
+      } else {
+        setStep(step - 1);
+      }
     }
   };
 
   const handleAuthSuccess = () => {
-    // Move to next step after successful auth
     setStep(2);
   };
 
   const canProceed = () => {
     switch (step) {
-      case 0: return true; // Welcome step
-      case 1: return true; // Auth step (can skip)
-      case 2: return selectedInterests.length > 0; // Interests step
+      case 0: return true;
+      case 1: return true;
+      case 2: return selectedInterests.length > 0;
       case 3: return interestedInInternational !== null && 
-                     (!interestedInInternational || selectedRegions.length > 0); // Regions step
+                     (!interestedInInternational || selectedRegions.length > 0);
       default: return false;
     }
   };
+
+  // Show loading while auth is resolving (prevents flash)
+  if (authLoading) {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center">
+        <Logo size="xl" showText={false} className="justify-center mb-6" />
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   const renderStepIndicator = () => {
     if (step === 0) return null;
@@ -126,7 +190,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
         {renderStepIndicator()}
         
         {step === 0 && (
-          // Welcome Step
           <div className="text-center animate-fade-in max-w-md">
             <div className="mb-8">
               <Logo size="xl" showText={false} className="justify-center mb-6" />
@@ -163,7 +226,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
         )}
         
         {step === 1 && (
-          // Auth Step
           <div className="w-full max-w-md animate-fade-in">
             <div className="text-center mb-6">
               <Logo size="lg" showText={false} className="justify-center mb-4" />
@@ -183,7 +245,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
         )}
         
         {step === 2 && (
-          // Interests Step
           <div className="w-full max-w-md animate-fade-in">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-foreground mb-2">
@@ -226,7 +287,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
         )}
         
         {step === 3 && (
-          // International Preferences Step
           <div className="w-full max-w-md animate-fade-in">
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -240,7 +300,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
               </p>
             </div>
             
-            {/* Yes/No Selection */}
             <div className="grid grid-cols-2 gap-3 mb-6">
               <button
                 onClick={() => setInterestedInInternational(true)}
@@ -270,7 +329,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
               </button>
             </div>
             
-            {/* Region Selection (only if interested in international) */}
             {interestedInInternational && (
               <div className="animate-fade-in">
                 <h3 className="text-lg font-semibold text-foreground mb-4 text-center">

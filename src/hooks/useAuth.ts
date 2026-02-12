@@ -35,66 +35,75 @@ export const useAuth = () => {
           // Start profile loading
           setProfileLoading(true);
           
-          // Fetch profile
-          const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
-          
-          if (!isMounted) return;
-          
-          if (data) {
-            const profileData: Profile = {
-              ...data,
-              interests: Array.isArray(data.interests) ? data.interests as string[] : [],
-              blocked_sources: Array.isArray(data.blocked_sources) ? data.blocked_sources as string[] : [],
-              preferred_regions: Array.isArray(data.preferred_regions) ? data.preferred_regions as string[] : ['Brazil'],
-            };
+          try {
+            // Fetch profile
+            const { data, error: fetchError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
             
-            // Sync localStorage preferences on login
-            if (event === 'SIGNED_IN') {
-              const storedInterests = localStorage.getItem('realia_interests');
-              const storedRegions = localStorage.getItem('realia_preferred_regions');
-              
-              const updates: Partial<Profile> = {};
-              
-              // Only sync if profile has default/empty values and localStorage has data
-              if (storedInterests) {
-                const parsedInterests = JSON.parse(storedInterests) as string[];
-                if (parsedInterests.length > 0 && profileData.interests.length === 0) {
-                  updates.interests = parsedInterests;
-                  profileData.interests = parsedInterests;
-                }
-                localStorage.removeItem('realia_interests');
-              }
-              
-              if (storedRegions) {
-                const parsedRegions = JSON.parse(storedRegions) as string[];
-                // Sync if profile only has default Brazil and localStorage has more
-                if (parsedRegions.length > 0 && 
-                    (profileData.preferred_regions.length === 0 || 
-                     (profileData.preferred_regions.length === 1 && profileData.preferred_regions[0] === 'Brazil'))) {
-                  updates.preferred_regions = parsedRegions;
-                  profileData.preferred_regions = parsedRegions;
-                }
-                localStorage.removeItem('realia_preferred_regions');
-              }
-              
-              // Update profile in database if there are changes
-              if (Object.keys(updates).length > 0) {
-                await supabase
-                  .from('profiles')
-                  .update(updates)
-                  .eq('user_id', session.user.id);
-              }
+            if (fetchError) {
+              console.error('Error fetching profile:', fetchError);
             }
             
-            setProfile(profileData);
-          }
-          
-          if (isMounted) {
-            setProfileLoading(false);
+            if (!isMounted) return;
+            
+            if (data) {
+              const profileData: Profile = {
+                ...data,
+                interests: Array.isArray(data.interests) ? data.interests as string[] : [],
+                blocked_sources: Array.isArray(data.blocked_sources) ? data.blocked_sources as string[] : [],
+                preferred_regions: Array.isArray(data.preferred_regions) ? data.preferred_regions as string[] : ['Brazil'],
+              };
+              
+              // Sync localStorage preferences on login
+              if (event === 'SIGNED_IN') {
+                const storedInterests = localStorage.getItem('realia_interests');
+                const storedRegions = localStorage.getItem('realia_preferred_regions');
+                
+                const updates: Partial<Profile> = {};
+                
+                if (storedInterests) {
+                  try {
+                    const parsedInterests = JSON.parse(storedInterests) as string[];
+                    if (parsedInterests.length > 0 && profileData.interests.length === 0) {
+                      updates.interests = parsedInterests;
+                      profileData.interests = parsedInterests;
+                    }
+                  } catch { /* ignore parse error */ }
+                  localStorage.removeItem('realia_interests');
+                }
+                
+                if (storedRegions) {
+                  try {
+                    const parsedRegions = JSON.parse(storedRegions) as string[];
+                    if (parsedRegions.length > 0 && 
+                        (profileData.preferred_regions.length === 0 || 
+                         (profileData.preferred_regions.length === 1 && profileData.preferred_regions[0] === 'Brazil'))) {
+                      updates.preferred_regions = parsedRegions;
+                      profileData.preferred_regions = parsedRegions;
+                    }
+                  } catch { /* ignore parse error */ }
+                  localStorage.removeItem('realia_preferred_regions');
+                }
+                
+                if (Object.keys(updates).length > 0) {
+                  await supabase
+                    .from('profiles')
+                    .update(updates)
+                    .eq('user_id', session.user.id);
+                }
+              }
+              
+              setProfile(profileData);
+            }
+          } catch (err) {
+            console.error('Unexpected error fetching profile:', err);
+          } finally {
+            if (isMounted) {
+              setProfileLoading(false);
+            }
           }
         } else {
           setProfile(null);
@@ -194,6 +203,7 @@ export const useAuth = () => {
     user,
     profile,
     loading,
+    authLoading,
     signUp,
     signIn,
     signOut,
