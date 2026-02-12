@@ -13,7 +13,7 @@ interface BottomNavProps {
 }
 
 const navItems: NavItem[] = [
-  { id: 'atelier', label: 'Atelier', icon: <Home className="w-5 h-5" /> },
+  { id: 'mercado', label: 'Mercado', icon: <Home className="w-5 h-5" /> },
   { id: 'explorar', label: 'Explorar', icon: <Compass className="w-5 h-5" /> },
   { id: 'academia', label: 'Academia', icon: <GraduationCap className="w-5 h-5" /> },
   { id: 'comunidade', label: 'Comunidade', icon: <Users className="w-5 h-5" /> },

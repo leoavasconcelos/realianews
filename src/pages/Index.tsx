@@ -21,7 +21,7 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [activeTab, setActiveTab] = useState('atelier');
+  const [activeTab, setActiveTab] = useState('mercado');
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
@@ -192,26 +192,22 @@ const Index = () => {
   // Render content based on active tab
   const renderContent = () => {
     switch (activeTab) {
-      case 'atelier':
+      case 'mercado':
         return (
           <div className="flex flex-col min-h-screen pb-20">
             <FeedHeader />
             
             {/* Filters */}
-            <div className="px-4 py-3 border-b border-border bg-background/50 backdrop-blur-sm sticky top-[57px] z-30">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 overflow-hidden">
-                  <FilterPills
-                    filters={filters}
-                    activeFilter={activeFilter}
-                    onFilterChange={setActiveFilter}
-                  />
-                </div>
-                <RegionFilter 
-                  activeRegion={activeRegion} 
-                  onRegionChange={setActiveRegion} 
-                />
-              </div>
+            <div className="px-4 py-3 border-b border-border bg-background/50 backdrop-blur-sm sticky top-[57px] z-30 space-y-2">
+              <RegionFilter 
+                activeRegion={activeRegion} 
+                onRegionChange={setActiveRegion} 
+              />
+              <FilterPills
+                filters={filters}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+              />
             </div>
             
             {/* News Feed */}
