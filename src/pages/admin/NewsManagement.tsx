@@ -27,7 +27,11 @@ import {
   Trash2, 
   TrendingUp, 
   Loader2,
-  Edit
+  Edit,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -45,29 +49,44 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const REGIONS = ['All', 'Brazil', 'USA', 'Europe', 'Asia', 'Global'];
+const PAGE_SIZE = 20;
 
 export const NewsManagement = () => {
   const [search, setSearch] = useState('');
   const [regionFilter, setRegionFilter] = useState('All');
   const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
   const queryClient = useQueryClient();
 
-  const { data: news, isLoading } = useQuery({
-    queryKey: ['admin-news', regionFilter],
+  // Reset page when filters change
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(0);
+  };
+  const handleRegionChange = (value: string) => {
+    setRegionFilter(value);
+    setPage(0);
+  };
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-news', regionFilter, search, page],
     queryFn: async () => {
       let query = supabase
         .from('news')
-        .select('*, sources(name)')
+        .select('*, sources(name)', { count: 'exact' })
         .order('published_at', { ascending: false })
-        .limit(100);
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
       if (regionFilter !== 'All') {
         query = query.eq('region', regionFilter);
       }
+      if (search.trim()) {
+        query = query.ilike('title', `%${search.trim()}%`);
+      }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data;
+      return { items: data, totalCount: count || 0 };
     },
   });
 
@@ -102,15 +121,15 @@ export const NewsManagement = () => {
     },
   });
 
-  const filteredNews = news?.filter(item =>
-    item.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const news = data?.items;
+  const totalCount = data?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Gerenciar Notícias</h1>
-        <Badge variant="secondary">{filteredNews?.length || 0} notícias</Badge>
+        <Badge variant="secondary">{totalCount} notícias</Badge>
       </div>
 
       {/* Filters */}
@@ -122,11 +141,11 @@ export const NewsManagement = () => {
               <Input
                 placeholder="Buscar por título..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Select value={regionFilter} onValueChange={setRegionFilter}>
+            <Select value={regionFilter} onValueChange={handleRegionChange}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Região" />
               </SelectTrigger>
@@ -162,7 +181,7 @@ export const NewsManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredNews?.map((item) => (
+                {news?.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">
                       <p className="line-clamp-2">{item.title}</p>
@@ -242,7 +261,7 @@ export const NewsManagement = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {filteredNews?.length === 0 && (
+                {news?.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                       Nenhuma notícia encontrada
@@ -254,6 +273,49 @@ export const NewsManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Página {page + 1} de {totalPages} ({totalCount} resultados)
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setPage(0)}
+              disabled={page === 0}
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setPage(p => p - 1)}
+              disabled={page === 0}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setPage(p => p + 1)}
+              disabled={page >= totalPages - 1}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setPage(totalPages - 1)}
+              disabled={page >= totalPages - 1}
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       <NewsEditModal
