@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { NewsEditModal } from '@/components/admin/NewsEditModal';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,7 @@ const REGIONS = ['All', 'Brazil', 'USA', 'Europe', 'Asia', 'Global'];
 export const NewsManagement = () => {
   const [search, setSearch] = useState('');
   const [regionFilter, setRegionFilter] = useState('All');
+  const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: news, isLoading } = useQuery({
@@ -187,6 +189,14 @@ export const NewsManagement = () => {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => setEditingNewsId(item.id)}
+                          title="Editar notícia"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => toggleTrendingMutation.mutate({ 
                             id: item.id, 
                             isTrending: item.is_trending 
@@ -244,6 +254,13 @@ export const NewsManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Modal */}
+      <NewsEditModal
+        newsId={editingNewsId}
+        open={!!editingNewsId}
+        onOpenChange={(open) => { if (!open) setEditingNewsId(null); }}
+      />
     </div>
   );
 };
