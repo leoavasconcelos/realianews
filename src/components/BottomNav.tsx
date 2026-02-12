@@ -22,7 +22,9 @@ const navItems: NavItem[] = [
 
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg z-50">
+      {/* Accent gradient line at top */}
+      <div className="accent-line" />
       <div className="max-w-lg mx-auto">
         <div className="flex items-center justify-around py-2 px-2">
           {navItems.map((item) => (
@@ -36,7 +38,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
               </div>
               <span className="text-[10px] font-medium">{item.label}</span>
               {activeTab === item.id && (
-                <div className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-primary" />
+                <div className="absolute -bottom-0.5 w-4 h-0.5 rounded-full bg-accent" />
               )}
             </button>
           ))}
