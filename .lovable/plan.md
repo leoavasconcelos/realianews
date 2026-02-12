@@ -1,82 +1,84 @@
 
-# Fix: Verificar Preferências Salvas no Banco para Evitar Reexibição do Onboarding
+# Redesign Premium da Tela de Entrada e Interface do REalia
 
-## Problema Identificado
+## Diagnostico
 
-Quando um usuário autenticado faz login, o `Index.tsx` mostra o modal de onboarding novamente mesmo que ele já tenha completado o fluxo antes. Isso ocorre porque:
+A tela de entrada (Step 0 do OnboardingModal) e a interface geral do app estao com visual generico e simplorio:
+- Fundo totalmente branco sem profundidade
+- Logo pequena e sem destaque
+- Elementos de apresentacao (Feed Personalizado, Resumos Inteligentes) parecem cards basicos
+- Sem uso efetivo das cores da marca (Navy, Teal, Burnt Orange)
+- Falta textura metalica e sensacao premium definidas no manual
 
-1. A decisão de mostrar o onboarding (linha 21-23 em `Index.tsx`) se baseia **apenas** na flag `realia_onboarding_complete` no localStorage
-2. O perfil do usuário (com interesses e regiões salvos) é carregado depois do componente renderizar
-3. Não há sincronização entre o estado do perfil carregado e a decisão de mostrar/esconder o onboarding
+## Mudancas Propostas
 
-## Solução
+### 1. Tela de Boas-Vindas (OnboardingModal - Step 0) - Redesign Completo
 
-Modificar `Index.tsx` para considerar dois cenários ao decidir se deve mostrar o onboarding:
+**Antes:** Fundo branco liso, logo pequena, cards simples
+**Depois:** Tela de impacto com gradiente hero, logo grande e prominente, tipografia elegante
 
-### 1. Usuário NÃO autenticado
-- Mostrar onboarding se `realia_onboarding_complete` não existe no localStorage
-- Este é o cenário atual
+- Fundo com gradiente Navy-to-Teal sutil no topo (hero section), transicionando para branco
+- Logo em tamanho XL centralizada com efeito de brilho metalico
+- Nome "REalia" em tamanho grande com texto-gradient (navy-teal)
+- Subtitulo "Inteligencia Imobiliaria" com tracking largo e estilo editorial
+- Cards de feature com bordas sutis, icones coloridos maiores e fundo com leve gradiente
+- Adicionar um terceiro card de feature: "Cobertura Global" com icone Globe
+- Botao "Comecar" com gradiente hero mais pronunciado e sombra elegante
 
-### 2. Usuário JÁ autenticado (está fazendo login)
-- Verificar se `profile.interests.length > 0`
-- Se há interesses salvos no banco, **NÃO mostrar** o modal (o usuário já completou o onboarding)
-- Se `profile.interests.length === 0`, **mostrar** o modal (primeira vez ou interesses nunca foram preenchidos)
+### 2. Tela de Autenticacao (OnboardingModal - Step 1)
 
-### Lógica de Renderização
+- Adicionar faixa de gradiente hero no topo da tela
+- Logo com destaque maior
+- Tipografia mais refinada
 
-```
-showOnboarding = (
-  // Não completou no localStorage
-  !localStorage.getItem('realia_onboarding_complete') 
-  // E está desautenticado OU (está autenticado E não tem interesses salvos)
-  && (!user || (user && profile?.interests?.length === 0))
-)
-```
+### 3. Telas de Interesses e Regioes (Steps 2 e 3)
 
-## Mudanças Necessárias
+- Manter layout atual funcional
+- Melhorar step indicator com cores da marca
+- Cards de selecao com hover mais sofisticado (sombra card-hover)
 
-### Arquivo: `src/pages/Index.tsx`
+### 4. FeedHeader - Mais Premium
 
-**Linha 21-23 (Estado inicial do showOnboarding):**
-- Mudar de: `!localStorage.getItem('realia_onboarding_complete')`
-- Para: Considerar também se o usuário tem `profile.interests` salvos
+- Adicionar linha fina de gradiente hero abaixo do header (accent line)
+- Logo com texto-gradient no nome "REalia"
 
-**Após a inicialização de `useAuth` (novo useEffect):**
-- Adicionar lógica que atualiza `showOnboarding` quando:
-  - O `authLoading` termina (sabemos se há usuário autenticado)
-  - E o perfil foi carregado (sabemos se há interesses salvos)
-- Se usuário autenticado com interesses salvos → `setShowOnboarding(false)`
-- Isso garante que ao fazer login, o modal fechará automaticamente quando o perfil carregar
+### 5. BottomNav - Acabamento Refinado
 
-## Fluxo Corrigido
+- Indicador ativo com cor accent (burnt-orange) em vez de dot simples
+- Barra superior com linha fina de gradiente
 
-**Cenário 1: Novo usuário (sem login)**
-```
-1. App abre → authLoading = true → showOnboarding = false (não renderiza ainda)
-2. Auth resolve → user = null → showOnboarding = true (renderiza modal)
-3. Usuário faz signup/login → volta para step 1 (auth) do modal
-```
+### 6. NewsCard - Elevacao Visual
 
-**Cenário 2: Usuário retornando (já tem preferências salvas)**
-```
-1. App abre → authLoading = true → showOnboarding = false (não renderiza ainda)
-2. Auth resolve → user existe → profileLoading = true
-3. Perfil carrega → profile.interests = ['residencial', 'comercial'] 
-4. showOnboarding = false → modal não aparece
-5. Usuário vê o feed com suas preferências
-```
-
-**Cenário 3: Usuário criou conta mas nunca completou onboarding**
-```
-1. App abre → auth resolve → user existe
-2. Perfil carrega → profile.interests = [] (vazio)
-3. showOnboarding = true → modal aparece no step 2 (já autenticado, pula auth)
-4. Usuário completa interesses → atualiza no banco
-```
+- Sombra mais pronunciada
+- Borda sutil na parte superior com cor accent
 
 ## Arquivos a Modificar
 
-| Arquivo | Mudança |
+| Arquivo | Mudanca |
 |---------|---------|
-| `src/pages/Index.tsx` | Atualizar lógica de `showOnboarding` para considerar `profile.interests` do banco |
+| `src/components/OnboardingModal.tsx` | Redesign completo do Step 0 com gradiente hero, logo grande, cards premium. Steps 1-3 com acabamento visual melhorado |
+| `src/components/Logo.tsx` | Adicionar variante com texto-gradient para uso no header |
+| `src/components/FeedHeader.tsx` | Adicionar accent line com gradiente, logo com texto-gradient |
+| `src/components/BottomNav.tsx` | Indicador ativo mais sofisticado com accent bar |
+| `src/components/NewsCard.tsx` | Sombra e bordas mais refinadas |
+| `src/index.css` | Adicionar classes utilitarias para novos efeitos visuais (glassmorphism, accent-line) |
 
+## Detalhes Tecnicos
+
+### Paleta em uso (ja definida no CSS):
+- **Navy:** `hsl(213 52% 24%)` - cor primaria dominante
+- **Teal:** `hsl(173 58% 39%)` - cor de apoio
+- **Burnt Orange:** `hsl(21 90% 48%)` - accent para CTAs e destaques
+- **Graphite:** `hsl(220 14% 35%)` - textos secundarios
+- **Gradiente Hero:** Navy -> Navy-light -> Teal (ja existe como `--gradient-hero`)
+
+### Novos efeitos CSS:
+- `.glass-card` - efeito glassmorphism para cards sobre gradiente
+- `.accent-line` - linha fina de 2px com gradiente hero
+- `.text-gradient-brand` - texto com gradiente para o nome REalia
+- Ajuste no `.metallic-texture` para maior subtileza
+
+### Componentes que nao serao alterados:
+- `ExploreScreen.tsx` - mantem layout atual
+- `ProfileScreen.tsx` - mantem layout atual  
+- `AuthModalContent.tsx` - mantem formulario atual (apenas wrapper visual muda)
