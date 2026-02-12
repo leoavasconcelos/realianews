@@ -319,6 +319,10 @@ const generateEmailHtml = (
   `;
 };
 
+// Rate limiting: 1 request per 10 minutes per user
+const rateLimitMap = new Map<string, number>();
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -350,6 +354,18 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const userId = claimsData.claims.sub as string;
+
+    // Rate limit check
+    const now = Date.now();
+    const lastCall = rateLimitMap.get(userId);
+    if (lastCall && now - lastCall < RATE_LIMIT_WINDOW_MS) {
+      const retryAfter = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastCall)) / 1000);
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) } }
+      );
+    }
+    rateLimitMap.set(userId, now);
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {

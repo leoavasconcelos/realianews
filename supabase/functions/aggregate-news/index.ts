@@ -477,6 +477,10 @@ function detectTopics(title: string, description: string): string[] {
   return topics.slice(0, 3);
 }
 
+// Rate limiting: 1 request per 5 minutes per user
+const rateLimitMap = new Map<string, number>();
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -508,6 +512,18 @@ serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub as string;
+
+    // Rate limit check
+    const now = Date.now();
+    const lastCall = rateLimitMap.get(userId);
+    if (lastCall && now - lastCall < RATE_LIMIT_WINDOW_MS) {
+      const retryAfter = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastCall)) / 1000);
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) } }
+      );
+    }
+    rateLimitMap.set(userId, now);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
