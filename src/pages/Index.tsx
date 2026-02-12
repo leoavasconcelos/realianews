@@ -18,9 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    return !localStorage.getItem('realia_onboarding_complete');
-  });
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [activeTab, setActiveTab] = useState('atelier');
@@ -28,6 +26,34 @@ const Index = () => {
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const { user, profile, loading: authLoading, authLoading: rawAuthLoading, updateProfile } = useAuth();
+
+  // Determine onboarding visibility based on localStorage + profile data
+  useEffect(() => {
+    if (authLoading) return; // Wait for auth to resolve
+    
+    const localStorageComplete = localStorage.getItem('realia_onboarding_complete');
+    
+    if (localStorageComplete) {
+      setShowOnboarding(false);
+      return;
+    }
+    
+    // No localStorage flag - check if user has interests saved in DB
+    if (user && profile) {
+      // Profile loaded: check interests
+      if (profile.interests && profile.interests.length > 0) {
+        // User already completed onboarding before, mark localStorage and skip
+        localStorage.setItem('realia_onboarding_complete', 'true');
+        setShowOnboarding(false);
+      } else {
+        setShowOnboarding(true);
+      }
+    } else if (!user) {
+      // No user, no localStorage flag → show onboarding
+      setShowOnboarding(true);
+    }
+    // If user exists but profile is still null (loading), wait
+  }, [authLoading, user, profile]);
 
   // Auto-close auth modal when user is authenticated
   useEffect(() => {
