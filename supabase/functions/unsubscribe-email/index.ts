@@ -6,7 +6,56 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// --- Input Validation Utilities ---
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateToken(value: string | null): string {
+  if (!value || typeof value !== "string") {
+    throw new Error("INVALID_TOKEN");
+  }
+  const trimmed = value.trim();
+  if (trimmed.length < 10 || trimmed.length > 500) {
+    throw new Error("INVALID_TOKEN");
+  }
+  // Only allow base64 characters
+  if (!/^[A-Za-z0-9+/=\-_]+$/.test(trimmed)) {
+    throw new Error("INVALID_TOKEN");
+  }
+  return trimmed;
+}
+
+function validateDecodedUUID(value: string): string {
+  if (!UUID_REGEX.test(value)) {
+    throw new Error("INVALID_TOKEN");
+  }
+  return value;
+}
+
+function validateAppUrl(value: string | null, fallback: string): string {
+  if (!value || typeof value !== "string") {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > 500) {
+    return fallback;
+  }
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return fallback;
+    }
+    return trimmed;
+  } catch {
+    return fallback;
+  }
+}
+
+// --- HTML Templates ---
+
 const generateSuccessHtml = (appUrl: string): string => {
+  // Escape appUrl to prevent XSS
+  const safeUrl = appUrl.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   return `
 <!DOCTYPE html>
 <html>
@@ -16,75 +65,35 @@ const generateSuccessHtml = (appUrl: string): string => {
   <title>Inscrição Cancelada - REalia</title>
   <style>
     body {
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      margin: 0; padding: 0; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
       background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     }
     .container {
-      background: white;
-      padding: 48px;
-      border-radius: 20px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-      text-align: center;
-      max-width: 420px;
-      margin: 20px;
+      background: white; padding: 48px; border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center;
+      max-width: 420px; margin: 20px;
     }
     .icon {
-      width: 80px;
-      height: 80px;
+      width: 80px; height: 80px;
       background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
       margin: 0 auto 24px;
     }
-    .icon svg {
-      width: 40px;
-      height: 40px;
-      color: white;
-    }
-    h1 {
-      margin: 0 0 12px;
-      font-size: 24px;
-      font-weight: 700;
-      color: #111827;
-    }
-    p {
-      margin: 0 0 24px;
-      font-size: 15px;
-      color: #6b7280;
-      line-height: 1.6;
-    }
+    .icon svg { width: 40px; height: 40px; color: white; }
+    h1 { margin: 0 0 12px; font-size: 24px; font-weight: 700; color: #111827; }
+    p { margin: 0 0 24px; font-size: 15px; color: #6b7280; line-height: 1.6; }
     .btn {
       display: inline-block;
       background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-      color: white;
-      font-size: 15px;
-      font-weight: 600;
-      padding: 14px 28px;
-      border-radius: 10px;
-      text-decoration: none;
+      color: white; font-size: 15px; font-weight: 600;
+      padding: 14px 28px; border-radius: 10px; text-decoration: none;
       transition: transform 0.2s, box-shadow 0.2s;
     }
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
-    }
-    .footer {
-      margin-top: 24px;
-      font-size: 13px;
-      color: #9ca3af;
-    }
-    .footer a {
-      color: #7c3aed;
-      text-decoration: underline;
-    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4); }
+    .footer { margin-top: 24px; font-size: 13px; color: #9ca3af; }
+    .footer a { color: #7c3aed; text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -99,9 +108,9 @@ const generateSuccessHtml = (appUrl: string): string => {
       Você não receberá mais o resumo diário por e-mail. 
       Caso mude de ideia, você pode reativar nas configurações do seu perfil.
     </p>
-    <a href="${appUrl}" class="btn">Voltar ao REalia</a>
+    <a href="${safeUrl}" class="btn">Voltar ao REalia</a>
     <div class="footer">
-      Mudou de ideia? <a href="${appUrl}">Reative as notificações</a>
+      Mudou de ideia? <a href="${safeUrl}">Reative as notificações</a>
     </div>
   </div>
 </body>
@@ -110,6 +119,8 @@ const generateSuccessHtml = (appUrl: string): string => {
 };
 
 const generateErrorHtml = (appUrl: string, message: string): string => {
+  const safeUrl = appUrl.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const safeMessage = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   return `
 <!DOCTYPE html>
 <html>
@@ -119,60 +130,28 @@ const generateErrorHtml = (appUrl: string, message: string): string => {
   <title>Erro - REalia</title>
   <style>
     body {
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      margin: 0; padding: 0; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
       background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     }
     .container {
-      background: white;
-      padding: 48px;
-      border-radius: 20px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-      text-align: center;
-      max-width: 420px;
-      margin: 20px;
+      background: white; padding: 48px; border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center;
+      max-width: 420px; margin: 20px;
     }
     .icon {
-      width: 80px;
-      height: 80px;
-      background: #fee2e2;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 24px;
+      width: 80px; height: 80px; background: #fee2e2; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;
     }
-    .icon svg {
-      width: 40px;
-      height: 40px;
-      color: #dc2626;
-    }
-    h1 {
-      margin: 0 0 12px;
-      font-size: 24px;
-      font-weight: 700;
-      color: #111827;
-    }
-    p {
-      margin: 0 0 24px;
-      font-size: 15px;
-      color: #6b7280;
-      line-height: 1.6;
-    }
+    .icon svg { width: 40px; height: 40px; color: #dc2626; }
+    h1 { margin: 0 0 12px; font-size: 24px; font-weight: 700; color: #111827; }
+    p { margin: 0 0 24px; font-size: 15px; color: #6b7280; line-height: 1.6; }
     .btn {
       display: inline-block;
       background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-      color: white;
-      font-size: 15px;
-      font-weight: 600;
-      padding: 14px 28px;
-      border-radius: 10px;
-      text-decoration: none;
+      color: white; font-size: 15px; font-weight: 600;
+      padding: 14px 28px; border-radius: 10px; text-decoration: none;
     }
   </style>
 </head>
@@ -184,13 +163,17 @@ const generateErrorHtml = (appUrl: string, message: string): string => {
       </svg>
     </div>
     <h1>Algo deu errado</h1>
-    <p>${message}</p>
-    <a href="${appUrl}" class="btn">Voltar ao REalia</a>
+    <p>${safeMessage}</p>
+    <a href="${safeUrl}" class="btn">Voltar ao REalia</a>
   </div>
 </body>
 </html>
   `;
 };
+
+// --- Main Handler ---
+
+const DEFAULT_APP_URL = "https://realia.app";
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -199,30 +182,29 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const url = new URL(req.url);
-    const token = url.searchParams.get("token");
-    const appUrl = url.searchParams.get("app") || "https://realia.app";
+    const rawToken = url.searchParams.get("token");
+    const appUrl = validateAppUrl(url.searchParams.get("app"), DEFAULT_APP_URL);
 
-    if (!token) {
+    // Validate token format
+    let validToken: string;
+    try {
+      validToken = validateToken(rawToken);
+    } catch {
       return new Response(
         generateErrorHtml(appUrl, "Link de cancelamento inválido ou expirado. Por favor, acesse seu perfil para gerenciar suas preferências."),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } 
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } }
       );
     }
 
-    // Decode token (base64 encoded user_id)
+    // Decode token (base64 encoded user_id) and validate UUID
     let userId: string;
     try {
-      userId = atob(token);
+      const decoded = atob(validToken);
+      userId = validateDecodedUUID(decoded);
     } catch {
       return new Response(
         generateErrorHtml(appUrl, "Link de cancelamento inválido. Por favor, acesse seu perfil para gerenciar suas preferências."),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } 
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } }
       );
     }
 
@@ -230,7 +212,6 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Update user profile to disable email notifications
     const { error: updateError } = await supabase
       .from("profiles")
       .update({ email_notifications_enabled: false })
@@ -240,10 +221,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Error updating profile:", updateError);
       return new Response(
         generateErrorHtml(appUrl, "Não foi possível processar o cancelamento. Por favor, tente novamente ou acesse seu perfil."),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } 
-        }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } }
       );
     }
 
@@ -251,19 +229,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     return new Response(
       generateSuccessHtml(appUrl),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } 
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } }
     );
   } catch (error) {
     console.error("Unsubscribe error:", error);
     return new Response(
-      generateErrorHtml("https://realia.app", "Ocorreu um erro inesperado. Por favor, tente novamente."),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } 
-      }
+      generateErrorHtml(DEFAULT_APP_URL, "Ocorreu um erro inesperado. Por favor, tente novamente."),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" } }
     );
   }
 };
