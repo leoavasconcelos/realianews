@@ -202,7 +202,6 @@ const Index = () => {
               <RegionFilter 
                 activeRegion={activeRegion} 
                 onRegionChange={setActiveRegion}
-                activeFilter={activeFilter}
               />
               <FilterPills
                 filters={filters}
