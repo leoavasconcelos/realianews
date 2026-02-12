@@ -1,60 +1,82 @@
 
-# Correcao: Preferencias, Login Google e Travamento
+# Fix: Verificar Preferências Salvas no Banco para Evitar Reexibição do Onboarding
 
-## Problemas Identificados
+## Problema Identificado
 
-1. **Login Google quebra o onboarding**: O redirect OAuth recarrega a pagina, resetando todo o estado React do OnboardingModal (step volta a 0, selecoes perdidas).
-2. **Preferencias nao salvam**: O onboarding reinicia apos redirect, impedindo que o usuario chegue ao passo final onde `onComplete` salva no banco.
-3. **Travamento apos login**: O onboarding renderiza antes de `authLoading` resolver, causando flash e possiveis loops.
-4. **Erros ao editar interesses/regioes no perfil**: ProfileScreen chama `useAuth()` na linha 88, criando uma segunda instancia do hook com estado proprio. O `updateProfile` dessa instancia nao atualiza o `profile` do Index.
+Quando um usuário autenticado faz login, o `Index.tsx` mostra o modal de onboarding novamente mesmo que ele já tenha completado o fluxo antes. Isso ocorre porque:
 
-## Solucao
+1. A decisão de mostrar o onboarding (linha 21-23 em `Index.tsx`) se baseia **apenas** na flag `realia_onboarding_complete` no localStorage
+2. O perfil do usuário (com interesses e regiões salvos) é carregado depois do componente renderizar
+3. Não há sincronização entre o estado do perfil carregado e a decisão de mostrar/esconder o onboarding
 
-### 1. OnboardingModal: persistir estado no localStorage
+## Solução
 
-- Salvar `realia_onboarding_step`, `realia_onboarding_interests`, `realia_onboarding_regions` no localStorage
-- Inicializar estado a partir do localStorage ao montar
-- Receber `user` e `authLoading` como props
-- Quando monta com usuario ja logado, pular automaticamente step 1 (auth) para step 2 (interesses)
-- Limpar chaves temporarias ao completar onboarding
+Modificar `Index.tsx` para considerar dois cenários ao decidir se deve mostrar o onboarding:
 
-### 2. Index.tsx: sincronizar onboarding com auth
+### 1. Usuário NÃO autenticado
+- Mostrar onboarding se `realia_onboarding_complete` não existe no localStorage
+- Este é o cenário atual
 
-- NAO renderizar OnboardingModal enquanto `authLoading === true`
-- Passar `user` e `authLoading` como props para OnboardingModal
-- Passar `updateProfile` como prop para ProfileScreen
+### 2. Usuário JÁ autenticado (está fazendo login)
+- Verificar se `profile.interests.length > 0`
+- Se há interesses salvos no banco, **NÃO mostrar** o modal (o usuário já completou o onboarding)
+- Se `profile.interests.length === 0`, **mostrar** o modal (primeira vez ou interesses nunca foram preenchidos)
 
-### 3. ProfileScreen: eliminar instancia duplicada do useAuth
+### Lógica de Renderização
 
-- Receber `updateProfile` como prop do Index
-- Remover chamada `useAuth()` para `updateProfile` (manter apenas `signOut`)
-- Isso garante que salvar interesses/regioes atualiza o estado na instancia correta
+```
+showOnboarding = (
+  // Não completou no localStorage
+  !localStorage.getItem('realia_onboarding_complete') 
+  // E está desautenticado OU (está autenticado E não tem interesses salvos)
+  && (!user || (user && profile?.interests?.length === 0))
+)
+```
 
-### 4. useAuth: tratamento de erro robusto
+## Mudanças Necessárias
 
-- Envolver fetch do profile em try/catch
-- Garantir que `authLoading` e `profileLoading` sempre resolvam para `false`, mesmo em caso de erro
+### Arquivo: `src/pages/Index.tsx`
+
+**Linha 21-23 (Estado inicial do showOnboarding):**
+- Mudar de: `!localStorage.getItem('realia_onboarding_complete')`
+- Para: Considerar também se o usuário tem `profile.interests` salvos
+
+**Após a inicialização de `useAuth` (novo useEffect):**
+- Adicionar lógica que atualiza `showOnboarding` quando:
+  - O `authLoading` termina (sabemos se há usuário autenticado)
+  - E o perfil foi carregado (sabemos se há interesses salvos)
+- Se usuário autenticado com interesses salvos → `setShowOnboarding(false)`
+- Isso garante que ao fazer login, o modal fechará automaticamente quando o perfil carregar
+
+## Fluxo Corrigido
+
+**Cenário 1: Novo usuário (sem login)**
+```
+1. App abre → authLoading = true → showOnboarding = false (não renderiza ainda)
+2. Auth resolve → user = null → showOnboarding = true (renderiza modal)
+3. Usuário faz signup/login → volta para step 1 (auth) do modal
+```
+
+**Cenário 2: Usuário retornando (já tem preferências salvas)**
+```
+1. App abre → authLoading = true → showOnboarding = false (não renderiza ainda)
+2. Auth resolve → user existe → profileLoading = true
+3. Perfil carrega → profile.interests = ['residencial', 'comercial'] 
+4. showOnboarding = false → modal não aparece
+5. Usuário vê o feed com suas preferências
+```
+
+**Cenário 3: Usuário criou conta mas nunca completou onboarding**
+```
+1. App abre → auth resolve → user existe
+2. Perfil carrega → profile.interests = [] (vazio)
+3. showOnboarding = true → modal aparece no step 2 (já autenticado, pula auth)
+4. Usuário completa interesses → atualiza no banco
+```
 
 ## Arquivos a Modificar
 
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---------|---------|
-| `src/components/OnboardingModal.tsx` | Adicionar props user/authLoading, persistir estado no localStorage, pular step de auth se ja logado |
-| `src/pages/Index.tsx` | Condicionar renderizacao do onboarding a `!authLoading`, passar props ao OnboardingModal e ProfileScreen |
-| `src/components/ProfileScreen.tsx` | Receber `updateProfile` como prop, remover do useAuth interno |
-| `src/hooks/useAuth.ts` | Adicionar try/catch no fetch do profile |
+| `src/pages/Index.tsx` | Atualizar lógica de `showOnboarding` para considerar `profile.interests` do banco |
 
-## Fluxo Corrigido (Login Google no Onboarding)
-
-```text
-1. Usuario abre app -> authLoading = true -> onboarding NAO renderiza
-2. Auth resolve -> sem usuario -> onboarding renderiza no step 0
-3. Usuario avanca -> step 1 (auth) -> clica Google
-4. Estado salvo: step=1 no localStorage
-5. Redirect OAuth -> pagina recarrega completamente
-6. App monta -> authLoading = true -> onboarding NAO renderiza
-7. Auth resolve -> usuario existe -> onboarding le step do localStorage
-8. Como usuario ja esta logado, pula step 1 -> vai para step 2 (interesses)
-9. Usuario seleciona interesses -> step 3 (regioes)
-10. Conclui -> salva no banco -> limpa localStorage temporario
-```
