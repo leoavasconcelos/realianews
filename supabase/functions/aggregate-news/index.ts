@@ -3,8 +3,28 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// URL validation helper
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return ['http:', 'https:'].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+// Text sanitization helper
+function sanitizeText(text: string, maxLength: number): string {
+  return text
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .trim()
+    .substring(0, maxLength);
+}
 
 // RSS feed sources for Brazilian real estate news
 const RSS_FEEDS = [
@@ -343,7 +363,7 @@ function parseRSS(xmlText: string): ParsedArticle[] {
       articles.push({
         title,
         link,
-        description: description.replace(/<[^>]*>/g, '').substring(0, 500),
+        description: sanitizeText(description, 500),
         pubDate,
         imageUrl,
       });
@@ -463,15 +483,58 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication + admin check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claimsData.claims.sub as string;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!LOVABLE_API_KEY || !supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing required environment variables");
+      console.error("Missing required environment variables");
+      return new Response(
+        JSON.stringify({ error: "Service configuration error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check admin/moderator role
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .in("role", ["admin", "moderator"]);
+
+    if (!roleData || roleData.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Get source IDs from database
     const { data: sources } = await supabase
@@ -544,14 +607,22 @@ serve(async (req) => {
             }
           }
 
-          // Insert new article
+          // Validate URLs before insertion
+          if (!isValidUrl(article.link)) {
+            console.log(`Skipping article with invalid URL: ${article.link?.substring(0, 50)}`);
+            continue;
+          }
+
+          const validImageUrl = article.imageUrl && isValidUrl(article.imageUrl) ? article.imageUrl : null;
+
+          // Insert new article with sanitized data
           const { data: insertedNews, error: insertError } = await supabase
             .from("news")
             .insert({
-              title: article.title,
-              full_text: article.description,
+              title: sanitizeText(article.title, 500),
+              full_text: sanitizeText(article.description, 5000),
               source_url: article.link,
-              image_url: article.imageUrl,
+              image_url: validImageUrl,
               source_id: sourceMap.get(feed.name) || null,
               topics: topics,
               published_at: publishedAt,
@@ -562,7 +633,8 @@ serve(async (req) => {
             .single();
 
           if (insertError) {
-            results.errors.push(`Insert error: ${insertError.message}`);
+            console.error(`Insert error for ${feed.name}:`, insertError.message);
+            results.errors.push(`Insert error for ${feed.name}`);
             continue;
           }
 
@@ -605,7 +677,7 @@ serve(async (req) => {
     console.error("aggregate-news error:", error);
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "An error occurred processing your request",
         success: false,
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
