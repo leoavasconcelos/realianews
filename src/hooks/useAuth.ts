@@ -27,49 +27,66 @@ export const useAuth = () => {
     
     // Fetch current session first
     const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!isMounted) return;
-      
-      // Process session if exists
-      if (session?.user) {
-        setUser(session.user);
-        setProfileLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         
-        try {
-          const { data, error: fetchError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
+        if (!isMounted) return;
+        
+        // Process session if exists
+        if (session?.user) {
+          setUser(session.user);
+          setProfileLoading(true);
           
-          if (!isMounted) return;
-          
-          if (fetchError) {
-            console.error('Error fetching profile:', fetchError);
+          try {
+            console.log('Fetching profile for user:', session.user.id);
+            const { data, error: fetchError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+            
+            console.log('Profile fetch result:', { data, error: fetchError });
+            
+            if (!isMounted) return;
+            
+            if (fetchError) {
+              console.error('Error fetching profile:', fetchError);
+              setProfile(null);
+              setProfileLoading(false);
+            } else if (data) {
+              console.log('Profile data found:', data);
+              const profileData: Profile = {
+                ...data,
+                interests: Array.isArray(data.interests) ? data.interests as string[] : [],
+                blocked_sources: Array.isArray(data.blocked_sources) ? data.blocked_sources as string[] : [],
+                preferred_regions: Array.isArray(data.preferred_regions) ? data.preferred_regions as string[] : ['Brazil'],
+              };
+              setProfile(profileData);
+              setProfileLoading(false);
+            } else {
+              // No profile record exists - set null but continue (profile might not be created yet)
+              console.log('No profile found for user:', session.user.id);
+              setProfile(null);
+              setProfileLoading(false);
+            }
+          } catch (err) {
+            console.error('Unexpected error fetching profile:', err);
             setProfile(null);
-          } else if (data) {
-            const profileData: Profile = {
-              ...data,
-              interests: Array.isArray(data.interests) ? data.interests as string[] : [],
-              blocked_sources: Array.isArray(data.blocked_sources) ? data.blocked_sources as string[] : [],
-              preferred_regions: Array.isArray(data.preferred_regions) ? data.preferred_regions as string[] : ['Brazil'],
-            };
-            setProfile(profileData);
-          } else {
-            setProfile(null);
+            if (isMounted) setProfileLoading(false);
           }
-        } catch (err) {
-          console.error('Unexpected error fetching profile:', err);
-          setProfile(null);
-        } finally {
+          
           if (isMounted) {
-            setProfileLoading(false);
             setAuthLoading(false);
           }
+        } else {
+          // No session
+          setUser(null);
+          setProfile(null);
+          setProfileLoading(false);
+          setAuthLoading(false);
         }
-      } else {
-        // No session
+      } catch (err) {
+        console.error('Error in initSession:', err);
         setUser(null);
         setProfile(null);
         setProfileLoading(false);
@@ -104,6 +121,7 @@ export const useAuth = () => {
             if (fetchError) {
               console.error('Error fetching profile:', fetchError);
               setProfile(null);
+              setProfileLoading(false);
             } else if (data) {
               const profileData: Profile = {
                 ...data,
@@ -150,16 +168,17 @@ export const useAuth = () => {
               }
               
               setProfile(profileData);
+              setProfileLoading(false);
             } else {
+              // No profile found
+              console.log('No profile found on sign in for user:', currentUser.id);
               setProfile(null);
+              setProfileLoading(false);
             }
           } catch (err) {
             console.error('Unexpected error fetching profile:', err);
             setProfile(null);
-          } finally {
-            if (isMounted) {
-              setProfileLoading(false);
-            }
+            if (isMounted) setProfileLoading(false);
           }
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
