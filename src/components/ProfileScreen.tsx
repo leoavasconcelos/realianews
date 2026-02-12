@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { 
   User, 
   Bookmark, 
@@ -181,6 +182,17 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
           <LogIn className="w-4 h-4 mr-2" />
           Entrar ou Cadastrar
         </Button>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <p className="text-sm text-muted-foreground">Carregando perfil...</p>
+        </div>
       </div>
     );
   }

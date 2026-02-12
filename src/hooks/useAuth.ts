@@ -29,9 +29,10 @@ export const useAuth = () => {
       async (event, session) => {
         if (!isMounted) return;
         
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
         
-        if (session?.user) {
+        if (currentUser) {
           // Start profile loading
           setProfileLoading(true);
           
@@ -40,7 +41,7 @@ export const useAuth = () => {
             const { data, error: fetchError } = await supabase
               .from('profiles')
               .select('*')
-              .eq('user_id', session.user.id)
+              .eq('user_id', currentUser.id)
               .single();
             
             if (fetchError) {
@@ -92,7 +93,7 @@ export const useAuth = () => {
                   await supabase
                     .from('profiles')
                     .update(updates)
-                    .eq('user_id', session.user.id);
+                    .eq('user_id', currentUser.id);
                 }
               }
               
@@ -119,10 +120,11 @@ export const useAuth = () => {
     // Then get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!isMounted) return;
-      setUser(session?.user ?? null);
       if (!session?.user) {
+        setUser(null);
         setAuthLoading(false);
       }
+      // If session exists, onAuthStateChange INITIAL_SESSION will handle it
     });
 
     return () => {
