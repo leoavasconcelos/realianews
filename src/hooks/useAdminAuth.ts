@@ -12,7 +12,7 @@ interface UserRole {
 }
 
 export const useAdminAuth = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
 
@@ -21,19 +21,22 @@ export const useAdminAuth = () => {
   const hasAdminAccess = isAdmin || isModerator;
 
   useEffect(() => {
-    const fetchRoles = async () => {
-      if (!user) {
-        setRoles([]);
-        setRolesLoading(false);
-        return;
-      }
+    if (!user) {
+      setRoles([]);
+      setRolesLoading(false);
+      return;
+    }
 
-      setRolesLoading(true);
-      
+    let cancelled = false;
+    setRolesLoading(true);
+
+    const fetchRoles = async () => {
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id);
+
+      if (cancelled) return;
 
       if (error) {
         console.error('Error fetching roles:', error);
@@ -41,14 +44,14 @@ export const useAdminAuth = () => {
       } else {
         setRoles((data as UserRole[])?.map(r => r.role) || []);
       }
-      
+
       setRolesLoading(false);
     };
 
-    if (!authLoading) {
-      fetchRoles();
-    }
-  }, [user, authLoading]);
+    fetchRoles();
+
+    return () => { cancelled = true; };
+  }, [user]);
 
   return {
     user,
@@ -56,6 +59,6 @@ export const useAdminAuth = () => {
     isAdmin,
     isModerator,
     hasAdminAccess,
-    loading: authLoading || rolesLoading,
+    loading: !user ? false : rolesLoading,
   };
 };
