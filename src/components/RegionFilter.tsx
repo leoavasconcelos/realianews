@@ -1,11 +1,5 @@
 import React from 'react';
 import { Globe } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
 import { Button } from './ui/button';
 import { REGIONS, RegionFilter as RegionFilterType } from '@/hooks/useNews';
 
@@ -15,35 +9,23 @@ interface RegionFilterProps {
 }
 
 const RegionFilter: React.FC<RegionFilterProps> = ({ activeRegion, onRegionChange }) => {
-  const currentRegion = REGIONS.find(r => r.id === activeRegion) || REGIONS[0];
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 shrink-0 bg-card border-border hover:bg-muted"
+    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+      <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
+      {REGIONS.map((region) => (
+        <button
+          key={region.id}
+          onClick={() => onRegionChange(region.id)}
+          className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+            activeRegion === region.id
+              ? 'bg-accent text-accent-foreground shadow-sm'
+              : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+          }`}
         >
-          <Globe className="w-4 h-4" />
-          <span className="hidden sm:inline">{currentRegion.label}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent 
-        align="end" 
-        className="z-50 min-w-[160px] bg-popover border border-border shadow-lg"
-      >
-        {REGIONS.map((region) => (
-          <DropdownMenuItem
-            key={region.id}
-            onClick={() => onRegionChange(region.id)}
-            className={`cursor-pointer ${activeRegion === region.id ? 'bg-primary/10 text-primary' : ''}`}
-          >
-            {region.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {region.label}
+        </button>
+      ))}
+    </div>
   );
 };
 
