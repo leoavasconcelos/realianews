@@ -12,7 +12,7 @@ import ExploreScreen from '@/components/ExploreScreen';
 import SavedItemsScreen from '@/components/SavedItemsScreen';
 import AuthModal from '@/components/AuthModal';
 import PasswordResetModal from '@/components/PasswordResetModal';
-import { Compass, GraduationCap, Loader2 } from 'lucide-react';
+import { Compass, GraduationCap, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType } from '@/hooks/useNews';
 import { useQueryClient } from '@tanstack/react-query';
@@ -264,6 +264,20 @@ const Index = () => {
               onSaveNews={handleSaveNews}
               onShareNews={handleShareNews}
               savedItems={savedItems}
+            />
+          </div>
+        );
+      
+      case 'comunidade':
+        return (
+          <div className="flex flex-col min-h-screen pb-20">
+            <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40 px-4 py-4">
+              <h1 className="text-xl font-bold text-foreground">Comunidade</h1>
+            </header>
+            <PlaceholderScreen
+              title="Comunidade"
+              description="Conecte-se com outros profissionais do mercado imobiliário. Em desenvolvimento!"
+              icon={<Users className="w-10 h-10 text-accent" />}
             />
           </div>
         );
