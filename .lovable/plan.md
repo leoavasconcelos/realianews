@@ -1,36 +1,55 @@
 
 
-# Atualizar Logomarca e Corrigir Tamanhos
+# Refresh do Feed + Foto de Perfil
 
 ## Resumo
 
-Substituir a imagem da logo pela nova versao enviada e aumentar os tamanhos do icone em todos os contextos para melhor visibilidade.
+Duas melhorias independentes:
+1. **Auto-refresh do feed**: sempre que o usuario navegar para a aba "Mercado", as noticias serao recarregadas automaticamente.
+2. **Foto de perfil**: permitir upload de uma foto de perfil que sera armazenada no storage e exibida no avatar do usuario.
 
-## Etapas
+---
 
-1. **Copiar a nova imagem** para `src/assets/realia-logo.png` e `public/realia-logo.png` (substituindo as anteriores)
-2. **Aumentar os tamanhos no `Logo.tsx`** para que a logo fique mais visivel em todas as telas
+## 1. Auto-refresh do feed ao acessar a aba
 
-## Detalhes Tecnicos
+### O que muda
 
-### 1. Copiar o novo asset
+No `Index.tsx`, quando `activeTab` mudar para `'mercado'`, invalidar a query `['news', ...]` do React Query para forcar um refetch.
 
-```
-user-uploads://1AB47A3F-6EB2-4945-86EB-27380DF37F92.png -> src/assets/realia-logo.png
-user-uploads://1AB47A3F-6EB2-4945-86EB-27380DF37F92.png -> public/realia-logo.png
-```
+### Detalhe tecnico
 
-### 2. Ajustar tamanhos em `src/components/Logo.tsx`
+- Importar `useQueryClient` do React Query no `Index.tsx`
+- Adicionar um `useEffect` que observa `activeTab` e, quando for `'mercado'`, chama `queryClient.invalidateQueries({ queryKey: ['news'] })`
+- Tambem reduzir o `staleTime` em `useNews.ts` de 30s para 0 para que a invalidacao sempre dispare um fetch real
 
-Aumentar as classes de tamanho para melhor proporcao visual:
+---
 
-```
-Antes:            Depois:
-sm: w-8 h-8   ->  sm: w-10 h-10
-md: w-10 h-10 ->  md: w-12 h-12
-lg: w-14 h-14 ->  lg: w-16 h-16
-xl: w-20 h-20 ->  xl: w-24 h-24
-```
+## 2. Upload de foto de perfil
 
-Nenhum outro arquivo precisa ser alterado -- todos os 7 locais que usam o componente Logo herdaam automaticamente os novos tamanhos e a nova imagem.
+### O que muda
+
+- Criar um bucket de storage chamado `avatars` (publico) com politicas RLS para que cada usuario possa enviar/atualizar/deletar apenas seus proprios arquivos
+- Na tela de Perfil, o avatar circular (que hoje mostra um icone generico) se torna clicavel e abre um seletor de arquivo
+- A imagem e enviada para o bucket, a URL publica e salva no campo `avatar_url` da tabela `profiles`
+- O avatar e exibido usando o componente `Avatar` do shadcn/ui
+
+### Etapas tecnicas
+
+1. **Migracao SQL**: criar bucket `avatars` publico + politicas RLS (INSERT, UPDATE, DELETE, SELECT para owner; SELECT publico para leitura)
+2. **`ProfileScreen.tsx`**:
+   - Adicionar `<input type="file" accept="image/*">` oculto com ref
+   - Ao clicar no avatar, abrir o seletor de arquivo
+   - No `onChange`, fazer upload via `supabase.storage.from('avatars').upload(...)` com path `{userId}/avatar.{ext}`
+   - Obter URL publica via `getPublicUrl` e chamar `updateProfile({ avatar_url: url })`
+   - Substituir o div com icone `<User>` pelo componente `<Avatar>` + `<AvatarImage>` + `<AvatarFallback>`
+3. **Exibir avatar em outros locais** (opcional): o `profile.avatar_url` ja esta disponivel no contexto global, podendo ser usado futuramente em outros componentes
+
+### Arquivos impactados
+
+| Arquivo | Alteracao |
+|---|---|
+| `src/pages/Index.tsx` | Adicionar `useEffect` para invalidar queries ao entrar no feed |
+| `src/hooks/useNews.ts` | Reduzir `staleTime` para 0 |
+| `src/components/ProfileScreen.tsx` | Adicionar upload de avatar, trocar icone por componente Avatar |
+| Migracao SQL | Criar bucket `avatars` com RLS |
 
