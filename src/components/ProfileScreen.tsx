@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Loader2, Camera } from 'lucide-react';
 import { 
   User, 
   Bookmark, 
@@ -24,8 +24,10 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Logo from './Logo';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Button } from './ui/button';
 import { useAuth, Profile } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { toast } from 'sonner';
 import type { User as AuthUser } from '@supabase/supabase-js';
@@ -90,6 +92,8 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
     const { signOut, updateProfile: updateProfileFallback } = useAuth();
     const updateProfile = updateProfileProp || updateProfileFallback;
     const { hasAdminAccess } = useAdminAuth();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [regionsOpen, setRegionsOpen] = useState(false);
     const [interestsOpen, setInterestsOpen] = useState(false);
@@ -97,6 +101,37 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
     const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
     const [savingRegions, setSavingRegions] = useState(false);
     const [savingInterests, setSavingInterests] = useState(false);
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !user) return;
+
+      setUploadingAvatar(true);
+      try {
+        const ext = file.name.split('.').pop();
+        const path = `${user.id}/avatar.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(path, file, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(path);
+
+        // Add cache buster to force refresh
+        const url = `${publicUrl}?t=${Date.now()}`;
+        await updateProfile({ avatar_url: url } as any);
+        toast.success('Foto de perfil atualizada!');
+      } catch (err) {
+        console.error('Avatar upload error:', err);
+        toast.error('Erro ao enviar foto');
+      } finally {
+        setUploadingAvatar(false);
+      }
+    };
 
     const handleOpenRegions = () => {
       setSelectedRegions(profile?.preferred_regions || ['Brazil']);
@@ -204,9 +239,32 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
       {/* Header */}
       <div className="px-4 pt-6 pb-8">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full bg-gradient-hero flex items-center justify-center">
-            <User className="w-8 h-8 text-white" />
-          </div>
+           <button 
+             onClick={() => fileInputRef.current?.click()} 
+             className="relative group"
+             disabled={uploadingAvatar}
+           >
+             <Avatar className="w-16 h-16">
+               <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar" />
+               <AvatarFallback className="bg-gradient-hero">
+                 <User className="w-8 h-8 text-white" />
+               </AvatarFallback>
+             </Avatar>
+             <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+               {uploadingAvatar ? (
+                 <Loader2 className="w-5 h-5 text-white animate-spin" />
+               ) : (
+                 <Camera className="w-5 h-5 text-white" />
+               )}
+             </div>
+             <input
+               ref={fileInputRef}
+               type="file"
+               accept="image/*"
+               className="hidden"
+               onChange={handleAvatarUpload}
+             />
+           </button>
           <div>
             <h1 className="text-xl font-bold text-foreground">
               {profile?.display_name || 'Usuário REalia'}

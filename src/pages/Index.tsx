@@ -14,10 +14,12 @@ import PasswordResetModal from '@/components/PasswordResetModal';
 import { Compass, GraduationCap, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType } from '@/hooks/useNews';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
+  const queryClient = useQueryClient();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
@@ -121,7 +123,12 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // preferredRegions is now defined above with synchronous initialization
+  // Auto-refresh news when switching to mercado tab
+  useEffect(() => {
+    if (activeTab === 'mercado') {
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    }
+  }, [activeTab, queryClient]);
 
   const { data: news, isLoading: newsLoading } = useNews(activeFilter, activeRegion, preferredRegions);
   const { data: topics } = useTopics();
