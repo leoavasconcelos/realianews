@@ -28,7 +28,7 @@ const Index = () => {
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
-  const { user, profile, loading: authLoading, authLoading: rawAuthLoading, updateProfile } = useAuth();
+  const { user, profile, loading: authLoading, authLoading: rawAuthLoading, updateProfile, updatePassword } = useAuth();
 
   // Determine onboarding visibility based on localStorage + profile data
   useEffect(() => {
@@ -320,6 +320,7 @@ const Index = () => {
               profile={profile} 
               onLoginClick={() => setShowAuthModal(true)} 
               updateProfile={updateProfile}
+              updatePassword={updatePassword}
             />
           </div>
         );

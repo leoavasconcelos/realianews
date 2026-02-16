@@ -22,6 +22,9 @@ import {
   Brain,
   Lock
 } from 'lucide-react';
+import BlockedSourcesDialog from './BlockedSourcesDialog';
+import SettingsDialog from './SettingsDialog';
+import HelpDialog from './HelpDialog';
 import { useNavigate } from 'react-router-dom';
 import Logo from './Logo';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
@@ -85,20 +88,26 @@ interface ProfileScreenProps {
   profile?: Profile | null;
   onLoginClick: () => void;
   updateProfile?: (updates: Partial<Pick<Profile, 'display_name' | 'interests' | 'blocked_sources' | 'preferred_regions'>>) => Promise<{ error: Error | null }>;
+  updatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>;
 }
 
 const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
-  ({ user, profile, onLoginClick, updateProfile: updateProfileProp }, ref) => {
+  ({ user, profile, onLoginClick, updateProfile: updateProfileProp, updatePassword: updatePasswordProp }, ref) => {
     const navigate = useNavigate();
-    const { signOut, updateProfile: updateProfileFallback } = useAuth();
+    const { signOut, updateProfile: updateProfileFallback, updatePassword: updatePasswordFallback } = useAuth();
     const updateProfile = updateProfileProp || updateProfileFallback;
+    const updatePassword = updatePasswordProp || updatePasswordFallback;
     const { hasAdminAccess } = useAdminAuth();
-    const { theme, setTheme } = useTheme();
+    const { resolvedTheme, setTheme } = useTheme();
+    const isDark = resolvedTheme === 'dark';
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [regionsOpen, setRegionsOpen] = useState(false);
     const [interestsOpen, setInterestsOpen] = useState(false);
+    const [blockedOpen, setBlockedOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [helpOpen, setHelpOpen] = useState(false);
     const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
     const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
     const [savingRegions, setSavingRegions] = useState(false);
@@ -190,9 +199,9 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
       { id: 'interests', label: 'Meus Interesses', icon: <Heart className="w-5 h-5" />, onClick: handleOpenInterests },
       { id: 'regions', label: 'Regiões de Interesse', icon: <Globe className="w-5 h-5" />, onClick: handleOpenRegions },
       { id: 'notifications', label: 'Notificações', icon: <Bell className="w-5 h-5" />, onClick: () => setNotificationsOpen(true) },
-      { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" /> },
-      { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
-      { id: 'help', label: 'Ajuda e Suporte', icon: <HelpCircle className="w-5 h-5" /> },
+      { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" />, onClick: () => setBlockedOpen(true) },
+      { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" />, onClick: () => setSettingsOpen(true) },
+      { id: 'help', label: 'Ajuda e Suporte', icon: <HelpCircle className="w-5 h-5" />, onClick: () => setHelpOpen(true) },
       ...(hasAdminAccess ? [{ id: 'admin', label: 'Painel Administrativo', icon: <Lock className="w-5 h-5" />, onClick: () => navigate('/admin') }] : []),
     ];
 
@@ -332,17 +341,17 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
         {/* Dark Mode Toggle */}
         <div className="bg-card rounded-xl shadow-card overflow-hidden mt-4">
           <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => setTheme(isDark ? 'light' : 'dark')}
             className="w-full flex items-center gap-4 px-4 py-4 hover:bg-secondary transition-colors"
           >
             <div className="text-muted-foreground">
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </div>
             <span className="flex-1 text-left font-medium text-foreground">
               Modo Escuro
             </span>
             <div className={`w-11 h-6 rounded-full transition-colors duration-200 flex items-center px-0.5 ${
-              theme === 'dark' ? 'bg-primary justify-end' : 'bg-muted justify-start'
+              isDark ? 'bg-primary justify-end' : 'bg-muted justify-start'
             }`}>
               <div className="w-5 h-5 rounded-full bg-primary-foreground shadow-sm transition-all duration-200" />
             </div>
@@ -510,6 +519,26 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Blocked Sources Dialog */}
+      <BlockedSourcesDialog
+        open={blockedOpen}
+        onOpenChange={setBlockedOpen}
+        blockedSources={profile?.blocked_sources || []}
+        updateProfile={updateProfile}
+      />
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        displayName={profile?.display_name || null}
+        updateProfile={updateProfile}
+        updatePassword={updatePassword}
+      />
+
+      {/* Help Dialog */}
+      <HelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
     );
   }
