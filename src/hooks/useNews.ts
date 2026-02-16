@@ -99,7 +99,7 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter, prefe
     queryKey: ['news', topicFilter, regionFilter, preferredRegions],
     retry: 3,
     retryDelay: 1000,
-    staleTime: 30000,
+    staleTime: 0,
     queryFn: async () => {
       try {
         const { data: news, error } = await supabase
