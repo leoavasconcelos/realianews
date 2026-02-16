@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Compass, GraduationCap, Users, User } from 'lucide-react';
+import { Home, Compass, Bookmark, GraduationCap, User } from 'lucide-react';
 
 interface NavItem {
   id: string;
@@ -15,8 +15,8 @@ interface BottomNavProps {
 const navItems: NavItem[] = [
   { id: 'mercado', label: 'Mercado', icon: <Home className="w-5 h-5" /> },
   { id: 'explorar', label: 'Explorar', icon: <Compass className="w-5 h-5" /> },
+  { id: 'salvos', label: 'Salvos', icon: <Bookmark className="w-5 h-5" /> },
   { id: 'academia', label: 'Academia', icon: <GraduationCap className="w-5 h-5" /> },
-  { id: 'comunidade', label: 'Comunidade', icon: <Users className="w-5 h-5" /> },
   { id: 'perfil', label: 'Perfil', icon: <User className="w-5 h-5" /> },
 ];
 
