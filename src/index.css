@@ -105,6 +105,30 @@
     --input: 217 33% 17%;
     --ring: 212 27% 84%;
 
+    /* REalia Custom Tokens - Dark */
+    --navy: 213 40% 60%;
+    --navy-light: 213 35% 50%;
+    --graphite: 220 14% 65%;
+    --graphite-light: 220 9% 55%;
+    --burnt-orange: 21 90% 55%;
+    --burnt-orange-light: 21 85% 60%;
+    --teal: 173 58% 50%;
+    --success: 142 76% 46%;
+
+    /* Gradients - Dark */
+    --gradient-hero: linear-gradient(135deg, hsl(213 40% 45%) 0%, hsl(213 35% 35%) 50%, hsl(173 58% 40%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 13%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(21 90% 55%) 0%, hsl(21 85% 60%) 100%);
+    --gradient-metallic: linear-gradient(135deg, hsl(217 33% 17%) 0%, hsl(217 33% 22%) 50%, hsl(217 33% 17%) 100%);
+
+    /* Shadows - Dark */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.2);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.2), 0 1px 2px -1px rgb(0 0 0 / 0.15);
+    --shadow-card-hover: 0 10px 40px -15px rgb(0 0 0 / 0.4);
+
     --sidebar-background: 222 47% 8%;
     --sidebar-foreground: 240 5% 96%;
     --sidebar-primary: 224 76% 48%;
