@@ -1,55 +1,76 @@
 
-
-# Refresh do Feed + Foto de Perfil
+# Restaurar aba Comunidade + Explicacao sobre o Refresh do Feed
 
 ## Resumo
 
-Duas melhorias independentes:
-1. **Auto-refresh do feed**: sempre que o usuario navegar para a aba "Mercado", as noticias serao recarregadas automaticamente.
-2. **Foto de perfil**: permitir upload de uma foto de perfil que sera armazenada no storage e exibida no avatar do usuario.
+Adicionar de volta a aba "Comunidade" no menu inferior, mantendo a aba "Salvos" que ja existe. O menu passara de 5 para 6 abas.
 
 ---
 
-## 1. Auto-refresh do feed ao acessar a aba
+## Sobre o refresh do feed (como funciona hoje)
 
-### O que muda
+O refresh das noticias **ja esta implementado** e funciona da seguinte forma:
 
-No `Index.tsx`, quando `activeTab` mudar para `'mercado'`, invalidar a query `['news', ...]` do React Query para forcar um refetch.
+- **Quando**: toda vez que voce troca para a aba "Mercado", o app automaticamente busca as noticias mais recentes no banco de dados.
+- **Nao ha um intervalo de tempo automatico** (ex: a cada 5 minutos). O refresh so acontece quando voce navega para a aba Mercado.
+- Se voce ficar parado na aba Mercado sem sair, as noticias nao se atualizam sozinhas.
 
-### Detalhe tecnico
-
-- Importar `useQueryClient` do React Query no `Index.tsx`
-- Adicionar um `useEffect` que observa `activeTab` e, quando for `'mercado'`, chama `queryClient.invalidateQueries({ queryKey: ['news'] })`
-- Tambem reduzir o `staleTime` em `useNews.ts` de 30s para 0 para que a invalidacao sempre dispare um fetch real
+**Importante**: as noticias que aparecem no feed dependem de estarem cadastradas no banco de dados com um resumo (campo `summary_ai` preenchido). Se voce nao esta vendo noticias novas, provavelmente nao ha noticias novas processadas no banco -- o mecanismo de refresh em si esta funcionando corretamente.
 
 ---
 
-## 2. Upload de foto de perfil
+## Plano de implementacao: restaurar a aba Comunidade
 
-### O que muda
+### 1. Adicionar "Comunidade" ao menu inferior
 
-- Criar um bucket de storage chamado `avatars` (publico) com politicas RLS para que cada usuario possa enviar/atualizar/deletar apenas seus proprios arquivos
-- Na tela de Perfil, o avatar circular (que hoje mostra um icone generico) se torna clicavel e abre um seletor de arquivo
-- A imagem e enviada para o bucket, a URL publica e salva no campo `avatar_url` da tabela `profiles`
-- O avatar e exibido usando o componente `Avatar` do shadcn/ui
+**Arquivo**: `src/components/BottomNav.tsx`
 
-### Etapas tecnicas
+- Adicionar um novo item no array `navItems` com `id: 'comunidade'`, `label: 'Comunidade'` e icone `Users`
+- O menu ficara com 6 itens: Mercado, Explorar, Salvos, Comunidade, Academia, Perfil
+- Reduzir o tamanho do texto dos labels para `text-[9px]` para acomodar 6 itens sem quebrar o layout
 
-1. **Migracao SQL**: criar bucket `avatars` publico + politicas RLS (INSERT, UPDATE, DELETE, SELECT para owner; SELECT publico para leitura)
-2. **`ProfileScreen.tsx`**:
-   - Adicionar `<input type="file" accept="image/*">` oculto com ref
-   - Ao clicar no avatar, abrir o seletor de arquivo
-   - No `onChange`, fazer upload via `supabase.storage.from('avatars').upload(...)` com path `{userId}/avatar.{ext}`
-   - Obter URL publica via `getPublicUrl` e chamar `updateProfile({ avatar_url: url })`
-   - Substituir o div com icone `<User>` pelo componente `<Avatar>` + `<AvatarImage>` + `<AvatarFallback>`
-3. **Exibir avatar em outros locais** (opcional): o `profile.avatar_url` ja esta disponivel no contexto global, podendo ser usado futuramente em outros componentes
+### 2. Adicionar a tela placeholder de Comunidade
+
+**Arquivo**: `src/pages/Index.tsx`
+
+- Adicionar um novo `case 'comunidade'` no `renderContent()` usando o componente `PlaceholderScreen` ja existente, com titulo "Comunidade" e descricao indicando que esta em desenvolvimento
+
+---
+
+## Detalhes tecnicos
+
+### BottomNav.tsx -- novo array de itens
+
+```
+navItems = [
+  { id: 'mercado',    label: 'Mercado',    icon: Home },
+  { id: 'explorar',   label: 'Explorar',   icon: Compass },
+  { id: 'salvos',     label: 'Salvos',     icon: Bookmark },
+  { id: 'comunidade', label: 'Comunidade', icon: Users },
+  { id: 'academia',   label: 'Academia',   icon: GraduationCap },
+  { id: 'perfil',     label: 'Perfil',     icon: User },
+]
+```
+
+### Index.tsx -- novo case no switch
+
+```tsx
+case 'comunidade':
+  return (
+    <div className="flex flex-col min-h-screen pb-20">
+      <header>Comunidade</header>
+      <PlaceholderScreen
+        title="Comunidade"
+        description="Conecte-se com outros profissionais do mercado imobiliario. Em desenvolvimento!"
+        icon={<Users />}
+      />
+    </div>
+  );
+```
 
 ### Arquivos impactados
 
 | Arquivo | Alteracao |
 |---|---|
-| `src/pages/Index.tsx` | Adicionar `useEffect` para invalidar queries ao entrar no feed |
-| `src/hooks/useNews.ts` | Reduzir `staleTime` para 0 |
-| `src/components/ProfileScreen.tsx` | Adicionar upload de avatar, trocar icone por componente Avatar |
-| Migracao SQL | Criar bucket `avatars` com RLS |
-
+| `src/components/BottomNav.tsx` | Adicionar item "Comunidade" com icone `Users`, ajustar tamanho do texto |
+| `src/pages/Index.tsx` | Adicionar `case 'comunidade'` no switch com `PlaceholderScreen` |
