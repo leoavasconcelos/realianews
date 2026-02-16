@@ -1,49 +1,61 @@
 
 
-## Problem
+# Integrar a Nova Logomarca do REalia no App
 
-When clicking "Painel Administrativo" in the profile screen, you're redirected back to the feed ("Mercado") instead of seeing the admin panel.
+## Resumo
 
-## Root Cause
+Substituir o logotipo atual (gerado por SVG inline) pela nova logomarca oficial em todos os pontos do aplicativo onde ela aparece.
 
-There's a race condition in the `AdminGuard` component:
+## O que muda
 
-1. You click the admin button, which calls `navigate('/admin')`
-2. React Router renders the `AdminLayout` with `AdminGuard`
-3. `AdminGuard` uses `useAdminAuth()`, which internally creates a **new instance** of `useAuth()`
-4. This new `useAuth()` starts with `user = null` while it fetches the session
-5. But `useAdminAuth` calculates `loading` as: `!user ? false : rolesLoading` -- so when user is null, loading is immediately `false`
-6. AdminGuard sees `loading = false` and `user = null`, so it redirects to `/` (the feed page)
+A imagem enviada (IMG_0106.png) sera copiada para o projeto e o componente `Logo.tsx` sera atualizado para usar a imagem real em vez do icone SVG desenhado em codigo. O texto "REalia" e a tagline continuam sendo renderizados pelo componente para flexibilidade de tamanho e estilo.
 
-In short: the guard decides "no user, redirect away" before the authentication has had time to load.
+## Locais impactados
 
-## Solution
+O componente `Logo.tsx` e utilizado em **7 telas/componentes**:
 
-Fix the `useAdminAuth` hook to account for the auth loading state, so `AdminGuard` waits for authentication to fully resolve before making access decisions.
+1. **FeedHeader** - cabecalho do feed (tamanho sm, texto com gradiente)
+2. **AuthModal** - modal de login
+3. **AuthModalContent** - conteudo do modal de autenticacao
+4. **OnboardingModal** - tela de onboarding (tamanho xl)
+5. **PasswordResetModal** - modal de redefinicao de senha
+6. **ProfileScreen** - rodape do perfil
+7. **AdminHeader** - cabecalho do painel admin
+
+Como todos importam o mesmo componente `Logo.tsx`, a mudanca e centralizada -- basta atualizar um unico arquivo.
+
+## Etapas
+
+1. **Copiar a imagem** para `src/assets/realia-logo.png`
+2. **Atualizar `Logo.tsx`**: substituir o bloco SVG inline por um `<img>` que importa a imagem do assets
+3. **Adicionar favicon** (opcional): copiar tambem para `public/` para uso como favicon e meta tags OG
 
 ---
 
-## Technical Details
+## Detalhes Tecnicos
 
-### 1. Fix `useAdminAuth.ts` loading logic
+### 1. Copiar o asset
 
-Change the loading calculation to include `authLoading` from `useAuth`:
-
-```typescript
-// Current (broken):
-const { user } = useAuth();
-// ...
-loading: !user ? false : rolesLoading
-
-// Fixed:
-const { user, loading: authLoading } = useAuth();
-// ...
-loading: authLoading || rolesLoading
+```
+user-uploads://IMG_0106.png -> src/assets/realia-logo.png
 ```
 
-This ensures `AdminGuard` shows the loading spinner while the session is being fetched, preventing the premature redirect.
+### 2. Alterar `src/components/Logo.tsx`
 
-### 2. No other files need changes
+- Importar a imagem: `import realiLogo from '@/assets/realia-logo.png'`
+- Substituir o bloco `<div>` que contem o SVG e os gradientes por:
+  ```tsx
+  <img
+    src={realiLogo}
+    alt="REalia"
+    className={sizeClasses[size]}
+  />
+  ```
+- Manter toda a logica de `showText`, `useGradientText`, tamanhos e `forwardRef` intacta
+- Remover o SVG inline, os divs de gradiente metalico e reflexo que nao serao mais necessarios
 
-The `AdminGuard` component already handles the `loading` state correctly by showing a spinner. The only issue is that `useAdminAuth` was reporting `loading = false` too early.
+### 3. Favicon e meta tags (opcional)
+
+- Copiar a imagem para `public/realia-logo.png`
+- Atualizar `index.html` para referenciar o novo favicon e imagens OG
 
