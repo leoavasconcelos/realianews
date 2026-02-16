@@ -177,19 +177,8 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete, user, aut
             
             {/* Logo */}
             <div className="relative mb-6">
-              <div className="w-20 h-20 relative">
-                <div className="absolute inset-0 rounded-2xl bg-white/10 backdrop-blur-sm" />
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent" />
-                <div className="relative w-full h-full flex items-center justify-center">
-                  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-12 h-12">
-                    <path d="M8 32V16L20 8L32 16V32H24V24H16V32H8Z" fill="white" fillOpacity="0.95" />
-                    <path d="M18 18H22V22H18V18Z" fill="hsl(213 52% 24%)" />
-                    <path d="M8 16L20 8L32 16" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.6" />
-                  </svg>
-                </div>
-                {/* Glow effect */}
-                <div className="absolute -inset-3 rounded-3xl bg-white/5 blur-xl pointer-events-none" />
-              </div>
+              <Logo size="xl" showText={false} className="justify-center" />
+              <div className="absolute -inset-3 rounded-3xl bg-white/5 blur-xl pointer-events-none" />
             </div>
             
             {/* Brand name */}
