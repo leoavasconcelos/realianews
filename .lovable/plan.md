@@ -1,61 +1,36 @@
 
 
-# Integrar a Nova Logomarca do REalia no App
+# Atualizar Logomarca e Corrigir Tamanhos
 
 ## Resumo
 
-Substituir o logotipo atual (gerado por SVG inline) pela nova logomarca oficial em todos os pontos do aplicativo onde ela aparece.
-
-## O que muda
-
-A imagem enviada (IMG_0106.png) sera copiada para o projeto e o componente `Logo.tsx` sera atualizado para usar a imagem real em vez do icone SVG desenhado em codigo. O texto "REalia" e a tagline continuam sendo renderizados pelo componente para flexibilidade de tamanho e estilo.
-
-## Locais impactados
-
-O componente `Logo.tsx` e utilizado em **7 telas/componentes**:
-
-1. **FeedHeader** - cabecalho do feed (tamanho sm, texto com gradiente)
-2. **AuthModal** - modal de login
-3. **AuthModalContent** - conteudo do modal de autenticacao
-4. **OnboardingModal** - tela de onboarding (tamanho xl)
-5. **PasswordResetModal** - modal de redefinicao de senha
-6. **ProfileScreen** - rodape do perfil
-7. **AdminHeader** - cabecalho do painel admin
-
-Como todos importam o mesmo componente `Logo.tsx`, a mudanca e centralizada -- basta atualizar um unico arquivo.
+Substituir a imagem da logo pela nova versao enviada e aumentar os tamanhos do icone em todos os contextos para melhor visibilidade.
 
 ## Etapas
 
-1. **Copiar a imagem** para `src/assets/realia-logo.png`
-2. **Atualizar `Logo.tsx`**: substituir o bloco SVG inline por um `<img>` que importa a imagem do assets
-3. **Adicionar favicon** (opcional): copiar tambem para `public/` para uso como favicon e meta tags OG
-
----
+1. **Copiar a nova imagem** para `src/assets/realia-logo.png` e `public/realia-logo.png` (substituindo as anteriores)
+2. **Aumentar os tamanhos no `Logo.tsx`** para que a logo fique mais visivel em todas as telas
 
 ## Detalhes Tecnicos
 
-### 1. Copiar o asset
+### 1. Copiar o novo asset
 
 ```
-user-uploads://IMG_0106.png -> src/assets/realia-logo.png
+user-uploads://1AB47A3F-6EB2-4945-86EB-27380DF37F92.png -> src/assets/realia-logo.png
+user-uploads://1AB47A3F-6EB2-4945-86EB-27380DF37F92.png -> public/realia-logo.png
 ```
 
-### 2. Alterar `src/components/Logo.tsx`
+### 2. Ajustar tamanhos em `src/components/Logo.tsx`
 
-- Importar a imagem: `import realiLogo from '@/assets/realia-logo.png'`
-- Substituir o bloco `<div>` que contem o SVG e os gradientes por:
-  ```tsx
-  <img
-    src={realiLogo}
-    alt="REalia"
-    className={sizeClasses[size]}
-  />
-  ```
-- Manter toda a logica de `showText`, `useGradientText`, tamanhos e `forwardRef` intacta
-- Remover o SVG inline, os divs de gradiente metalico e reflexo que nao serao mais necessarios
+Aumentar as classes de tamanho para melhor proporcao visual:
 
-### 3. Favicon e meta tags (opcional)
+```
+Antes:            Depois:
+sm: w-8 h-8   ->  sm: w-10 h-10
+md: w-10 h-10 ->  md: w-12 h-12
+lg: w-14 h-14 ->  lg: w-16 h-16
+xl: w-20 h-20 ->  xl: w-24 h-24
+```
 
-- Copiar a imagem para `public/realia-logo.png`
-- Atualizar `index.html` para referenciar o novo favicon e imagens OG
+Nenhum outro arquivo precisa ser alterado -- todos os 7 locais que usam o componente Logo herdaam automaticamente os novos tamanhos e a nova imagem.
 
