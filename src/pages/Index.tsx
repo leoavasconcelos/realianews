@@ -9,9 +9,10 @@ import OnboardingModal from '@/components/OnboardingModal';
 import ProfileScreen from '@/components/ProfileScreen';
 import PlaceholderScreen from '@/components/PlaceholderScreen';
 import ExploreScreen from '@/components/ExploreScreen';
+import SavedItemsScreen from '@/components/SavedItemsScreen';
 import AuthModal from '@/components/AuthModal';
 import PasswordResetModal from '@/components/PasswordResetModal';
-import { Compass, GraduationCap, Users, Loader2 } from 'lucide-react';
+import { Compass, GraduationCap, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType } from '@/hooks/useNews';
 import { useQueryClient } from '@tanstack/react-query';
@@ -281,16 +282,15 @@ const Index = () => {
           </div>
         );
       
-      case 'comunidade':
+      case 'salvos':
         return (
           <div className="flex flex-col min-h-screen pb-20">
             <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40 px-4 py-4">
-              <h1 className="text-xl font-bold text-foreground">Comunidade</h1>
+              <h1 className="text-xl font-bold text-foreground">Salvos</h1>
             </header>
-            <PlaceholderScreen
-              title="Comunidade"
-              description="Conecte-se com profissionais e entusiastas do mercado imobiliário. Em breve!"
-              icon={<Users className="w-10 h-10 text-teal" />}
+            <SavedItemsScreen
+              onNewsClick={setSelectedNews}
+              onLoginClick={() => setShowAuthModal(true)}
             />
           </div>
         );
