@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Loader2, Camera } from 'lucide-react';
+import { Loader2, Camera, Sun, Moon } from 'lucide-react';
 import { 
   User, 
   Bookmark, 
@@ -30,6 +30,7 @@ import { useAuth, Profile } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { toast } from 'sonner';
+import { useTheme } from 'next-themes';
 import type { User as AuthUser } from '@supabase/supabase-js';
 import {
   Dialog,
@@ -92,6 +93,7 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
     const { signOut, updateProfile: updateProfileFallback } = useAuth();
     const updateProfile = updateProfileProp || updateProfileFallback;
     const { hasAdminAccess } = useAdminAuth();
+    const { theme, setTheme } = useTheme();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -326,7 +328,26 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
             </button>
           ))}
         </div>
-        
+
+        {/* Dark Mode Toggle */}
+        <div className="bg-card rounded-xl shadow-card overflow-hidden mt-4">
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-secondary transition-colors"
+          >
+            <div className="text-muted-foreground">
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </div>
+            <span className="flex-1 text-left font-medium text-foreground">
+              Modo Escuro
+            </span>
+            <div className={`w-11 h-6 rounded-full transition-colors duration-200 flex items-center px-0.5 ${
+              theme === 'dark' ? 'bg-primary justify-end' : 'bg-muted justify-start'
+            }`}>
+              <div className="w-5 h-5 rounded-full bg-primary-foreground shadow-sm transition-all duration-200" />
+            </div>
+          </button>
+        </div>
         {/* Logout */}
         <button 
           onClick={handleSignOut}
