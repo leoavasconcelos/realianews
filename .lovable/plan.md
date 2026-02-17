@@ -1,95 +1,70 @@
 
-# Corrigir Modo Escuro + Desenvolver Menus do Perfil
+## Diagnostico
 
-## Problemas identificados
+As noticias pararam de atualizar porque o **cron job** chama a funcao `aggregate-news` usando o **anon key** (sem sessao de usuario), mas a funcao exige autenticacao de admin (verifica `user_roles`). O cron nao tem contexto de usuario, entao a chamada falha com erro 401/403 silenciosamente. A ultima noticia no banco e de 11 de fevereiro -- 6 dias atras.
 
-1. **Modo Escuro**: O toggle do dark mode esta usando `useTheme` dentro de um componente que usa `forwardRef`, o que pode causar problemas de re-render. Alem disso, o `next-themes` precisa de `suppressHydrationWarning` no HTML e o tema pode nao estar sendo lido corretamente. Vamos garantir que o toggle funcione.
+## Plano de Correcao
 
-2. **Menus sem acao**: Os itens "Configuracoes", "Fontes Bloqueadas" e "Ajuda e Suporte" nao tem `onClick` definido -- por isso nao fazem nada ao clicar.
+### 1. Corrigir a funcao `aggregate-news` para aceitar chamadas do cron
 
----
+Adicionar um caminho alternativo de autorizacao: quando a chamada vier com o **service role key** (em vez do anon key), pular a verificacao de admin e executar diretamente. Chamadas de usuarios normais continuam exigindo role de admin.
 
-## Plano de implementacao
+Logica:
+- Extrair o token do header Authorization
+- Se o token for igual ao `SUPABASE_SERVICE_ROLE_KEY`, prosseguir sem checar roles
+- Caso contrario, manter a verificacao de admin existente
 
-### 1. Corrigir o toggle do Modo Escuro
+### 2. Atualizar o cron job para rodar a cada hora e usar service role key
 
-**Arquivo**: `src/components/ProfileScreen.tsx`
+Remover o cron atual e criar um novo com:
+- Schedule: `0 * * * *` (a cada hora)
+- Header Authorization usando o service role key em vez do anon key
 
-- Verificar que `useTheme()` esta retornando o tema correto
-- Adicionar `resolvedTheme` como fallback (o `theme` pode retornar `"system"` ao inves de `"dark"` ou `"light"`)
-- Usar `resolvedTheme` no lugar de `theme` para a logica visual do toggle
+```text
+SQL a executar (via migration):
 
-### 2. Tela de Fontes Bloqueadas
+-- Remover cron antigo
+SELECT cron.unschedule('aggregate-news-every-6-hours');
 
-**Arquivo**: `src/components/ProfileScreen.tsx` (novo Dialog inline)
-
-- Criar um Dialog "Fontes Bloqueadas" similar aos dialogs de Regioes e Interesses
-- Buscar a lista de fontes ativas da tabela `sources` no banco
-- Mostrar cada fonte com nome e logo, com um botao para bloquear/desbloquear
-- As fontes bloqueadas sao salvas no campo `blocked_sources` do perfil (ja existe no banco)
-- O usuario pode marcar/desmarcar fontes e salvar
-
-### 3. Tela de Configuracoes
-
-**Arquivo**: `src/components/ProfileScreen.tsx` (novo Dialog inline)
-
-- Criar um Dialog "Configuracoes" com opcoes de conta:
-  - **Alterar nome de exibicao** (campo de texto editavel, salva no `display_name` do perfil)
-  - **Alterar senha** (usando o `updatePassword` ja disponivel no AuthContext)
-- Layout simples com campos de formulario dentro de um Dialog
-
-### 4. Tela de Ajuda e Suporte
-
-**Arquivo**: `src/components/ProfileScreen.tsx` (novo Dialog inline)
-
-- Criar um Dialog "Ajuda e Suporte" com conteudo estatico:
-  - FAQ com perguntas frequentes em formato Accordion (usando o componente Accordion ja instalado)
-  - Link/botao para contato por email
-  - Versao do app
-
-### 5. Conectar os onClick dos menus
-
-**Arquivo**: `src/components/ProfileScreen.tsx`
-
-- Adicionar `onClick` nos itens `blocked`, `settings` e `help` apontando para abrir os respectivos Dialogs
-- Adicionar estados `blockedOpen`, `settingsOpen`, `helpOpen`
-
----
-
-## Detalhes tecnicos
-
-### Correcao do Dark Mode
-
-```tsx
-const { theme, setTheme, resolvedTheme } = useTheme();
-// Usar resolvedTheme para a logica visual:
-const isDark = resolvedTheme === 'dark';
-// Toggle:
-onClick={() => setTheme(isDark ? 'light' : 'dark')}
+-- Criar novo cron horario usando service role key
+SELECT cron.schedule(
+  'aggregate-news-hourly',
+  '0 * * * *',
+  $$ SELECT net.http_post(
+    url := '...functions/v1/aggregate-news',
+    headers := '{"Authorization": "Bearer <SERVICE_ROLE_KEY>"}'::jsonb,
+    body := '{}'::jsonb
+  ) $$
+);
 ```
 
-### Fontes Bloqueadas -- fluxo
+### 3. Pull-to-refresh no feed Mercado
 
-1. Buscar fontes: `supabase.from('sources').select('id, name, logo_url').eq('is_active', true)`
-2. Mostrar lista com checkbox para cada fonte
-3. Fontes ja bloqueadas (do `profile.blocked_sources`) vem pre-marcadas
-4. Ao salvar: `updateProfile({ blocked_sources: selectedBlocked })`
+Implementar gesto de "puxar para baixo" no feed de noticias:
 
-### Configuracoes -- campos
+- Criar um componente `PullToRefresh` reutilizavel que:
+  - Detecta gesto de toque/arraste para baixo quando o scroll esta no topo
+  - Mostra indicador de carregamento (spinner + texto "Atualizando...")
+  - Chama `queryClient.invalidateQueries({ queryKey: ['news'] })` para recarregar
+  - Anima o retorno apos conclusao
 
-- Nome de exibicao: Input com valor atual, botao salvar
-- Alterar senha: dois campos (nova senha + confirmar), botao salvar usando `updatePassword`
+- Integrar no `Index.tsx` envolvendo o conteudo do feed Mercado com o `PullToRefresh`
 
-### Ajuda e Suporte -- conteudo
+---
 
-- Accordion com 4-5 perguntas frequentes sobre o app (ex: "Como salvar noticias?", "Como alterar minhas preferencias?", etc.)
-- Botao de contato com `mailto:` link
-- Informacao da versao
+### Secao Tecnica
 
-### Arquivos impactados
+**Arquivos a criar:**
+- `src/components/PullToRefresh.tsx` -- componente de pull-to-refresh com touch events
 
-| Arquivo | Alteracao |
-|---|---|
-| `src/components/ProfileScreen.tsx` | Corrigir dark mode toggle, adicionar 3 novos Dialogs (Configuracoes, Fontes Bloqueadas, Ajuda), conectar onClick dos menus |
+**Arquivos a modificar:**
+- `supabase/functions/aggregate-news/index.ts` -- adicionar bypass de auth para service role key
+- `src/pages/Index.tsx` -- envolver feed com PullToRefresh
 
-Nenhum novo arquivo sera criado -- tudo sera adicionado no componente ProfileScreen existente, seguindo o mesmo padrao dos Dialogs de Regioes e Interesses que ja funcionam.
+**SQL a executar:**
+- Remover cron antigo (`aggregate-news-every-6-hours`)
+- Criar novo cron horario (`aggregate-news-hourly`) com service role key
+
+**Mudancas na funcao edge `aggregate-news`:**
+- Linhas 489-553: refatorar bloco de autenticacao para verificar se o token e o service role key antes de tentar validar como JWT de usuario
+- Remover rate limit para chamadas do cron (apenas aplicar para chamadas de usuario)
