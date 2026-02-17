@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Bookmark, Share2, ExternalLink, Play, Pause, Volume2, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
@@ -7,6 +7,8 @@ import ShareSheet from './ShareSheet';
 import type { NewsItem } from './NewsCard';
 import { useFullAnalysis } from '@/hooks/useFullAnalysis';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useMarkNewsRead } from '@/hooks/useNews';
+import { useAuth } from '@/hooks/useAuth';
 
 interface NewsDetailProps {
   news: NewsItem;
@@ -41,6 +43,14 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
   const [shareOpen, setShareOpen] = useState(false);
   const { fullAnalysis, isLoading: analysisLoading } = useFullAnalysis(news.id);
   const audio = useAudioPlayer();
+  const { user } = useAuth();
+  const markRead = useMarkNewsRead();
+
+  useEffect(() => {
+    if (user?.id && news.id) {
+      markRead.mutate({ userId: user.id, newsId: news.id });
+    }
+  }, [news.id, user?.id]);
 
   const regionBadge = getRegionBadge(news.region);
 

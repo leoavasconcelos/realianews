@@ -30,7 +30,7 @@ import Logo from './Logo';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Button } from './ui/button';
 import { useAuth, Profile } from '@/hooks/useAuth';
-import { useSavedItems } from '@/hooks/useNews';
+import { useSavedItems, useReadNewsCount } from '@/hooks/useNews';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { toast } from 'sonner';
@@ -117,6 +117,7 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
     const [savingInterests, setSavingInterests] = useState(false);
     const { data: savedItems } = useSavedItems(user?.id);
     const savedItemsCount = savedItems?.length || 0;
+    const { data: readCount } = useReadNewsCount(user?.id);
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -293,8 +294,8 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-card rounded-xl p-4 text-center shadow-card">
-            <p className="text-2xl font-bold text-foreground">{regionCount}</p>
-            <p className="text-xs text-muted-foreground">Regiões</p>
+            <p className="text-2xl font-bold text-foreground">{readCount ?? 0}</p>
+            <p className="text-xs text-muted-foreground">Notícias lidas</p>
           </div>
           <div className="bg-card rounded-xl p-4 text-center shadow-card">
             <p className="text-2xl font-bold text-foreground">{savedItemsCount}</p>
