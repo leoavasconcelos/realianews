@@ -144,6 +144,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               profileData = await syncLocalStoragePreferences(currentUser.id, profileData);
             }
             setProfile(profileData);
+            // Log login event
+            supabase.rpc('create_system_notification', {
+              _user_id: currentUser.id,
+              _type: 'account_login',
+              _title: 'Novo login detectado',
+              _body: `Login realizado em ${new Date().toLocaleString('pt-BR')}.`,
+            }).then(({ error }) => {
+              if (error) console.warn('Failed to log login notification:', error);
+            });
           } catch (err) {
             console.error('Error fetching profile on sign in:', err);
             if (isMounted) setProfile(null);
@@ -191,7 +200,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updatePassword = async (newPassword: string) => {
-    return await supabase.auth.updateUser({ password: newPassword });
+    const result = await supabase.auth.updateUser({ password: newPassword });
+    if (!result.error && user) {
+      supabase.rpc('create_system_notification', {
+        _user_id: user.id,
+        _type: 'password_changed',
+        _title: 'Senha alterada',
+        _body: 'Sua senha foi alterada com sucesso.',
+      }).then(({ error }) => {
+        if (error) console.warn('Failed to log password change notification:', error);
+      });
+    }
+    return result;
   };
 
   const updateProfile = async (updates: Partial<Pick<Profile, 'display_name' | 'interests' | 'blocked_sources' | 'preferred_regions'>>) => {
