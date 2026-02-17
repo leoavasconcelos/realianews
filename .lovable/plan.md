@@ -1,43 +1,98 @@
 
-# Plano: Compartilhamento via Redes Sociais
 
-## Situacao Atual
+# Plano: Conteudo Completo no App + Audio Funcional
 
-O compartilhamento usa apenas `navigator.share()` (API nativa do navegador). Funciona bem em celulares, mas em desktops frequentemente nao esta disponivel, e o fallback e apenas copiar o link. Nao ha opcoes diretas de redes sociais.
+## Problemas Identificados
+
+1. **Resumo curto e texto generico**: O `NewsDetail` exibe o `summary_ai` (3-4 frases) seguido de texto hardcoded generico que nao tem relacao com a noticia real. O usuario precisa sair do app para ler o conteudo completo.
+2. **Audio nao funciona**: O player de audio e apenas visual. Os botoes de play/pause e barra de progresso nao reproduzem nenhum audio. Exibe "em breve".
 
 ## Solucao
 
-Criar um **sheet/modal de compartilhamento** com botoes diretos para as principais redes sociais, alem de manter a opcao de copiar link. O modal aparecera ao clicar no icone de compartilhamento tanto no `NewsCard` quanto no `NewsDetail`.
+### Parte 1: Analise Completa com IA (sob demanda)
 
-### Redes sociais incluidas:
-- **WhatsApp** - principal canal de comunicacao no Brasil
-- **X (Twitter)**
-- **LinkedIn** - relevante por ser conteudo de mercado imobiliario
-- **Telegram**
-- **Facebook**
-- **Copiar link** - fallback universal
+Quando o usuario abrir uma noticia, gerar automaticamente um artigo aprofundado usando IA, eliminando a necessidade de sair do app.
 
-### Experiencia do usuario:
-1. Usuario clica no icone de compartilhamento
-2. Abre um sheet (drawer) na parte inferior da tela com os botoes das redes
-3. Cada botao abre a rede social em nova aba com o titulo + resumo + link pre-preenchidos
-4. Botao "Copiar link" copia a URL e mostra toast de confirmacao
+**Nova coluna no banco**: `full_analysis` (TEXT) na tabela `news`.
+
+**Nova Edge Function `generate-full-analysis`**:
+- Recebe `newsId`
+- Busca titulo, resumo e topicos do banco
+- Usa Gemini 3 Flash para gerar artigo de 400-600 palavras em portugues brasileiro
+- Estrutura: contexto do mercado, analise dos fatos, impacto e perspectivas
+- Salva em `full_analysis` para cache (proxima abertura e instantanea)
+
+**Novo hook `useFullAnalysis`**:
+- Busca `full_analysis` do banco
+- Se vazio, chama a Edge Function para gerar
+- Retorna conteudo + estado de loading
+
+**Mudancas no `NewsDetail`**:
+- Remove texto hardcoded generico
+- Mostra `summary_ai` como resumo rapido no topo
+- Abaixo, exibe a analise completa (`full_analysis`) com skeleton loading enquanto gera
+- Link "Ler materia original" permanece como opcao secundaria no final
+
+### Parte 2: Audio Player Funcional com ElevenLabs
+
+Transformar o player decorativo em funcional usando ElevenLabs TTS.
+
+**Requisito**: Sera necessario fornecer a chave de API do ElevenLabs. O servico oferece plano gratuito com creditos iniciais. Voce pode obter a chave em https://elevenlabs.io (Crie conta -> Profile + API Key).
+
+**Nova Edge Function `elevenlabs-tts`**:
+- Recebe texto e ID de voz
+- Chama API ElevenLabs com modelo `eleven_multilingual_v2`
+- Retorna audio MP3 como blob binario
+
+**Novo hook `useAudioPlayer`**:
+- Gerencia o objeto `Audio` do navegador
+- Controla play/pause, progresso, velocidade
+- Sincroniza estado com a UI (barra de progresso, botoes)
+- Cache do audio gerado (blob URL) para evitar chamadas repetidas
+
+**Mudancas no `NewsDetail`**:
+- Botao Play: primeiro clique mostra loading, chama TTS, depois reproduz
+- Barra de progresso sincronizada com reproducao real
+- Controle de velocidade funcional (0.75x a 2x)
+- Remove texto "em breve", mostra duracao real
+
+### Fluxo do Usuario
+
+```text
+Usuario abre noticia
+    |
+    +--> Ve resumo curto (summary_ai) imediatamente
+    |
+    +--> Analise completa carrega em ~3s (full_analysis via IA)
+    |       Conteudo rico: contexto, analise, impacto, perspectivas
+    |
+    +--> Pode ouvir o resumo em audio (botao Play)
+    |       Audio gerado por ElevenLabs TTS (~2-3s primeiro play)
+    |
+    +--> Link para materia original (opcao secundaria)
+```
 
 ## Detalhes Tecnicos
 
-### Arquivo a criar:
-- `src/components/ShareSheet.tsx` - Componente de sheet com os botoes de redes sociais. Usa o componente `Drawer` (vaul) existente. Cada rede social abre via `window.open()` com URL parametrizada (ex: `https://api.whatsapp.com/send?text=...`, `https://twitter.com/intent/tweet?text=...`).
+### Migracao de banco:
+- `ALTER TABLE news ADD COLUMN full_analysis TEXT;`
+
+### Arquivos a criar:
+- `supabase/functions/generate-full-analysis/index.ts`
+- `supabase/functions/elevenlabs-tts/index.ts`
+- `src/hooks/useFullAnalysis.ts`
+- `src/hooks/useAudioPlayer.ts`
 
 ### Arquivos a modificar:
-- `src/pages/Index.tsx` - Alterar `handleShareNews` para abrir o `ShareSheet` em vez de chamar `navigator.share` diretamente. Adicionar estado para controlar o sheet e a noticia selecionada para compartilhamento.
-- `src/components/NewsDetail.tsx` - Alterar o botao de share para abrir o `ShareSheet` diretamente dentro do detalhe, em vez de delegar para `onShare`.
-- `src/components/SavedItemsScreen.tsx` - Mesma alteracao: usar `ShareSheet` no `handleShare`.
+- `src/components/NewsDetail.tsx` - integrar conteudo real e player funcional
+- `src/hooks/useNews.ts` - incluir `full_analysis` no mapeamento
+- `src/components/NewsCard.tsx` - adicionar `fullAnalysis` ao tipo `NewsItem`
+- `supabase/config.toml` - registrar novas functions
 
-### Nenhuma mudanca de banco de dados necessaria.
+### Secrets necessarios:
+- `ELEVENLABS_API_KEY` - sera solicitada antes da implementacao do audio
 
-### URLs de compartilhamento por rede:
-- WhatsApp: `https://api.whatsapp.com/send?text={titulo} - {url}`
-- X/Twitter: `https://twitter.com/intent/tweet?text={titulo}&url={url}`
-- LinkedIn: `https://www.linkedin.com/sharing/share-offsite/?url={url}`
-- Telegram: `https://t.me/share/url?url={url}&text={titulo}`
-- Facebook: `https://www.facebook.com/sharer/sharer.php?u={url}`
+### Modelos:
+- Gemini 3 Flash Preview (ja disponivel via LOVABLE_API_KEY) para geracao de artigo
+- ElevenLabs multilingual v2 para TTS em portugues
+
