@@ -1,0 +1,1 @@
+ALTER TABLE public.news ADD COLUMN full_analysis TEXT;
