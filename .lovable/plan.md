@@ -1,57 +1,46 @@
 
-# Fix: Edge Function `send-daily-digest` quebrando por uso de API inexistente
+# Fix: Estatisticas do perfil e botao "Salvos" sem funcionar
 
-## Problema Encontrado
+## Problemas Identificados
 
-A function `send-daily-digest` esta falhando com o erro:
-
-```
-TypeError: supabaseAuth.auth.getClaims is not a function
-```
-
-O metodo `getClaims()` nao existe na versao `@supabase/supabase-js@2.49.1` usada na edge function. Isso impede qualquer envio de email.
+1. **Contagem de "Noticias lidas"** (linha 292): Exibe `--` fixo, sem dados reais
+2. **Contagem de "Salvos"** (linha 296): Exibe `--` fixo, em vez de mostrar o numero de noticias salvas pelo usuario
+3. **Botao "Salvos" no menu** (linha 199): Nao tem `onClick` definido, por isso nao responde ao toque
 
 ## Solucao
 
-Substituir `getClaims(token)` por `getUser()`, que e o metodo correto para obter o usuario autenticado a partir do token JWT.
+### 1. Mostrar contagem de itens salvos
 
-## Dados Atuais
+Importar o hook `useSavedItems` no `ProfileScreen` e usar o tamanho do array retornado para exibir o numero real.
 
-- **6 usuarios** com notificacoes por email ativadas
-- **2 admins** cadastrados que podem disparar o envio
-- A funcao esta configurada no cron para rodar automaticamente
+### 2. Tornar o botao "Salvos" clicavel
+
+Adicionar um `onClick` ao item de menu "Salvos" que navega o usuario para a aba "salvos" no app. Como a navegacao entre abas e controlada pelo `Index.tsx`, a melhor abordagem e receber uma prop `onSavedClick` que troca a aba ativa.
+
+### 3. Contagem de noticias lidas
+
+Atualmente nao existe rastreamento de noticias lidas no banco de dados. A solucao mais pratica por agora e remover esse card de estatistica ou substituir pelo numero de interesses + regioes, ate que um sistema de tracking seja implementado.
 
 ## Detalhes Tecnicos
 
-### Arquivo: `supabase/functions/send-daily-digest/index.ts`
+### Arquivo: `src/components/ProfileScreen.tsx`
 
-**Linhas 347-356** - Substituir o bloco de autenticacao:
+- **Imports**: Adicionar `useSavedItems` de `@/hooks/useNews`
+- **Dentro do componente**: Chamar `const { data: savedItems } = useSavedItems(user?.id)` para obter os IDs salvos
+- **Linha 292**: Substituir `--` por `savedItems?.length || 0` na contagem de "Noticias lidas" (ou remover esse card e manter apenas 2 colunas)
+- **Linha 296**: Substituir `--` por `savedItems?.length || 0` na contagem de "Salvos"
+- **Linha 199**: Adicionar `onClick` ao item "Salvos" para navegar a aba de salvos
 
-De:
-```typescript
-const token = authHeader.replace("Bearer ", "");
-const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-if (claimsError || !claimsData?.claims) {
-  return new Response(
-    JSON.stringify({ error: "Unauthorized" }),
-    { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
-}
-const userId = claimsData.claims.sub as string;
-```
+### Arquivo: `src/components/ProfileScreen.tsx` (interface)
 
-Para:
-```typescript
-const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
-if (userError || !user) {
-  return new Response(
-    JSON.stringify({ error: "Unauthorized" }),
-    { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
-}
-const userId = user.id;
-```
+- Adicionar prop `onSavedClick?: () => void` na interface `ProfileScreenProps`
 
-### Apos o deploy
+### Arquivo: `src/pages/Index.tsx`
 
-Vou chamar a funcao novamente para validar que os emails estao sendo enviados corretamente para os 6 usuarios cadastrados.
+- Na renderizacao do `ProfileScreen`, passar `onSavedClick={() => setActiveTab('salvos')}` como prop
+
+### Resultado esperado
+
+- Card "Salvos" mostra o numero real (ex: "1" baseado nos dados atuais do usuario)
+- Card "Noticias lidas" mostra "Em breve" ou e substituido por outra metrica disponivel (regioes selecionadas)
+- Menu "Salvos" ao ser tocado leva o usuario para a tela de itens salvos
