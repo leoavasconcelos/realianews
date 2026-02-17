@@ -280,3 +280,36 @@ export const useUnsaveNews = () => {
     },
   });
 };
+
+// Fetch user's read news count
+export const useReadNewsCount = (userId?: string) => {
+  return useQuery({
+    queryKey: ['read-news-count', userId],
+    queryFn: async () => {
+      if (!userId) return 0;
+      const { count, error } = await supabase
+        .from('user_read_news')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!userId,
+  });
+};
+
+// Mark a news as read
+export const useMarkNewsRead = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, newsId }: { userId: string; newsId: string }) => {
+      const { error } = await supabase
+        .from('user_read_news')
+        .upsert({ user_id: userId, news_id: newsId }, { onConflict: 'user_id,news_id' });
+      if (error) throw error;
+    },
+    onSuccess: (_, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['read-news-count', userId] });
+    },
+  });
+};
