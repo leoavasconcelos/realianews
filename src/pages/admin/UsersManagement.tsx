@@ -1,27 +1,22 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AdminGuard } from '@/components/admin/AdminGuard';
+import { UserEditModal } from '@/components/admin/UserEditModal';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/components/ui/table';
-import { Loader2, User, Mail, Globe, Bell } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Loader2, User, Mail, Bell, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 
 interface Profile {
   id: string;
@@ -35,6 +30,10 @@ interface Profile {
 }
 
 export const UsersManagement = () => {
+  const queryClient = useQueryClient();
+  const [editProfile, setEditProfile] = useState<Profile | null>(null);
+  const [deleteProfile, setDeleteProfile] = useState<Profile | null>(null);
+
   const { data: profiles, isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
@@ -54,12 +53,34 @@ export const UsersManagement = () => {
         .from('user_saved_items')
         .select('user_id');
       if (error) throw error;
-      
       const counts: Record<string, number> = {};
       data?.forEach(item => {
         counts[item.user_id] = (counts[item.user_id] || 0) + 1;
       });
       return counts;
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Não autenticado');
+
+      const res = await supabase.functions.invoke('admin-delete-user', {
+        body: { user_id: userId },
+      });
+
+      if (res.error) throw res.error;
+      if (res.data?.error) throw new Error(res.data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-saved-counts'] });
+      toast({ title: 'Usuário excluído com sucesso' });
+      setDeleteProfile(null);
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || 'Erro ao excluir usuário', variant: 'destructive' });
     },
   });
 
@@ -87,17 +108,13 @@ export const UsersManagement = () => {
                     <TableHead>Salvos</TableHead>
                     <TableHead>Notificações</TableHead>
                     <TableHead>Cadastro</TableHead>
-                    <TableHead className="text-right">Detalhes</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {profiles?.map((profile) => {
-                    const regions = Array.isArray(profile.preferred_regions) 
-                      ? profile.preferred_regions 
-                      : [];
-                    const interests = Array.isArray(profile.interests) 
-                      ? profile.interests 
-                      : [];
+                    const regions = Array.isArray(profile.preferred_regions) ? profile.preferred_regions : [];
+                    const interests = Array.isArray(profile.interests) ? profile.interests : [];
 
                     return (
                       <TableRow key={profile.id}>
@@ -121,9 +138,7 @@ export const UsersManagement = () => {
                             {interests.length} {interests.length === 1 ? 'interesse' : 'interesses'}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          {savedCounts?.[profile.user_id] || 0}
-                        </TableCell>
+                        <TableCell>{savedCounts?.[profile.user_id] || 0}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Mail className={`h-4 w-4 ${profile.email_notifications_enabled ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -134,70 +149,25 @@ export const UsersManagement = () => {
                           {format(new Date(profile.created_at), "dd/MM/yy", { locale: ptBR })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                Ver detalhes
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-md">
-                              <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2">
-                                  <User className="h-5 w-5" />
-                                  {profile.display_name || 'Usuário'}
-                                </DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div>
-                                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                                    <Globe className="h-4 w-4" />
-                                    Regiões Preferidas
-                                  </h4>
-                                  <div className="flex flex-wrap gap-1">
-                                    {regions.length > 0 ? regions.map((region, i) => (
-                                      <Badge key={i} variant="secondary">{region}</Badge>
-                                    )) : (
-                                      <span className="text-muted-foreground text-sm">Nenhuma região selecionada</span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div>
-                                  <h4 className="text-sm font-medium mb-2">Interesses</h4>
-                                  <div className="flex flex-wrap gap-1">
-                                    {interests.length > 0 ? interests.map((interest, i) => (
-                                      <Badge key={i} variant="outline">{interest}</Badge>
-                                    )) : (
-                                      <span className="text-muted-foreground text-sm">Nenhum interesse selecionado</span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Notificações Email</p>
-                                    <p className="font-medium">
-                                      {profile.email_notifications_enabled ? 'Ativadas' : 'Desativadas'}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Notificações Push</p>
-                                    <p className="font-medium">
-                                      {profile.push_notifications_enabled ? 'Ativadas' : 'Desativadas'}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Itens Salvos</p>
-                                    <p className="font-medium">{savedCounts?.[profile.user_id] || 0}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Cadastrado em</p>
-                                    <p className="font-medium">
-                                      {format(new Date(profile.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditProfile(profile)}
+                              title="Editar"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeleteProfile(profile)}
+                              title="Excluir"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -215,6 +185,38 @@ export const UsersManagement = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Modal */}
+      <UserEditModal
+        profile={editProfile}
+        open={!!editProfile}
+        onOpenChange={(open) => { if (!open) setEditProfile(null); }}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteProfile} onOpenChange={(open) => { if (!open) setDeleteProfile(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir permanentemente o usuário{' '}
+              <strong>{deleteProfile?.display_name || 'este usuário'}</strong>?
+              Esta ação não pode ser desfeita. Todos os dados relacionados serão removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteProfile && deleteMutation.mutate(deleteProfile.user_id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminGuard>
   );
 };
