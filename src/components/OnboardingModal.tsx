@@ -251,7 +251,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete, user, aut
 
       {/* Steps 1-3 with accent line */}
       {step > 0 && (
-        <div className="flex-1 flex flex-col bg-background">
+        <div className="flex-1 min-h-0 flex flex-col bg-background">
           {/* Accent gradient line at top */}
           <div className="accent-line" />
           
