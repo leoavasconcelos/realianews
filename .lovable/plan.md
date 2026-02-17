@@ -1,30 +1,63 @@
 
-# Fix definitivo: Botao "Continuar" invisivel no onboarding
+# Gerenciamento de Usuarios no Painel Admin
 
-## Causa raiz real
+## O que sera implementado
 
-O layout tem 3 niveis de flex column aninhados:
+Duas novas acoes na tabela de usuarios do painel administrativo:
 
-```text
-[1] fixed inset-0 flex-col overflow-hidden   (linha 168 - altura fixa, OK)
-  [2] flex-1 flex-col                         (linha 254 - SEM min-h-0, PROBLEMA)
-    [3] flex-1 min-h-0 overflow-y-auto        (linha 272 - tem min-h-0, OK)
+1. **Editar usuario** - Modal para alterar nome de exibicao, interesses, regioes preferidas e configuracoes de notificacao
+2. **Excluir usuario** - Com confirmacao, remove o usuario completamente da plataforma (conta + perfil + dados relacionados)
+
+## Abordagem tecnica
+
+### 1. Banco de dados - Novas politicas RLS
+
+A tabela `profiles` atualmente so permite que admins facam SELECT. Precisamos adicionar:
+
+- **UPDATE por admins**: para que o admin possa editar perfis de outros usuarios
+- **DELETE por admins**: para que a exclusao do perfil funcione via cascata
+
+```sql
+-- Admin pode atualizar qualquer perfil
+CREATE POLICY "Admins can update all profiles"
+ON public.profiles FOR UPDATE
+USING (has_role(auth.uid(), 'admin'::app_role));
+
+-- Admin pode deletar qualquer perfil
+CREATE POLICY "Admins can delete all profiles"
+ON public.profiles FOR DELETE
+USING (has_role(auth.uid(), 'admin'::app_role));
 ```
 
-O fix anterior adicionou `min-h-0` apenas no nivel 3, mas o nivel 2 (o wrapper do step > 0) tambem precisa de `min-h-0`. Sem isso, o nivel 2 cresce alem do viewport, e o `overflow-y-auto` do nivel 3 nunca e ativado porque seu container pai ja ultrapassou os limites.
+### 2. Edge Function - `admin-delete-user`
 
-## Correcao
+A exclusao de um usuario da autenticacao (`auth.users`) so pode ser feita com a service role key no lado servidor. Criaremos uma edge function que:
 
-### Arquivo: `src/components/OnboardingModal.tsx`
+- Valida que o chamador e admin (via JWT)
+- Chama `supabase.auth.admin.deleteUser(userId)` que automaticamente exclui o perfil e dados relacionados via `ON DELETE CASCADE`
+- Retorna sucesso ou erro
 
-**Linha 254** - Adicionar `min-h-0` ao wrapper dos steps 1-3:
+### 3. Frontend - `UsersManagement.tsx`
 
-```
-// De:
-<div className="flex-1 flex flex-col bg-background">
+Adicionar na tabela e no dialog de detalhes:
 
-// Para:
-<div className="flex-1 min-h-0 flex flex-col bg-background">
-```
+- **Botao "Editar"**: abre modal com formulario para editar `display_name`, `interests`, `preferred_regions`, notificacoes
+- **Botao "Excluir"**: abre AlertDialog de confirmacao. Ao confirmar, chama a edge function
+- Apos cada acao, invalida o cache da query `admin-users` para atualizar a lista
 
-Isso completa a cadeia de restricao de altura em todos os niveis do flexbox, garantindo que o scroll funcione e o botao "Continuar" permaneca fixo na parte inferior da tela.
+### 4. Novo componente - `UserEditModal.tsx`
+
+Modal reutilizavel com campos editaveis do perfil:
+- Nome de exibicao (input texto)
+- Interesses (checkboxes com os topicos disponiveis)
+- Regioes preferidas (checkboxes)
+- Notificacoes email/push (switches)
+
+---
+
+## Sequencia de implementacao
+
+1. Migrar banco de dados (novas politicas RLS)
+2. Criar edge function `admin-delete-user`
+3. Criar componente `UserEditModal.tsx`
+4. Atualizar `UsersManagement.tsx` com botoes de editar/excluir e logica de mutacao
