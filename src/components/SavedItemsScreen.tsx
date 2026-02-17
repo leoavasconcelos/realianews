@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Bookmark, Loader2, Download } from 'lucide-react';
 import { useNews, useSavedItems, useSaveNews, useUnsaveNews } from '@/hooks/useNews';
 import { useAuth } from '@/hooks/useAuth';
 import NewsCard, { NewsItem } from './NewsCard';
+import ShareSheet from './ShareSheet';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 
@@ -13,6 +14,8 @@ interface SavedItemsScreenProps {
 
 const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onNewsClick, onLoginClick }) => {
   const { user } = useAuth();
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareItem, setShareItem] = useState<NewsItem | null>(null);
   const { data: allNews, isLoading: newsLoading } = useNews();
   const { data: savedItems, isLoading: savedLoading } = useSavedItems(user?.id);
   const saveNewsMutation = useSaveNews();
@@ -36,17 +39,11 @@ const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onNewsClick, onLogi
     }
   };
 
-  const handleShare = async (id: string) => {
+  const handleShare = (id: string) => {
     const newsItem = savedNews.find(n => n.id === id);
-    try {
-      await navigator.share?.({
-        title: newsItem?.title || 'REalia',
-        text: newsItem?.summary || '',
-        url: newsItem?.sourceUrl || window.location.href,
-      });
-    } catch {
-      navigator.clipboard.writeText(newsItem?.sourceUrl || window.location.href);
-      toast.info('Link copiado!');
+    if (newsItem) {
+      setShareItem(newsItem);
+      setShareOpen(true);
     }
   };
 
@@ -137,6 +134,15 @@ const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onNewsClick, onLogi
           />
         </div>
       ))}
+      {shareItem && (
+        <ShareSheet
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          title={shareItem.title}
+          summary={shareItem.summary}
+          url={shareItem.sourceUrl || window.location.href}
+        />
+      )}
     </div>
   );
 };

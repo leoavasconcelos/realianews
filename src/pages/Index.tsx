@@ -14,6 +14,7 @@ import AuthModal from '@/components/AuthModal';
 import PullToRefresh from '@/components/PullToRefresh';
 import PasswordResetModal from '@/components/PasswordResetModal';
 import NotificationCenter from '@/components/NotificationCenter';
+import ShareSheet from '@/components/ShareSheet';
 import { Compass, GraduationCap, Users, Loader2, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType } from '@/hooks/useNews';
@@ -38,6 +39,8 @@ const Index = () => {
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  const [shareNewsItem, setShareNewsItem] = useState<NewsItem | null>(null);
   const { user, profile, loading: authLoading, authLoading: rawAuthLoading, updateProfile, updatePassword } = useAuth();
   const { unreadCount } = useNotifications(user?.id);
 
@@ -194,17 +197,11 @@ const Index = () => {
     }
   };
 
-  const handleShareNews = async (id: string) => {
+  const handleShareNews = (id: string) => {
     const newsItem = news?.find(n => n.id === id);
-    try {
-      await navigator.share?.({
-        title: newsItem?.title || 'REalia',
-        text: newsItem?.summary || 'Confira esta notícia do mercado imobiliário',
-        url: newsItem?.sourceUrl || window.location.href,
-      });
-    } catch {
-      navigator.clipboard.writeText(newsItem?.sourceUrl || window.location.href);
-      toast.info('Link copiado!');
+    if (newsItem) {
+      setShareNewsItem(newsItem);
+      setShareSheetOpen(true);
     }
   };
 
@@ -395,6 +392,17 @@ const Index = () => {
             />
           )}
         </>
+      )}
+
+      {/* Share Sheet */}
+      {shareNewsItem && (
+        <ShareSheet
+          open={shareSheetOpen}
+          onOpenChange={setShareSheetOpen}
+          title={shareNewsItem.title}
+          summary={shareNewsItem.summary}
+          url={shareNewsItem.sourceUrl || window.location.href}
+        />
       )}
 
       {/* Notification Center Dialog */}
