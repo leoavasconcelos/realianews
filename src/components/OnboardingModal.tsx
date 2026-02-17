@@ -269,7 +269,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete, user, aut
           )}
           
           {/* Content */}
-          <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
+          <div className={`flex-1 flex flex-col items-center px-6 py-8 overflow-y-auto ${step === 1 ? 'justify-center' : 'justify-start pt-4'}`}>
             {renderStepIndicator()}
             
             {step === 1 && (
@@ -415,7 +415,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete, user, aut
           
           {/* Footer */}
           {step !== 1 && (
-            <div className="p-6 pb-8">
+            <div className="p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
               <Button
                 variant="hero"
                 size="xl"
