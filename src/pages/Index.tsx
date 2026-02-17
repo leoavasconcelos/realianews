@@ -338,6 +338,7 @@ const Index = () => {
               profile={profile} 
               onLoginClick={() => setShowAuthModal(true)} 
               onNotificationCenterClick={() => setNotifCenterOpen(true)}
+              onSavedClick={() => setActiveTab('salvos')}
               updateProfile={updateProfile}
               updatePassword={updatePassword}
             />
