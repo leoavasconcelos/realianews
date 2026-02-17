@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Loader2, Camera, Sun, Moon } from 'lucide-react';
+import { Loader2, Camera, Sun, Moon, Inbox } from 'lucide-react';
 import { 
   User, 
   Bookmark, 
@@ -87,12 +87,13 @@ interface ProfileScreenProps {
   user?: AuthUser | null;
   profile?: Profile | null;
   onLoginClick: () => void;
+  onNotificationCenterClick?: () => void;
   updateProfile?: (updates: Partial<Pick<Profile, 'display_name' | 'interests' | 'blocked_sources' | 'preferred_regions'>>) => Promise<{ error: Error | null }>;
   updatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>;
 }
 
 const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
-  ({ user, profile, onLoginClick, updateProfile: updateProfileProp, updatePassword: updatePasswordProp }, ref) => {
+  ({ user, profile, onLoginClick, onNotificationCenterClick, updateProfile: updateProfileProp, updatePassword: updatePasswordProp }, ref) => {
     const navigate = useNavigate();
     const { signOut, updateProfile: updateProfileFallback, updatePassword: updatePasswordFallback } = useAuth();
     const updateProfile = updateProfileProp || updateProfileFallback;
@@ -196,9 +197,10 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
 
     const menuItems: MenuItem[] = [
       { id: 'saved', label: 'Salvos', icon: <Bookmark className="w-5 h-5" /> },
+      { id: 'notif-center', label: 'Central de Notificações', icon: <Inbox className="w-5 h-5" />, onClick: onNotificationCenterClick },
       { id: 'interests', label: 'Meus Interesses', icon: <Heart className="w-5 h-5" />, onClick: handleOpenInterests },
       { id: 'regions', label: 'Regiões de Interesse', icon: <Globe className="w-5 h-5" />, onClick: handleOpenRegions },
-      { id: 'notifications', label: 'Notificações', icon: <Bell className="w-5 h-5" />, onClick: () => setNotificationsOpen(true) },
+      { id: 'notifications', label: 'Preferências de Notificação', icon: <Bell className="w-5 h-5" />, onClick: () => setNotificationsOpen(true) },
       { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" />, onClick: () => setBlockedOpen(true) },
       { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" />, onClick: () => setSettingsOpen(true) },
       { id: 'help', label: 'Ajuda e Suporte', icon: <HelpCircle className="w-5 h-5" />, onClick: () => setHelpOpen(true) },
