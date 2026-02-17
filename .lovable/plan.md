@@ -1,26 +1,30 @@
 
-# Fix: Botao "Continuar" invisivel na tela de interesses do onboarding
+# Fix definitivo: Botao "Continuar" invisivel no onboarding
 
-## Problema
+## Causa raiz real
 
-No passo 2 do onboarding (selecao de interesses), o grid de 7 cards em 2 colunas ocupa mais espaco que a tela do celular. O container deveria rolar (scroll), mas em vez disso ele expande e empurra o botao "Continuar" para fora da tela.
+O layout tem 3 niveis de flex column aninhados:
 
-## Causa raiz
+```text
+[1] fixed inset-0 flex-col overflow-hidden   (linha 168 - altura fixa, OK)
+  [2] flex-1 flex-col                         (linha 254 - SEM min-h-0, PROBLEMA)
+    [3] flex-1 min-h-0 overflow-y-auto        (linha 272 - tem min-h-0, OK)
+```
 
-Bug classico de flexbox: um elemento filho com `flex-1` e `overflow-y-auto` precisa tambem de `min-h-0` para que o navegador respeite o overflow e ative o scroll. Sem `min-h-0`, o conteudo interno forca o container a crescer alem do viewport.
+O fix anterior adicionou `min-h-0` apenas no nivel 3, mas o nivel 2 (o wrapper do step > 0) tambem precisa de `min-h-0`. Sem isso, o nivel 2 cresce alem do viewport, e o `overflow-y-auto` do nivel 3 nunca e ativado porque seu container pai ja ultrapassou os limites.
 
 ## Correcao
 
 ### Arquivo: `src/components/OnboardingModal.tsx`
 
-**Linha 272** - Adicionar `min-h-0` ao div de conteudo:
+**Linha 254** - Adicionar `min-h-0` ao wrapper dos steps 1-3:
 
 ```
 // De:
-<div className={`flex-1 flex flex-col items-center px-6 py-8 overflow-y-auto ${...}`}>
+<div className="flex-1 flex flex-col bg-background">
 
 // Para:
-<div className={`flex-1 min-h-0 flex flex-col items-center px-6 py-8 overflow-y-auto ${...}`}>
+<div className="flex-1 min-h-0 flex flex-col bg-background">
 ```
 
-Essa unica alteracao faz com que o container de conteudo respeite os limites do viewport e ative o scroll quando o conteudo excede o espaco disponivel. O botao "Continuar" no rodape ficara sempre visivel e fixo na parte inferior da tela.
+Isso completa a cadeia de restricao de altura em todos os niveis do flexbox, garantindo que o scroll funcione e o botao "Continuar" permaneca fixo na parte inferior da tela.
