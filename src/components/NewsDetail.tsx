@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Bookmark, Share2, ExternalLink, Play, Pause, Volume2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
+import ShareSheet from './ShareSheet';
 import type { NewsItem } from './NewsCard';
 
 interface NewsDetailProps {
@@ -30,6 +31,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [progress, setProgress] = useState(0);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const speeds = [0.75, 1, 1.25, 1.5, 2];
   const regionBadge = getRegionBadge(news.region);
@@ -89,7 +91,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onShare(news.id)}
+            onClick={() => setShareOpen(true)}
             className="bg-black/30 backdrop-blur-sm text-white hover:bg-black/50"
           >
             <Share2 className="w-5 h-5" />
@@ -204,6 +206,14 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           <ExternalLink className="w-5 h-5 text-muted-foreground" />
         </a>
       </div>
+
+      <ShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        title={news.title}
+        summary={news.summary}
+        url={news.sourceUrl || window.location.href}
+      />
     </div>
   );
 };
