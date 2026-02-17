@@ -30,6 +30,7 @@ import Logo from './Logo';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Button } from './ui/button';
 import { useAuth, Profile } from '@/hooks/useAuth';
+import { useSavedItems } from '@/hooks/useNews';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { toast } from 'sonner';
@@ -88,12 +89,13 @@ interface ProfileScreenProps {
   profile?: Profile | null;
   onLoginClick: () => void;
   onNotificationCenterClick?: () => void;
+  onSavedClick?: () => void;
   updateProfile?: (updates: Partial<Pick<Profile, 'display_name' | 'interests' | 'blocked_sources' | 'preferred_regions'>>) => Promise<{ error: Error | null }>;
   updatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>;
 }
 
 const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
-  ({ user, profile, onLoginClick, onNotificationCenterClick, updateProfile: updateProfileProp, updatePassword: updatePasswordProp }, ref) => {
+  ({ user, profile, onLoginClick, onNotificationCenterClick, onSavedClick, updateProfile: updateProfileProp, updatePassword: updatePasswordProp }, ref) => {
     const navigate = useNavigate();
     const { signOut, updateProfile: updateProfileFallback, updatePassword: updatePasswordFallback } = useAuth();
     const updateProfile = updateProfileProp || updateProfileFallback;
@@ -113,6 +115,8 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
     const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
     const [savingRegions, setSavingRegions] = useState(false);
     const [savingInterests, setSavingInterests] = useState(false);
+    const { data: savedItems } = useSavedItems(user?.id);
+    const savedItemsCount = savedItems?.length || 0;
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -196,7 +200,7 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
     };
 
     const menuItems: MenuItem[] = [
-      { id: 'saved', label: 'Salvos', icon: <Bookmark className="w-5 h-5" /> },
+      { id: 'saved', label: 'Salvos', icon: <Bookmark className="w-5 h-5" />, onClick: onSavedClick },
       { id: 'notif-center', label: 'Central de Notificações', icon: <Inbox className="w-5 h-5" />, onClick: onNotificationCenterClick },
       { id: 'interests', label: 'Meus Interesses', icon: <Heart className="w-5 h-5" />, onClick: handleOpenInterests },
       { id: 'regions', label: 'Regiões de Interesse', icon: <Globe className="w-5 h-5" />, onClick: handleOpenRegions },
@@ -289,11 +293,11 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-card rounded-xl p-4 text-center shadow-card">
-            <p className="text-2xl font-bold text-foreground">--</p>
-            <p className="text-xs text-muted-foreground">Notícias lidas</p>
+            <p className="text-2xl font-bold text-foreground">{regionCount}</p>
+            <p className="text-xs text-muted-foreground">Regiões</p>
           </div>
           <div className="bg-card rounded-xl p-4 text-center shadow-card">
-            <p className="text-2xl font-bold text-foreground">--</p>
+            <p className="text-2xl font-bold text-foreground">{savedItemsCount}</p>
             <p className="text-xs text-muted-foreground">Salvos</p>
           </div>
           <div className="bg-card rounded-xl p-4 text-center shadow-card">
