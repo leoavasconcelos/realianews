@@ -499,27 +499,17 @@ serve(async (req) => {
       );
     }
 
-    // Authentication: allow service role key (cron) or admin user
+    // Authentication: allow cron secret or admin user
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const cronHeader = req.headers.get("X-Cron-Secret");
+    const isCronCall = !!(cronSecret && cronHeader && cronHeader === cronSecret);
+
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    if (!isCronCall && !authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    
-    // Check if this is a service_role JWT (from cron job)
-    let isCronCall = false;
-    try {
-      const payloadB64 = token.split('.')[1];
-      if (payloadB64) {
-        const payload = JSON.parse(atob(payloadB64));
-        isCronCall = payload.role === 'service_role';
-      }
-    } catch {
-      // Not a valid JWT structure, proceed with user auth
     }
 
     if (!isCronCall) {
