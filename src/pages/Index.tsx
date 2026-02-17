@@ -12,12 +12,20 @@ import ExploreScreen from '@/components/ExploreScreen';
 import SavedItemsScreen from '@/components/SavedItemsScreen';
 import AuthModal from '@/components/AuthModal';
 import PasswordResetModal from '@/components/PasswordResetModal';
-import { Compass, GraduationCap, Users, Loader2 } from 'lucide-react';
+import NotificationCenter from '@/components/NotificationCenter';
+import { Compass, GraduationCap, Users, Loader2, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType } from '@/hooks/useNews';
+import { useNotifications } from '@/hooks/useNotifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const Index = () => {
   const queryClient = useQueryClient();
@@ -28,7 +36,9 @@ const Index = () => {
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [notifCenterOpen, setNotifCenterOpen] = useState(false);
   const { user, profile, loading: authLoading, authLoading: rawAuthLoading, updateProfile, updatePassword } = useAuth();
+  const { unreadCount } = useNotifications(user?.id);
 
   // Determine onboarding visibility based on localStorage + profile data
   useEffect(() => {
@@ -203,7 +213,10 @@ const Index = () => {
       case 'mercado':
         return (
           <div className="flex flex-col min-h-screen pb-20">
-            <FeedHeader />
+            <FeedHeader
+              unreadCount={unreadCount}
+              onNotificationsClick={() => setNotifCenterOpen(true)}
+            />
             
             {/* Filters */}
             <div className="px-4 py-3 border-b border-border bg-background/50 backdrop-blur-sm sticky top-[57px] z-30 space-y-2">
@@ -319,6 +332,7 @@ const Index = () => {
               user={user} 
               profile={profile} 
               onLoginClick={() => setShowAuthModal(true)} 
+              onNotificationCenterClick={() => setNotifCenterOpen(true)}
               updateProfile={updateProfile}
               updatePassword={updatePassword}
             />
@@ -374,6 +388,25 @@ const Index = () => {
           )}
         </>
       )}
+
+      {/* Notification Center Dialog */}
+      <Dialog open={notifCenterOpen} onOpenChange={setNotifCenterOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" />
+              Notificações
+            </DialogTitle>
+          </DialogHeader>
+          {user ? (
+            <NotificationCenter userId={user.id} />
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Faça login para ver suas notificações.
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
