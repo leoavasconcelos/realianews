@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import FeedHeader from '@/components/FeedHeader';
 import BottomNav from '@/components/BottomNav';
 import NewsCard, { NewsItem } from '@/components/NewsCard';
@@ -11,6 +11,7 @@ import PlaceholderScreen from '@/components/PlaceholderScreen';
 import ExploreScreen from '@/components/ExploreScreen';
 import SavedItemsScreen from '@/components/SavedItemsScreen';
 import AuthModal from '@/components/AuthModal';
+import PullToRefresh from '@/components/PullToRefresh';
 import PasswordResetModal from '@/components/PasswordResetModal';
 import NotificationCenter from '@/components/NotificationCenter';
 import { Compass, GraduationCap, Users, Loader2, Bell } from 'lucide-react';
@@ -208,6 +209,11 @@ const Index = () => {
   };
 
   // Render content based on active tab
+  const handlePullRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['news'] });
+  }, [queryClient]);
+
+  // Render content based on active tab
   const renderContent = () => {
     switch (activeTab) {
       case 'mercado':
@@ -231,38 +237,40 @@ const Index = () => {
               />
             </div>
             
-            {/* News Feed */}
-            <main className="flex-1 px-4 py-4">
-              {newsLoading ? (
-                <div className="flex items-center justify-center py-20">
-                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {news?.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className="animate-slide-up"
-                      style={{ animationDelay: `${index * 0.1}s` }}
-                    >
-                      <NewsCard
-                        news={item}
-                        onSave={handleSaveNews}
-                        onShare={handleShareNews}
-                        onClick={setSelectedNews}
-                        isSaved={savedItems?.includes(item.id)}
-                      />
-                    </div>
-                  ))}
-                  
-                  {(!news || news.length === 0) && (
-                    <div className="text-center py-12">
-                      <p className="text-muted-foreground">Nenhuma notícia encontrada para este filtro.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </main>
+            {/* News Feed with Pull to Refresh */}
+            <PullToRefresh onRefresh={handlePullRefresh}>
+              <main className="flex-1 px-4 py-4">
+                {newsLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {news?.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className="animate-slide-up"
+                        style={{ animationDelay: `${index * 0.1}s` }}
+                      >
+                        <NewsCard
+                          news={item}
+                          onSave={handleSaveNews}
+                          onShare={handleShareNews}
+                          onClick={setSelectedNews}
+                          isSaved={savedItems?.includes(item.id)}
+                        />
+                      </div>
+                    ))}
+                    
+                    {(!news || news.length === 0) && (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">Nenhuma notícia encontrada para este filtro.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </main>
+            </PullToRefresh>
           </div>
         );
       
