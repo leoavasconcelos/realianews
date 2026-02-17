@@ -509,7 +509,18 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const isCronCall = token === supabaseServiceKey;
+    
+    // Check if this is a service_role JWT (from cron job)
+    let isCronCall = false;
+    try {
+      const payloadB64 = token.split('.')[1];
+      if (payloadB64) {
+        const payload = JSON.parse(atob(payloadB64));
+        isCronCall = payload.role === 'service_role';
+      }
+    } catch {
+      // Not a valid JWT structure, proceed with user auth
+    }
 
     if (!isCronCall) {
       // User call: validate JWT and check admin role
