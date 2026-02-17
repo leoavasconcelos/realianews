@@ -1,70 +1,43 @@
 
-## Diagnostico
+# Plano: Compartilhamento via Redes Sociais
 
-As noticias pararam de atualizar porque o **cron job** chama a funcao `aggregate-news` usando o **anon key** (sem sessao de usuario), mas a funcao exige autenticacao de admin (verifica `user_roles`). O cron nao tem contexto de usuario, entao a chamada falha com erro 401/403 silenciosamente. A ultima noticia no banco e de 11 de fevereiro -- 6 dias atras.
+## Situacao Atual
 
-## Plano de Correcao
+O compartilhamento usa apenas `navigator.share()` (API nativa do navegador). Funciona bem em celulares, mas em desktops frequentemente nao esta disponivel, e o fallback e apenas copiar o link. Nao ha opcoes diretas de redes sociais.
 
-### 1. Corrigir a funcao `aggregate-news` para aceitar chamadas do cron
+## Solucao
 
-Adicionar um caminho alternativo de autorizacao: quando a chamada vier com o **service role key** (em vez do anon key), pular a verificacao de admin e executar diretamente. Chamadas de usuarios normais continuam exigindo role de admin.
+Criar um **sheet/modal de compartilhamento** com botoes diretos para as principais redes sociais, alem de manter a opcao de copiar link. O modal aparecera ao clicar no icone de compartilhamento tanto no `NewsCard` quanto no `NewsDetail`.
 
-Logica:
-- Extrair o token do header Authorization
-- Se o token for igual ao `SUPABASE_SERVICE_ROLE_KEY`, prosseguir sem checar roles
-- Caso contrario, manter a verificacao de admin existente
+### Redes sociais incluidas:
+- **WhatsApp** - principal canal de comunicacao no Brasil
+- **X (Twitter)**
+- **LinkedIn** - relevante por ser conteudo de mercado imobiliario
+- **Telegram**
+- **Facebook**
+- **Copiar link** - fallback universal
 
-### 2. Atualizar o cron job para rodar a cada hora e usar service role key
+### Experiencia do usuario:
+1. Usuario clica no icone de compartilhamento
+2. Abre um sheet (drawer) na parte inferior da tela com os botoes das redes
+3. Cada botao abre a rede social em nova aba com o titulo + resumo + link pre-preenchidos
+4. Botao "Copiar link" copia a URL e mostra toast de confirmacao
 
-Remover o cron atual e criar um novo com:
-- Schedule: `0 * * * *` (a cada hora)
-- Header Authorization usando o service role key em vez do anon key
+## Detalhes Tecnicos
 
-```text
-SQL a executar (via migration):
+### Arquivo a criar:
+- `src/components/ShareSheet.tsx` - Componente de sheet com os botoes de redes sociais. Usa o componente `Drawer` (vaul) existente. Cada rede social abre via `window.open()` com URL parametrizada (ex: `https://api.whatsapp.com/send?text=...`, `https://twitter.com/intent/tweet?text=...`).
 
--- Remover cron antigo
-SELECT cron.unschedule('aggregate-news-every-6-hours');
+### Arquivos a modificar:
+- `src/pages/Index.tsx` - Alterar `handleShareNews` para abrir o `ShareSheet` em vez de chamar `navigator.share` diretamente. Adicionar estado para controlar o sheet e a noticia selecionada para compartilhamento.
+- `src/components/NewsDetail.tsx` - Alterar o botao de share para abrir o `ShareSheet` diretamente dentro do detalhe, em vez de delegar para `onShare`.
+- `src/components/SavedItemsScreen.tsx` - Mesma alteracao: usar `ShareSheet` no `handleShare`.
 
--- Criar novo cron horario usando service role key
-SELECT cron.schedule(
-  'aggregate-news-hourly',
-  '0 * * * *',
-  $$ SELECT net.http_post(
-    url := '...functions/v1/aggregate-news',
-    headers := '{"Authorization": "Bearer <SERVICE_ROLE_KEY>"}'::jsonb,
-    body := '{}'::jsonb
-  ) $$
-);
-```
+### Nenhuma mudanca de banco de dados necessaria.
 
-### 3. Pull-to-refresh no feed Mercado
-
-Implementar gesto de "puxar para baixo" no feed de noticias:
-
-- Criar um componente `PullToRefresh` reutilizavel que:
-  - Detecta gesto de toque/arraste para baixo quando o scroll esta no topo
-  - Mostra indicador de carregamento (spinner + texto "Atualizando...")
-  - Chama `queryClient.invalidateQueries({ queryKey: ['news'] })` para recarregar
-  - Anima o retorno apos conclusao
-
-- Integrar no `Index.tsx` envolvendo o conteudo do feed Mercado com o `PullToRefresh`
-
----
-
-### Secao Tecnica
-
-**Arquivos a criar:**
-- `src/components/PullToRefresh.tsx` -- componente de pull-to-refresh com touch events
-
-**Arquivos a modificar:**
-- `supabase/functions/aggregate-news/index.ts` -- adicionar bypass de auth para service role key
-- `src/pages/Index.tsx` -- envolver feed com PullToRefresh
-
-**SQL a executar:**
-- Remover cron antigo (`aggregate-news-every-6-hours`)
-- Criar novo cron horario (`aggregate-news-hourly`) com service role key
-
-**Mudancas na funcao edge `aggregate-news`:**
-- Linhas 489-553: refatorar bloco de autenticacao para verificar se o token e o service role key antes de tentar validar como JWT de usuario
-- Remover rate limit para chamadas do cron (apenas aplicar para chamadas de usuario)
+### URLs de compartilhamento por rede:
+- WhatsApp: `https://api.whatsapp.com/send?text={titulo} - {url}`
+- X/Twitter: `https://twitter.com/intent/tweet?text={titulo}&url={url}`
+- LinkedIn: `https://www.linkedin.com/sharing/share-offsite/?url={url}`
+- Telegram: `https://t.me/share/url?url={url}&text={titulo}`
+- Facebook: `https://www.facebook.com/sharer/sharer.php?u={url}`
