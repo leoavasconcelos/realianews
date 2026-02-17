@@ -1,9 +1,10 @@
 import React from 'react';
-import { Bookmark, Loader2 } from 'lucide-react';
+import { Bookmark, Loader2, Download } from 'lucide-react';
 import { useNews, useSavedItems, useSaveNews, useUnsaveNews } from '@/hooks/useNews';
 import { useAuth } from '@/hooks/useAuth';
 import NewsCard, { NewsItem } from './NewsCard';
 import { toast } from 'sonner';
+import { Button } from './ui/button';
 
 interface SavedItemsScreenProps {
   onNewsClick: (news: NewsItem) => void;
@@ -88,11 +89,39 @@ const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onNewsClick, onLogi
     );
   }
 
+  const handleExportCSV = () => {
+    const BOM = '\uFEFF';
+    const headers = ['Título', 'Fonte', 'Região', 'Data', 'Resumo', 'URL'];
+    const rows = savedNews.map((n) => [
+      `"${(n.title || '').replace(/"/g, '""')}"`,
+      `"${(n.source || '').replace(/"/g, '""')}"`,
+      `"${(n.region || '').replace(/"/g, '""')}"`,
+      `"${(n.publishedAt || '').replace(/"/g, '""')}"`,
+      `"${(n.summary || '').replace(/"/g, '""')}"`,
+      `"${(n.sourceUrl || '').replace(/"/g, '""')}"`,
+    ]);
+    const csv = BOM + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `realia-salvos-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Exportação concluída!');
+  };
+
   return (
     <div className="px-4 py-4 space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {savedNews.length} {savedNews.length === 1 ? 'notícia salva' : 'notícias salvas'}
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {savedNews.length} {savedNews.length === 1 ? 'notícia salva' : 'notícias salvas'}
+        </p>
+        <Button variant="outline" size="sm" onClick={handleExportCSV}>
+          <Download className="w-4 h-4 mr-1.5" />
+          Exportar CSV
+        </Button>
+      </div>
       {savedNews.map((item, index) => (
         <div
           key={item.id}
