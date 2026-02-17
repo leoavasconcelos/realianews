@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           audio_url: string | null
           created_at: string
+          full_analysis: string | null
           full_text: string | null
           id: string
           image_url: string | null
@@ -34,6 +35,7 @@ export type Database = {
         Insert: {
           audio_url?: string | null
           created_at?: string
+          full_analysis?: string | null
           full_text?: string | null
           id?: string
           image_url?: string | null
@@ -50,6 +52,7 @@ export type Database = {
         Update: {
           audio_url?: string | null
           created_at?: string
+          full_analysis?: string | null
           full_text?: string | null
           id?: string
           image_url?: string | null

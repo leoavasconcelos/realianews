@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Bookmark, Share2, ExternalLink, Play, Pause, Volume2 } from 'lucide-react';
+import { ArrowLeft, Bookmark, Share2, ExternalLink, Play, Pause, Volume2, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
+import { Skeleton } from './ui/skeleton';
 import ShareSheet from './ShareSheet';
 import type { NewsItem } from './NewsCard';
+import { useFullAnalysis } from '@/hooks/useFullAnalysis';
+import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 
 interface NewsDetailProps {
   news: NewsItem;
@@ -27,25 +30,19 @@ const getRegionBadge = (region?: string) => {
   }
 };
 
+const formatDuration = (seconds: number): string => {
+  if (!seconds || !isFinite(seconds)) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
 const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, isSaved = false }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [progress, setProgress] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
+  const { fullAnalysis, isLoading: analysisLoading } = useFullAnalysis(news.id);
+  const audio = useAudioPlayer();
 
-  const speeds = [0.75, 1, 1.25, 1.5, 2];
   const regionBadge = getRegionBadge(news.region);
-
-  const togglePlay = () => setIsPlaying(!isPlaying);
-  
-  const cycleSpeed = () => {
-    const currentIndex = speeds.indexOf(playbackSpeed);
-    const nextIndex = (currentIndex + 1) % speeds.length;
-    setPlaybackSpeed(speeds[nextIndex]);
-  };
-
-  // Extended summary for detail view
-  const fullSummary = `${news.summary}\n\nO mercado imobiliário brasileiro continua a demonstrar resiliência, com indicadores apontando para uma recuperação gradual no setor. Especialistas destacam que a combinação de taxas de juros mais acessíveis e demanda reprimida está impulsionando novos lançamentos e vendas.\n\nAnalistas do setor recomendam atenção especial às oportunidades em regiões metropolitanas, onde a infraestrutura urbana tem atraído investimentos significativos. A digitalização dos processos de compra e venda também está acelerando transações e reduzindo custos operacionais.`;
 
   return (
     <div className="fixed inset-0 bg-background z-50 overflow-y-auto animate-fade-in">
@@ -73,7 +70,6 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
         
         {/* Actions */}
         <div className="absolute top-4 right-4 flex gap-2">
-          {/* Region Badge */}
           {regionBadge && (
             <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-sm px-3 py-2 rounded-lg text-sm font-medium text-white">
               <span>{regionBadge.flag}</span>
@@ -138,10 +134,13 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             <Button
               variant="default"
               size="icon"
-              onClick={togglePlay}
+              onClick={() => audio.togglePlay(news.summary)}
+              disabled={audio.isLoading}
               className="h-10 w-10 rounded-full"
             >
-              {isPlaying ? (
+              {audio.isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : audio.isPlaying ? (
                 <Pause className="w-4 h-4" />
               ) : (
                 <Play className="w-4 h-4 ml-0.5" />
@@ -150,10 +149,10 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             
             <div className="flex-1">
               <Slider
-                value={[progress]}
-                onValueChange={(value) => setProgress(value[0])}
+                value={[audio.progress]}
+                onValueChange={(value) => audio.seek(value[0])}
                 max={100}
-                step={1}
+                step={0.1}
                 className="cursor-pointer"
               />
             </div>
@@ -161,35 +160,74 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             <Button
               variant="ghost"
               size="sm"
-              onClick={cycleSpeed}
+              onClick={audio.cycleSpeed}
               className="text-xs font-semibold min-w-[3rem]"
             >
-              {playbackSpeed}x
+              {audio.playbackSpeed}x
             </Button>
           </div>
           
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Volume2 className="w-3.5 h-3.5" />
-            <span>Ouvir resumo em áudio (em breve)</span>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Volume2 className="w-3.5 h-3.5" />
+              <span>
+                {audio.isLoading
+                  ? 'Gerando áudio...'
+                  : audio.duration > 0
+                    ? `${formatDuration(audio.currentTime)} / ${formatDuration(audio.duration)}`
+                    : 'Ouvir resumo em áudio'}
+              </span>
+            </div>
+            {audio.error && (
+              <span className="text-destructive">{audio.error}</span>
+            )}
           </div>
         </div>
         
-        {/* AI Summary Section */}
+        {/* AI Summary - Quick overview */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-5 w-5 rounded-md bg-gradient-hero flex items-center justify-center">
               <span className="text-[10px] font-bold text-white">IA</span>
             </div>
-            <h2 className="font-semibold text-foreground">Resumo Inteligente</h2>
+            <h2 className="font-semibold text-foreground">Resumo Rápido</h2>
+          </div>
+          <p className="text-muted-foreground leading-relaxed">{news.summary}</p>
+        </div>
+
+        {/* Full Analysis */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-5 w-5 rounded-md bg-gradient-hero flex items-center justify-center">
+              <span className="text-[10px] font-bold text-white">✦</span>
+            </div>
+            <h2 className="font-semibold text-foreground">Análise Completa</h2>
           </div>
           
-          <div className="prose prose-sm max-w-none">
-            {fullSummary.split('\n\n').map((paragraph, index) => (
-              <p key={index} className="text-muted-foreground leading-relaxed mb-4">
-                {paragraph}
-              </p>
-            ))}
-          </div>
+          {analysisLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-[95%]" />
+              <Skeleton className="h-4 w-[90%]" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-[85%]" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-[92%]" />
+              <Skeleton className="h-4 w-[88%]" />
+            </div>
+          ) : fullAnalysis ? (
+            <div className="prose prose-sm max-w-none">
+              {fullAnalysis.split('\n\n').map((paragraph, index) => (
+                <p key={index} className="text-muted-foreground leading-relaxed mb-4">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm italic">
+              Não foi possível gerar a análise. Tente novamente mais tarde.
+            </p>
+          )}
         </div>
         
         {/* Source Link */}
@@ -200,7 +238,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           className="flex items-center justify-between p-4 bg-secondary rounded-xl hover:bg-muted transition-colors"
         >
           <div>
-            <p className="text-sm font-medium text-foreground">Ler matéria completa</p>
+            <p className="text-sm font-medium text-foreground">Ler matéria original</p>
             <p className="text-xs text-muted-foreground">{news.source}</p>
           </div>
           <ExternalLink className="w-5 h-5 text-muted-foreground" />
