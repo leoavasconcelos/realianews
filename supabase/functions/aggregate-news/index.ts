@@ -695,11 +695,18 @@ serve(async (req) => {
 
           const validImageUrl = article.imageUrl && isValidUrl(article.imageUrl) ? article.imageUrl : null;
 
+          // Translate the title to PT-BR for international (non-Brazil) feeds
+          let finalTitle = sanitizeText(article.title, 500);
+          if (isInternational && finalTitle) {
+            const translated = await translateTitleToPtBr(finalTitle, LOVABLE_API_KEY);
+            finalTitle = sanitizeText(translated, 500);
+          }
+
           // Insert new article with sanitized data
           const { data: insertedNews, error: insertError } = await supabase
             .from("news")
             .insert({
-              title: sanitizeText(article.title, 500),
+              title: finalTitle,
               full_text: sanitizeText(article.description, 5000),
               source_url: article.link,
               image_url: validImageUrl,
