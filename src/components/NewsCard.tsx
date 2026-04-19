@@ -112,9 +112,20 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
         </div>
         
         {/* Title */}
-        <h3 className="font-semibold text-foreground leading-snug mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+        <h3 className="font-semibold text-foreground leading-snug mb-1 line-clamp-2 group-hover:text-primary transition-colors">
           {news.title}
         </h3>
+
+        {/* Original (foreign) title — discreet subtitle for international news */}
+        {news.titleOriginal && news.titleOriginal !== news.title && (
+          <p
+            className="text-xs italic text-muted-foreground/80 line-clamp-2 mb-2"
+            lang="en"
+            title={news.titleOriginal}
+          >
+            {news.titleOriginal}
+          </p>
+        )}
         
         {/* AI Summary */}
         <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
