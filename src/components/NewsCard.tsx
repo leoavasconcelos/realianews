@@ -16,6 +16,7 @@ export interface NewsItem {
   sourceUrl?: string;
   audioUrl?: string | null;
   region?: string;
+  titleOriginal?: string | null;
 }
 
 interface NewsCardProps {
