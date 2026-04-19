@@ -69,7 +69,7 @@ serve(async (req) => {
     // Fetch news articles that need summaries
     const { data: newsToProcess, error: fetchError } = await supabase
       .from("news")
-      .select("id, title, full_text, topics")
+      .select("id, title, full_text, topics, region")
       .is("summary_ai", null)
       .limit(10);
 
@@ -88,6 +88,52 @@ serve(async (req) => {
       );
     }
 
+    // Helper: translate a title to PT-BR (used for international news)
+    async function translateTitleToPtBr(title: string): Promise<string> {
+      try {
+        const sysPrompt = `Você é um tradutor especializado em jornalismo do mercado imobiliário.
+Traduza títulos de notícias para português brasileiro de forma natural, fluente e jornalística.
+
+Diretrizes:
+- Traduza SEMPRE para português brasileiro
+- Mantenha o tom jornalístico e o sentido original
+- Não adicione aspas, prefixos como "Tradução:" nem explicações
+- Mantenha nomes próprios, siglas e marcas no original (ex.: Fed, BlackRock, NYC)
+- Adapte termos técnicos quando houver equivalente em português
+- Preserve números, percentuais e moedas
+- Responda APENAS com o título traduzido, em uma única linha`;
+
+        const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              { role: "system", content: sysPrompt },
+              { role: "user", content: `Traduza este título para português brasileiro:\n\n${title}` },
+            ],
+            max_tokens: 150,
+            temperature: 0.2,
+          }),
+        });
+
+        if (!r.ok) {
+          console.error("Title translation error:", r.status);
+          return title;
+        }
+        const data = await r.json();
+        const translated = data.choices?.[0]?.message?.content?.trim();
+        if (!translated) return title;
+        return translated.replace(/^["'`]+|["'`]+$/g, "").trim() || title;
+      } catch (e) {
+        console.error("translateTitleToPtBr error:", e);
+        return title;
+      }
+    }
+
     const results = [];
 
     for (const news of newsToProcess) {
@@ -96,7 +142,19 @@ serve(async (req) => {
           continue;
         }
 
-        const content = news.full_text || news.title;
+        // For international (non-Brazil) news, translate the title to PT-BR
+        // and persist it so the feed header shows the translated headline.
+        let displayTitle = news.title;
+        const isInternational = news.region && news.region !== "Brazil";
+        let translatedTitle: string | null = null;
+        if (isInternational && news.title) {
+          translatedTitle = await translateTitleToPtBr(news.title);
+          if (translatedTitle && translatedTitle !== news.title) {
+            displayTitle = translatedTitle;
+          }
+        }
+
+        const content = news.full_text || displayTitle;
         const topics = Array.isArray(news.topics) ? news.topics : [];
         const topicsContext = topics.length 
           ? `Tópicos relacionados: ${topics.join(", ")}.` 
@@ -114,7 +172,7 @@ Diretrizes:
 
         const userPrompt = `Crie um resumo conciso da seguinte notícia:
 
-Título: ${news.title}
+Título: ${displayTitle}
 
 ${topicsContext}
 
@@ -149,9 +207,14 @@ Responda APENAS com o resumo.`;
         const summary = aiData.choices?.[0]?.message?.content?.trim();
 
         if (summary) {
+          const updatePayload: Record<string, unknown> = { summary_ai: summary };
+          if (translatedTitle && translatedTitle !== news.title) {
+            updatePayload.title = translatedTitle.substring(0, 500);
+          }
+
           const { error: updateError } = await supabase
             .from("news")
-            .update({ summary_ai: summary })
+            .update(updatePayload)
             .eq("id", news.id);
 
           if (!updateError) {
