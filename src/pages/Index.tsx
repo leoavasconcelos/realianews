@@ -236,18 +236,18 @@ const Index = () => {
             
             {/* News Feed with Pull to Refresh */}
             <PullToRefresh onRefresh={handlePullRefresh}>
-              <main className="flex-1 px-4 py-4">
+              <main className="flex-1 px-4 py-4 md:px-6 lg:px-8 md:max-w-7xl md:mx-auto w-full">
                 {newsLoading ? (
                   <div className="flex items-center justify-center py-20">
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     {news?.map((item, index) => (
                       <div
                         key={item.id}
                         className="animate-slide-up"
-                        style={{ animationDelay: `${index * 0.1}s` }}
+                        style={{ animationDelay: `${Math.min(index, 8) * 0.05}s` }}
                       >
                         <NewsCard
                           news={item}
