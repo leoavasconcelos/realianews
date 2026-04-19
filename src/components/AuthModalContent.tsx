@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mail, Lock, User, Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { PasswordInput } from './ui/password-input';
 import Logo from './Logo';
 import PasswordStrengthIndicator from './PasswordStrengthIndicator';
 import { useAuth } from '@/hooks/useAuth';
@@ -290,9 +291,8 @@ const AuthModalContent: React.FC<AuthModalContentProps> = ({
 
         <div className="space-y-2">
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="password"
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+            <PasswordInput
               placeholder="Sua senha"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
