@@ -731,7 +731,7 @@ serve(async (req) => {
           if (insertedNews && article.description) {
             const summarySuccess = await generateAISummary(
               insertedNews.id,
-              article.title,
+              finalTitle,
               article.description,
               topics,
               LOVABLE_API_KEY,
