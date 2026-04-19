@@ -18,9 +18,16 @@ serve(async (req) => {
     // Authentication: allow cron secret OR admin/moderator user
     const cronSecret = Deno.env.get("CRON_SECRET");
     const cronHeader = req.headers.get("X-Cron-Secret");
-    const isCronCall = !!(cronSecret && cronHeader && cronHeader === cronSecret);
-
     const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ")
+      ? authHeader.replace("Bearer ", "").trim()
+      : null;
+    const isCronCall = !!(
+      cronSecret &&
+      ((cronHeader && cronHeader === cronSecret) ||
+        (bearerToken && bearerToken === cronSecret))
+    );
+
     if (!isCronCall && !authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
