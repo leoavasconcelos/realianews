@@ -209,7 +209,6 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
       { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" />, onClick: () => setBlockedOpen(true) },
       { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" />, onClick: () => setSettingsOpen(true) },
       { id: 'help', label: 'Ajuda e Suporte', icon: <HelpCircle className="w-5 h-5" />, onClick: () => setHelpOpen(true) },
-      ...(hasAdminAccess ? [{ id: 'admin', label: 'Painel Administrativo', icon: <Lock className="w-5 h-5" />, onClick: () => navigate('/admin') }] : []),
     ];
 
   const handleSignOut = async () => {
