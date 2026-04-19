@@ -49,7 +49,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
       onClick={() => onClick(news)}
     >
       {/* Image Section */}
-      <div className="relative h-44 overflow-hidden">
+      <div className="relative aspect-[16/9] sm:aspect-[2/1] md:aspect-[16/10] overflow-hidden">
         <img
           src={news.imageUrl}
           alt={news.title}
