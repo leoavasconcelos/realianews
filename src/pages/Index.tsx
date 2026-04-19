@@ -41,7 +41,8 @@ const Index = () => {
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [shareNewsItem, setShareNewsItem] = useState<NewsItem | null>(null);
-  const { user, profile, loading: authLoading, authLoading: rawAuthLoading, updateProfile, updatePassword } = useAuth();
+  const { user, profile, authLoading, updateProfile, updatePassword } = useAuth();
+  const rawAuthLoading = authLoading;
   const { unreadCount } = useNotifications(user?.id);
 
   // Determine onboarding visibility based on localStorage + profile data
