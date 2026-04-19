@@ -695,11 +695,18 @@ serve(async (req) => {
 
           const validImageUrl = article.imageUrl && isValidUrl(article.imageUrl) ? article.imageUrl : null;
 
-          // Translate the title to PT-BR for international (non-Brazil) feeds
-          let finalTitle = sanitizeText(article.title, 500);
+          // Translate the title to PT-BR for international (non-Brazil) feeds.
+          // Preserve the original (English/foreign) title in `title_original`.
+          const originalTitle = sanitizeText(article.title, 500);
+          let finalTitle = originalTitle;
+          let titleOriginal: string | null = null;
           if (isInternational && finalTitle) {
             const translated = await translateTitleToPtBr(finalTitle, LOVABLE_API_KEY);
-            finalTitle = sanitizeText(translated, 500);
+            const translatedSanitized = sanitizeText(translated, 500);
+            if (translatedSanitized && translatedSanitized !== finalTitle) {
+              titleOriginal = originalTitle;
+              finalTitle = translatedSanitized;
+            }
           }
 
           // Insert new article with sanitized data
@@ -707,6 +714,7 @@ serve(async (req) => {
             .from("news")
             .insert({
               title: finalTitle,
+              title_original: titleOriginal,
               full_text: sanitizeText(article.description, 5000),
               source_url: article.link,
               image_url: validImageUrl,
