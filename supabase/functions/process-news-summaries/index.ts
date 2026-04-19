@@ -176,7 +176,10 @@ Diretrizes:
           if (translatedTitle && translatedTitle !== news.title) {
             const { error: updateError } = await supabase
               .from("news")
-              .update({ title: translatedTitle.substring(0, 500) })
+              .update({
+                title: translatedTitle.substring(0, 500),
+                title_original: news.title.substring(0, 500),
+              })
               .eq("id", news.id);
             results.push({ id: news.id, status: updateError ? "update_failed" : "title_translated" });
           } else {
