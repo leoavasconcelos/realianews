@@ -98,73 +98,72 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
 
-    const initSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
+    const loadProfileDeferred = (userId: string, isSignIn: boolean) => {
+      // Defer to avoid deadlock inside onAuthStateChange callback
+      setTimeout(async () => {
         if (!isMounted) return;
-
-        if (session?.user) {
-          setUser(session.user);
-          setProfileLoading(true);
-          const profileData = await fetchProfile(session.user.id);
+        setProfileLoading(true);
+        try {
+          let profileData = await fetchProfile(userId);
+          if (!isMounted) return;
+          if (profileData && isSignIn) {
+            profileData = await syncLocalStoragePreferences(userId, profileData);
+          }
           if (!isMounted) return;
           setProfile(profileData);
-          setProfileLoading(false);
-        } else {
-          setUser(null);
-          setProfile(null);
-          setProfileLoading(false);
-        }
-      } catch (err) {
-        console.error('Error in initSession:', err);
-        if (isMounted) {
-          setUser(null);
-          setProfile(null);
-          setProfileLoading(false);
-        }
-      } finally {
-        if (isMounted) setAuthLoading(false);
-      }
-    };
 
-    initSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!isMounted) return;
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-
-        if (currentUser && event === 'SIGNED_IN') {
-          setProfileLoading(true);
-          try {
-            let profileData = await fetchProfile(currentUser.id);
-            if (!isMounted) return;
-            if (profileData) {
-              profileData = await syncLocalStoragePreferences(currentUser.id, profileData);
-            }
-            setProfile(profileData);
-            // Log login event
+          if (isSignIn) {
             supabase.rpc('create_system_notification', {
-              _user_id: currentUser.id,
+              _user_id: userId,
               _type: 'account_login',
               _title: 'Novo login detectado',
               _body: `Login realizado em ${new Date().toLocaleString('pt-BR')}.`,
             }).then(({ error }) => {
               if (error) console.warn('Failed to log login notification:', error);
             });
-          } catch (err) {
-            console.error('Error fetching profile on sign in:', err);
-            if (isMounted) setProfile(null);
-          } finally {
-            if (isMounted) setProfileLoading(false);
           }
+        } catch (err) {
+          console.error('Error fetching profile:', err);
+          if (isMounted) setProfile(null);
+        } finally {
+          if (isMounted) setProfileLoading(false);
+        }
+      }, 0);
+    };
+
+    // 1. Subscribe FIRST with a SYNCHRONOUS callback (no async/await inside)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!isMounted) return;
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+
+        if (event === 'SIGNED_IN' && currentUser) {
+          loadProfileDeferred(currentUser.id, true);
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
           setProfileLoading(false);
         }
       }
     );
+
+    // 2. Then check existing session — release authLoading immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      setAuthLoading(false);
+      if (currentUser) {
+        loadProfileDeferred(currentUser.id, false);
+      }
+    }).catch((err) => {
+      console.error('Error in getSession:', err);
+      if (isMounted) {
+        setUser(null);
+        setProfile(null);
+        setAuthLoading(false);
+      }
+    });
 
     return () => {
       isMounted = false;
