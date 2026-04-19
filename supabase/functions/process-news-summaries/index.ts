@@ -74,13 +74,13 @@ serve(async (req) => {
       .is("summary_ai", null)
       .limit(10);
 
+    // Backfill: international news that haven't been translated yet (title_original is null)
     const { data: untranslatedIntl } = await supabase
       .from("news")
       .select("id, title, full_text, topics, region, summary_ai")
       .neq("region", "Brazil")
-      .not("summary_ai", "is", null)
-      .or("title.ilike.% the %,title.ilike.% of %,title.ilike.% and %,title.ilike.% to %,title.ilike.% in %,title.ilike.% for %,title.ilike.% with %,title.ilike.% over %,title.ilike.% says %")
-      .limit(20);
+      .is("title_original", null)
+      .limit(40);
 
     const seen = new Set<string>();
     const newsToProcess = [...(missingSummary ?? []), ...(untranslatedIntl ?? [])].filter((n) => {
