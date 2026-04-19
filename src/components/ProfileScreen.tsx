@@ -209,7 +209,6 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
       { id: 'blocked', label: 'Fontes Bloqueadas', icon: <Shield className="w-5 h-5" />, onClick: () => setBlockedOpen(true) },
       { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" />, onClick: () => setSettingsOpen(true) },
       { id: 'help', label: 'Ajuda e Suporte', icon: <HelpCircle className="w-5 h-5" />, onClick: () => setHelpOpen(true) },
-      ...(hasAdminAccess ? [{ id: 'admin', label: 'Painel Administrativo', icon: <Lock className="w-5 h-5" />, onClick: () => navigate('/admin') }] : []),
     ];
 
   const handleSignOut = async () => {
@@ -320,6 +319,21 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
       
       {/* Menu */}
       <div className="px-4">
+        {hasAdminAccess && (
+          <button
+            onClick={() => navigate('/admin')}
+            className="w-full flex items-center gap-4 px-4 py-4 mb-4 bg-gradient-hero text-primary-foreground rounded-xl shadow-card hover:opacity-90 transition-opacity"
+          >
+            <div className="w-10 h-10 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-semibold">Painel Administrativo</p>
+              <p className="text-xs opacity-90">Gerenciar conteúdo e usuários</p>
+            </div>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
         <div className="bg-card rounded-xl shadow-card overflow-hidden">
           {menuItems.map((item, index) => (
             <button
