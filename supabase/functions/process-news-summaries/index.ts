@@ -245,6 +245,7 @@ Responda APENAS com o resumo.`;
           const updatePayload: Record<string, unknown> = { summary_ai: summary };
           if (translatedTitle && translatedTitle !== news.title) {
             updatePayload.title = translatedTitle.substring(0, 500);
+            updatePayload.title_original = news.title.substring(0, 500);
           }
 
           const { error: updateError } = await supabase
