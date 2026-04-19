@@ -37,8 +37,11 @@ export const useNotifications = (userId?: string) => {
   useEffect(() => {
     if (!userId) return;
 
+    // Per-user channel topic enforced by RLS on realtime.messages
     const channel = supabase
-      .channel('user-notifications')
+      .channel(`user-notifications:${userId}`, {
+        config: { private: true },
+      })
       .on(
         'postgres_changes',
         {
