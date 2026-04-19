@@ -3,6 +3,7 @@ import { Settings, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { PasswordInput } from './ui/password-input';
 import { Label } from './ui/label';
 import { Separator } from './ui/separator';
 import { toast } from 'sonner';
@@ -111,15 +112,13 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
           <div className="space-y-3">
             <Label className="text-sm font-semibold">Alterar senha</Label>
             <div className="space-y-2">
-              <Input
-                type="password"
+              <PasswordInput
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Nova senha"
               />
               {newPassword && <PasswordStrengthIndicator password={newPassword} />}
-              <Input
-                type="password"
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirmar nova senha"

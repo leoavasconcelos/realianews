@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Lock, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { PasswordInput } from './ui/password-input';
 import Logo from './Logo';
 import PasswordStrengthIndicator from './PasswordStrengthIndicator';
 import { useAuth } from '@/hooks/useAuth';
@@ -107,9 +108,8 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ onClose, onSucc
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="password"
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                <PasswordInput
                   placeholder="Nova senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -124,9 +124,8 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ onClose, onSucc
             </div>
 
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="password"
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+              <PasswordInput
                 placeholder="Confirmar nova senha"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
