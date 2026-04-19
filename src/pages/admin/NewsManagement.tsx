@@ -139,14 +139,14 @@ export const NewsManagement = () => {
 
     try {
       for (let i = 0; i < MAX_BATCHES; i++) {
-        const { data: result, error } = await supabase.functions.invoke('process-news-summaries');
+        const { data: result, error } = await supabase.functions.invoke('process-news-summaries', {
+          body: { mode: 'titles_only' },
+        });
         if (error) throw error;
 
         const processed = (result as { processed?: number })?.processed ?? 0;
         const results = (result as { results?: Array<{ status: string }> })?.results ?? [];
-        const meaningful = results.filter(
-          (r) => r.status === 'success' || r.status === 'title_translated'
-        ).length;
+        const meaningful = results.filter((r) => r.status === 'title_translated').length;
 
         totalProcessed += meaningful;
         setTranslateProgress(totalProcessed);

@@ -74,16 +74,39 @@ serve(async (req) => {
 
     const supabase = supabaseAdmin;
 
+    let mode: "all" | "titles_only" = "all";
+    const rawBody = await req.text();
+    if (rawBody) {
+      try {
+        const body = JSON.parse(rawBody) as { mode?: string };
+        if (body.mode === "titles_only") {
+          mode = "titles_only";
+        } else if (body.mode && body.mode !== "all") {
+          return new Response(
+            JSON.stringify({ error: "Invalid mode" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } catch {
+        return new Response(
+          JSON.stringify({ error: "Invalid JSON body" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Fetch news articles that need summaries OR international titles still in English (backfill)
     // Heuristic: international news whose title contains common English stopwords likely not translated yet.
-    const { data: missingSummary, error: fetchError } = await supabase
-      .from("news")
-      .select("id, title, full_text, topics, region, summary_ai")
-      .is("summary_ai", null)
-      .limit(10);
+    const { data: missingSummary, error: fetchError } = mode === "titles_only"
+      ? { data: [], error: null }
+      : await supabase
+          .from("news")
+          .select("id, title, full_text, topics, region, summary_ai")
+          .is("summary_ai", null)
+          .limit(10);
 
     // Backfill: international news that haven't been translated yet (title_original is null)
-    const { data: untranslatedIntl } = await supabase
+    const { data: untranslatedIntl, error: untranslatedError } = await supabase
       .from("news")
       .select("id, title, full_text, topics, region, summary_ai")
       .neq("region", "Brazil")
@@ -97,8 +120,8 @@ serve(async (req) => {
       return true;
     });
 
-    if (fetchError) {
-      console.error("Error fetching news:", fetchError);
+    if (fetchError || untranslatedError) {
+      console.error("Error fetching news:", fetchError ?? untranslatedError);
       return new Response(
         JSON.stringify({ error: "Failed to fetch news articles" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -174,6 +197,27 @@ Diretrizes:
           if (translatedTitle && translatedTitle !== news.title) {
             displayTitle = translatedTitle;
           }
+        }
+
+        if (mode === "titles_only") {
+          if (!isInternational || !news.title) {
+            return { id: news.id, status: "skipped_not_intl" };
+          }
+
+          const updatePayload: Record<string, unknown> = {
+            title_original: news.title.substring(0, 500),
+          };
+
+          if (translatedTitle && translatedTitle !== news.title) {
+            updatePayload.title = translatedTitle.substring(0, 500);
+          }
+
+          const { error: updateError } = await supabase
+            .from("news")
+            .update(updatePayload)
+            .eq("id", news.id);
+
+          return { id: news.id, status: updateError ? "update_failed" : "title_translated" };
         }
 
         const alreadyHasSummary = !!(news as { summary_ai?: string | null }).summary_ai;
