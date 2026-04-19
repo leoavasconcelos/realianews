@@ -1,63 +1,47 @@
 
-# Gerenciamento de Usuarios no Painel Admin
 
-## O que sera implementado
+## Problema
 
-Duas novas acoes na tabela de usuarios do painel administrativo:
+O `AuthContext` trava o carregamento da aplicação porque o callback `onAuthStateChange` é `async` e usa `await` internamente. Isso é um anti-padrão conhecido do Supabase: quando o callback faz chamadas assíncronas ao próprio cliente Supabase (como `fetchProfile` via `.from('profiles').select()` ou `supabase.rpc()`), pode ocorrer um deadlock no lock interno do GoTrue. O resultado: `authLoading` nunca vira `false`, o `useNews` fica desabilitado, nenhum request sai para o Supabase, e o feed gira eternamente.
 
-1. **Editar usuario** - Modal para alterar nome de exibicao, interesses, regioes preferidas e configuracoes de notificacao
-2. **Excluir usuario** - Com confirmacao, remove o usuario completamente da plataforma (conta + perfil + dados relacionados)
+## Solução
 
-## Abordagem tecnica
+Refatorar `src/contexts/AuthContext.tsx` seguindo o padrão oficial recomendado pelo Supabase:
 
-### 1. Banco de dados - Novas politicas RLS
+### 1. Tornar o callback de `onAuthStateChange` SÍNCRONO
 
-A tabela `profiles` atualmente so permite que admins facam SELECT. Precisamos adicionar:
+O callback deve apenas atualizar o estado do `user` de forma síncrona. Qualquer operação assíncrona (fetch de profile, RPC de notificação, sync de localStorage) deve ser deferida com `setTimeout(() => {...}, 0)` para sair do contexto do callback.
 
-- **UPDATE por admins**: para que o admin possa editar perfis de outros usuarios
-- **DELETE por admins**: para que a exclusao do perfil funcione via cascata
+### 2. Liberar `authLoading` imediatamente após a primeira detecção de sessão
 
-```sql
--- Admin pode atualizar qualquer perfil
-CREATE POLICY "Admins can update all profiles"
-ON public.profiles FOR UPDATE
-USING (has_role(auth.uid(), 'admin'::app_role));
+O `authLoading` deve virar `false` assim que sabemos se há sessão ou não — não devemos esperar o profile carregar para liberar o app. O `profileLoading` continua existindo separadamente para componentes que precisam dele.
 
--- Admin pode deletar qualquer perfil
-CREATE POLICY "Admins can delete all profiles"
-ON public.profiles FOR DELETE
-USING (has_role(auth.uid(), 'admin'::app_role));
+### 3. Estrutura corrigida
+
+```text
+useEffect:
+  1. subscribe a onAuthStateChange (callback SÍNCRONO)
+     - setUser(session?.user ?? null)
+     - se SIGNED_IN → setTimeout(fetchProfileAndSync, 0)
+     - se SIGNED_OUT → setProfile(null)
+  2. getSession() inicial
+     - setUser, setAuthLoading(false)
+     - se houver user → setTimeout(fetchProfile, 0)
 ```
 
-### 2. Edge Function - `admin-delete-user`
+### 4. Remover bloqueio do feed
 
-A exclusao de um usuario da autenticacao (`auth.users`) so pode ser feita com a service role key no lado servidor. Criaremos uma edge function que:
+Validar em `useNews`/`Index.tsx` se há alguma `enabled` flag dependente de `profileLoading` que esteja segurando a query. A query do feed só deve depender de `authLoading` (ou nem isso, pois feed pode ser público).
 
-- Valida que o chamador e admin (via JWT)
-- Chama `supabase.auth.admin.deleteUser(userId)` que automaticamente exclui o perfil e dados relacionados via `ON DELETE CASCADE`
-- Retorna sucesso ou erro
+## Arquivos afetados
 
-### 3. Frontend - `UsersManagement.tsx`
+- `src/contexts/AuthContext.tsx` — refatoração principal do `useEffect` e callbacks
+- Possível ajuste em `src/hooks/useNews.ts` ou `src/pages/Index.tsx` se a query estiver gated por `loading` (combo de auth+profile) em vez de só `authLoading`
 
-Adicionar na tabela e no dialog de detalhes:
+## Resultado esperado
 
-- **Botao "Editar"**: abre modal com formulario para editar `display_name`, `interests`, `preferred_regions`, notificacoes
-- **Botao "Excluir"**: abre AlertDialog de confirmacao. Ao confirmar, chama a edge function
-- Apos cada acao, invalida o cache da query `admin-users` para atualizar a lista
+- `authLoading` resolve em <100ms após mount
+- Feed dispara request para Supabase imediatamente
+- Profile carrega em paralelo sem bloquear renderização
+- Sem deadlock, sem loading infinito
 
-### 4. Novo componente - `UserEditModal.tsx`
-
-Modal reutilizavel com campos editaveis do perfil:
-- Nome de exibicao (input texto)
-- Interesses (checkboxes com os topicos disponiveis)
-- Regioes preferidas (checkboxes)
-- Notificacoes email/push (switches)
-
----
-
-## Sequencia de implementacao
-
-1. Migrar banco de dados (novas politicas RLS)
-2. Criar edge function `admin-delete-user`
-3. Criar componente `UserEditModal.tsx`
-4. Atualizar `UsersManagement.tsx` com botoes de editar/excluir e logica de mutacao
