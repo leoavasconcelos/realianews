@@ -30,6 +30,7 @@ export type Database = {
           source_url: string
           summary_ai: string | null
           title: string
+          title_original: string | null
           topics: Json | null
         }
         Insert: {
@@ -47,6 +48,7 @@ export type Database = {
           source_url: string
           summary_ai?: string | null
           title: string
+          title_original?: string | null
           topics?: Json | null
         }
         Update: {
@@ -64,6 +66,7 @@ export type Database = {
           source_url?: string
           summary_ai?: string | null
           title?: string
+          title_original?: string | null
           topics?: Json | null
         }
         Relationships: [
