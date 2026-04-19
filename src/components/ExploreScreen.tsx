@@ -183,7 +183,7 @@ const ExploreScreen = React.forwardRef<HTMLDivElement, ExploreScreenProps>(
                   <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : filteredNews.length > 0 ? (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {filteredNews.map((news, index) => (
                     <div 
                       key={news.id} 

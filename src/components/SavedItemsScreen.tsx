@@ -119,21 +119,23 @@ const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onNewsClick, onLogi
           Exportar CSV
         </Button>
       </div>
-      {savedNews.map((item, index) => (
-        <div
-          key={item.id}
-          className="animate-slide-up"
-          style={{ animationDelay: `${index * 0.05}s` }}
-        >
-          <NewsCard
-            news={item}
-            onSave={handleSave}
-            onShare={handleShare}
-            onClick={onNewsClick}
-            isSaved={true}
-          />
-        </div>
-      ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        {savedNews.map((item, index) => (
+          <div
+            key={item.id}
+            className="animate-slide-up"
+            style={{ animationDelay: `${index * 0.05}s` }}
+          >
+            <NewsCard
+              news={item}
+              onSave={handleSave}
+              onShare={handleShare}
+              onClick={onNewsClick}
+              isSaved={true}
+            />
+          </div>
+        ))}
+      </div>
       {shareItem && (
         <ShareSheet
           open={shareOpen}
