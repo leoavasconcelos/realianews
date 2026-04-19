@@ -129,9 +129,19 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           </div>
           
           {/* Title */}
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight mb-4">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight mb-2">
             {news.title}
           </h1>
+
+          {/* Original (foreign) title — discreet subtitle for international news */}
+          {news.titleOriginal && news.titleOriginal !== news.title && (
+            <p
+              className="text-sm sm:text-base italic text-muted-foreground/80 leading-snug mb-4"
+              lang="en"
+            >
+              {news.titleOriginal}
+            </p>
+          )}
           
           {/* Meta */}
           <div className="flex items-center gap-3 text-sm text-muted-foreground mb-6 pb-6 border-b border-border">
