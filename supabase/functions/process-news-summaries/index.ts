@@ -142,7 +142,19 @@ Diretrizes:
           continue;
         }
 
-        const content = news.full_text || news.title;
+        // For international (non-Brazil) news, translate the title to PT-BR
+        // and persist it so the feed header shows the translated headline.
+        let displayTitle = news.title;
+        const isInternational = news.region && news.region !== "Brazil";
+        let translatedTitle: string | null = null;
+        if (isInternational && news.title) {
+          translatedTitle = await translateTitleToPtBr(news.title);
+          if (translatedTitle && translatedTitle !== news.title) {
+            displayTitle = translatedTitle;
+          }
+        }
+
+        const content = news.full_text || displayTitle;
         const topics = Array.isArray(news.topics) ? news.topics : [];
         const topicsContext = topics.length 
           ? `Tópicos relacionados: ${topics.join(", ")}.` 
@@ -160,7 +172,7 @@ Diretrizes:
 
         const userPrompt = `Crie um resumo conciso da seguinte notícia:
 
-Título: ${news.title}
+Título: ${displayTitle}
 
 ${topicsContext}
 
@@ -195,9 +207,14 @@ Responda APENAS com o resumo.`;
         const summary = aiData.choices?.[0]?.message?.content?.trim();
 
         if (summary) {
+          const updatePayload: Record<string, unknown> = { summary_ai: summary };
+          if (translatedTitle && translatedTitle !== news.title) {
+            updatePayload.title = translatedTitle.substring(0, 500);
+          }
+
           const { error: updateError } = await supabase
             .from("news")
-            .update({ summary_ai: summary })
+            .update(updatePayload)
             .eq("id", news.id);
 
           if (!updateError) {
