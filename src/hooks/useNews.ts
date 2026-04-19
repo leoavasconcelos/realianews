@@ -161,6 +161,7 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter, prefe
           return {
             id: item.id,
             title: item.title,
+            titleOriginal: item.title_original ?? null,
             summary: item.summary_ai || '',
             source: source?.name || extractSourceFromUrl(item.source_url),
             sourceLogo: source?.logo_url || null,
