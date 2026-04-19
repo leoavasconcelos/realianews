@@ -373,6 +373,61 @@ function parseRSS(xmlText: string): ParsedArticle[] {
   return articles;
 }
 
+// Translate a foreign-language title to Brazilian Portuguese.
+// Returns the translated title, or the original on any failure.
+async function translateTitleToPtBr(
+  title: string,
+  apiKey: string
+): Promise<string> {
+  try {
+    const systemPrompt = `Você é um tradutor especializado em jornalismo do mercado imobiliário.
+Traduza títulos de notícias para português brasileiro de forma natural, fluente e jornalística.
+
+Diretrizes:
+- Traduza SEMPRE para português brasileiro, mesmo títulos curtos ou ambíguos
+- Mantenha o tom jornalístico e o sentido original
+- Não adicione aspas, prefixos como "Tradução:" nem explicações
+- Mantenha nomes próprios, siglas e marcas no original (ex.: Fed, BlackRock, NYC)
+- Adapte termos técnicos para equivalentes em português quando houver
+- Preserve números, percentuais e moedas
+- Responda APENAS com o título traduzido, em uma única linha`;
+
+    const userPrompt = `Traduza este título de notícia para português brasileiro:\n\n${title}`;
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 150,
+        temperature: 0.2,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      console.error(`Title translation AI error:`, aiResponse.status);
+      return title;
+    }
+
+    const aiData = await aiResponse.json();
+    const translated = aiData.choices?.[0]?.message?.content?.trim();
+    if (!translated) return title;
+
+    // Strip surrounding quotes if the model added them
+    return translated.replace(/^["'`]+|["'`]+$/g, "").trim() || title;
+  } catch (err) {
+    console.error("translateTitleToPtBr error:", err);
+    return title;
+  }
+}
+
 async function generateAISummary(
   newsId: string,
   title: string,
