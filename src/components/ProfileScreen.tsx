@@ -284,9 +284,17 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
              />
            </button>
           <div>
-            <h1 className="text-xl font-bold text-foreground">
-              {profile?.display_name || 'Usuário REalia'}
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold text-foreground">
+                {profile?.display_name || 'Usuário REalia'}
+              </h1>
+              {hasAdminAccess && (
+                <span className="inline-flex items-center gap-1 bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5 rounded-full">
+                  <Shield className="w-3 h-3" />
+                  {isAdmin ? 'Admin' : 'Moderador'}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">{user.email}</p>
           </div>
         </div>
