@@ -329,42 +329,76 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    // Authentication + admin check
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
 
-    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Authentication: support both CRON_SECRET (cron job) and admin JWT
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const cronHeader = req.headers.get("X-Cron-Secret");
+    const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ")
+      ? authHeader.replace("Bearer ", "").trim()
+      : null;
+
+    const isCronCall = !!(
+      cronSecret &&
+      ((cronHeader && cronHeader === cronSecret) ||
+        (bearerToken && bearerToken === cronSecret))
+    );
+
+    if (!isCronCall) {
+      // User-level call: require admin JWT
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const userId = user.id;
+
+      // Rate limit check (only for user calls)
+      const now = Date.now();
+      const lastCall = rateLimitMap.get(userId);
+      if (lastCall && now - lastCall < RATE_LIMIT_WINDOW_MS) {
+        const retryAfter = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastCall)) / 1000);
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) } }
+        );
+      }
+      rateLimitMap.set(userId, now);
+
+      // Verify admin/moderator role
+      const supabaseServiceKeyForRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabaseRoleCheck = createClient(supabaseUrl, supabaseServiceKeyForRole);
+      const { data: roleData } = await supabaseRoleCheck
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .in("role", ["admin", "moderator"]);
+
+      if (!roleData || roleData.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      console.log("✅ Authorized via CRON_SECRET");
     }
-
-    const userId = user.id;
-
-    // Rate limit check
-    const now = Date.now();
-    const lastCall = rateLimitMap.get(userId);
-    if (lastCall && now - lastCall < RATE_LIMIT_WINDOW_MS) {
-      const retryAfter = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastCall)) / 1000);
-      return new Response(
-        JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) } }
-      );
-    }
-    rateLimitMap.set(userId, now);
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
@@ -380,21 +414,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check admin/moderator role
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .in("role", ["admin", "moderator"]);
-
-    if (!roleData || roleData.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Forbidden" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const appUrl = req.headers.get("origin") || "https://realia.app";
+    const appUrl = req.headers.get("origin") || "https://realia.digital";
 
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
