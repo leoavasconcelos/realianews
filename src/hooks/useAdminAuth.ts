@@ -39,10 +39,12 @@ export const useAdminAuth = () => {
       if (cancelled) return;
 
       if (error) {
-        console.error('Error fetching roles:', error);
+        console.error('[useAdminAuth] Error fetching roles:', error);
         setRoles([]);
       } else {
-        setRoles((data as UserRole[])?.map(r => r.role) || []);
+        const fetched = (data as UserRole[])?.map(r => r.role) || [];
+        console.log('[useAdminAuth] Roles for user', user.id, '→', fetched);
+        setRoles(fetched);
       }
 
       setRolesLoading(false);
