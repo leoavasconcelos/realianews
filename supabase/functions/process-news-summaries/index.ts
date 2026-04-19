@@ -150,18 +150,16 @@ Diretrizes:
       }
     }
 
-    const results = [];
+    const results: Array<{ id: string; status: string }> = [];
 
-    for (const news of newsToProcess) {
+    async function processNews(news: typeof newsToProcess[number]): Promise<{ id: string; status: string }> {
       try {
         if (!news.full_text && !news.title) {
-          continue;
+          return { id: news.id, status: "skipped_empty" };
         }
 
-        // For international (non-Brazil) news, translate the title to PT-BR
-        // and persist it so the feed header shows the translated headline.
         let displayTitle = news.title;
-        const isInternational = news.region && news.region !== "Brazil";
+        const isInternational = !!(news.region && news.region !== "Brazil");
         let translatedTitle: string | null = null;
         if (isInternational && news.title) {
           translatedTitle = await translateTitleToPtBr(news.title);
@@ -170,29 +168,29 @@ Diretrizes:
           }
         }
 
-        // Backfill mode: if summary already exists, only update the title and skip AI summary call.
         const alreadyHasSummary = !!(news as { summary_ai?: string | null }).summary_ai;
+
+        // Backfill mode (summary already exists): just persist title_original + translated title
         if (alreadyHasSummary) {
+          if (!isInternational) return { id: news.id, status: "skipped_not_intl" };
+          const updatePayload: Record<string, unknown> = {
+            title_original: news.title.substring(0, 500),
+          };
           if (translatedTitle && translatedTitle !== news.title) {
-            const { error: updateError } = await supabase
-              .from("news")
-              .update({
-                title: translatedTitle.substring(0, 500),
-                title_original: news.title.substring(0, 500),
-              })
-              .eq("id", news.id);
-            results.push({ id: news.id, status: updateError ? "update_failed" : "title_translated" });
-          } else {
-            results.push({ id: news.id, status: "skipped_no_translation" });
+            updatePayload.title = translatedTitle.substring(0, 500);
           }
-          await new Promise((resolve) => setTimeout(resolve, 300));
-          continue;
+          const { error: updateError } = await supabase
+            .from("news")
+            .update(updatePayload)
+            .eq("id", news.id);
+          return { id: news.id, status: updateError ? "update_failed" : "title_translated" };
         }
 
+        // Generate summary
         const content = news.full_text || displayTitle;
         const topics = Array.isArray(news.topics) ? news.topics : [];
-        const topicsContext = topics.length 
-          ? `Tópicos relacionados: ${topics.join(", ")}.` 
+        const topicsContext = topics.length
+          ? `Tópicos relacionados: ${topics.join(", ")}.`
           : "";
 
         const systemPrompt = `Você é um especialista em resumir notícias do mercado imobiliário brasileiro. 
@@ -235,37 +233,39 @@ Responda APENAS com o resumo.`;
 
         if (!aiResponse.ok) {
           console.error(`AI error for news ${news.id}:`, aiResponse.status);
-          continue;
+          return { id: news.id, status: "ai_error" };
         }
 
         const aiData = await aiResponse.json();
         const summary = aiData.choices?.[0]?.message?.content?.trim();
+        if (!summary) return { id: news.id, status: "no_summary" };
 
-        if (summary) {
-          const updatePayload: Record<string, unknown> = { summary_ai: summary };
-          if (translatedTitle && translatedTitle !== news.title) {
-            updatePayload.title = translatedTitle.substring(0, 500);
-            updatePayload.title_original = news.title.substring(0, 500);
-          }
-
-          const { error: updateError } = await supabase
-            .from("news")
-            .update(updatePayload)
-            .eq("id", news.id);
-
-          if (!updateError) {
-            results.push({ id: news.id, status: "success" });
-          } else {
-            results.push({ id: news.id, status: "update_failed" });
-          }
+        const updatePayload: Record<string, unknown> = { summary_ai: summary };
+        if (isInternational && news.title) {
+          updatePayload.title_original = news.title.substring(0, 500);
+        }
+        if (translatedTitle && translatedTitle !== news.title) {
+          updatePayload.title = translatedTitle.substring(0, 500);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const { error: updateError } = await supabase
+          .from("news")
+          .update(updatePayload)
+          .eq("id", news.id);
 
+        return { id: news.id, status: updateError ? "update_failed" : "success" };
       } catch (err) {
         console.error(`Error processing news ${news.id}:`, err);
-        results.push({ id: news.id, status: "error" });
+        return { id: news.id, status: "error" };
       }
+    }
+
+    // Process in parallel chunks (concurrency = 5) to stay under timeout while respecting rate limits
+    const CONCURRENCY = 5;
+    for (let i = 0; i < newsToProcess.length; i += CONCURRENCY) {
+      const chunk = newsToProcess.slice(i, i + CONCURRENCY);
+      const chunkResults = await Promise.all(chunk.map((n) => processNews(n)));
+      results.push(...chunkResults);
     }
 
     return new Response(
