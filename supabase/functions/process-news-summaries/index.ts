@@ -66,12 +66,28 @@ serve(async (req) => {
 
     const supabase = supabaseAdmin;
 
-    // Fetch news articles that need summaries
-    const { data: newsToProcess, error: fetchError } = await supabase
+    // Fetch news articles that need summaries OR international titles still in English (backfill)
+    // Heuristic: international news whose title contains common English stopwords likely not translated yet.
+    const { data: missingSummary, error: fetchError } = await supabase
       .from("news")
-      .select("id, title, full_text, topics, region")
+      .select("id, title, full_text, topics, region, summary_ai")
       .is("summary_ai", null)
       .limit(10);
+
+    const { data: untranslatedIntl } = await supabase
+      .from("news")
+      .select("id, title, full_text, topics, region, summary_ai")
+      .neq("region", "Brazil")
+      .not("summary_ai", "is", null)
+      .or("title.ilike.% the %,title.ilike.% of %,title.ilike.% and %,title.ilike.% to %,title.ilike.% in %,title.ilike.% for %,title.ilike.% with %,title.ilike.% over %,title.ilike.% says %")
+      .limit(20);
+
+    const seen = new Set<string>();
+    const newsToProcess = [...(missingSummary ?? []), ...(untranslatedIntl ?? [])].filter((n) => {
+      if (seen.has(n.id)) return false;
+      seen.add(n.id);
+      return true;
+    });
 
     if (fetchError) {
       console.error("Error fetching news:", fetchError);
