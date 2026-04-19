@@ -100,7 +100,7 @@ const ProfileScreen = React.forwardRef<HTMLDivElement, ProfileScreenProps>(
     const { signOut, updateProfile: updateProfileFallback, updatePassword: updatePasswordFallback } = useAuth();
     const updateProfile = updateProfileProp || updateProfileFallback;
     const updatePassword = updatePasswordProp || updatePasswordFallback;
-    const { hasAdminAccess } = useAdminAuth();
+    const { hasAdminAccess, isAdmin } = useAdminAuth();
     const { resolvedTheme, setTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
     const fileInputRef = useRef<HTMLInputElement>(null);
