@@ -414,21 +414,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check admin/moderator role
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .in("role", ["admin", "moderator"]);
-
-    if (!roleData || roleData.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Forbidden" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const appUrl = req.headers.get("origin") || "https://realia.app";
+    const appUrl = req.headers.get("origin") || "https://realia.digital";
 
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
