@@ -32,7 +32,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Download
+  Download,
+  Languages
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -126,6 +127,51 @@ export const NewsManagement = () => {
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const [exporting, setExporting] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [translateProgress, setTranslateProgress] = useState(0);
+
+  const handleTranslatePending = async () => {
+    setTranslating(true);
+    setTranslateProgress(0);
+    let totalProcessed = 0;
+    let consecutiveEmpty = 0;
+    const MAX_BATCHES = 50; // safety cap
+
+    try {
+      for (let i = 0; i < MAX_BATCHES; i++) {
+        const { data: result, error } = await supabase.functions.invoke('process-news-summaries');
+        if (error) throw error;
+
+        const processed = (result as { processed?: number })?.processed ?? 0;
+        const results = (result as { results?: Array<{ status: string }> })?.results ?? [];
+        const meaningful = results.filter(
+          (r) => r.status === 'success' || r.status === 'title_translated'
+        ).length;
+
+        totalProcessed += meaningful;
+        setTranslateProgress(totalProcessed);
+
+        if (processed === 0 || meaningful === 0) {
+          consecutiveEmpty++;
+          if (consecutiveEmpty >= 2) break; // nothing left to translate
+        } else {
+          consecutiveEmpty = 0;
+        }
+
+        // small pause between batches
+        await new Promise((r) => setTimeout(r, 800));
+      }
+
+      toast.success(`Backfill concluído: ${totalProcessed} títulos traduzidos`);
+      queryClient.invalidateQueries({ queryKey: ['admin-news'] });
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error('Erro ao traduzir títulos: ' + message);
+    } finally {
+      setTranslating(false);
+    }
+  };
 
   const handleExportCSV = async () => {
     setExporting(true);
@@ -176,7 +222,11 @@ export const NewsManagement = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Gerenciar Notícias</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleTranslatePending} disabled={translating}>
+            {translating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Languages className="h-4 w-4 mr-2" />}
+            {translating ? `Traduzindo... (${translateProgress})` : 'Traduzir títulos pendentes'}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={exporting}>
             {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
             Exportar CSV
