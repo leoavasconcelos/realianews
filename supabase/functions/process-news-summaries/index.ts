@@ -170,6 +170,22 @@ Diretrizes:
           }
         }
 
+        // Backfill mode: if summary already exists, only update the title and skip AI summary call.
+        const alreadyHasSummary = !!(news as { summary_ai?: string | null }).summary_ai;
+        if (alreadyHasSummary) {
+          if (translatedTitle && translatedTitle !== news.title) {
+            const { error: updateError } = await supabase
+              .from("news")
+              .update({ title: translatedTitle.substring(0, 500) })
+              .eq("id", news.id);
+            results.push({ id: news.id, status: updateError ? "update_failed" : "title_translated" });
+          } else {
+            results.push({ id: news.id, status: "skipped_no_translation" });
+          }
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          continue;
+        }
+
         const content = news.full_text || displayTitle;
         const topics = Array.isArray(news.topics) ? news.topics : [];
         const topicsContext = topics.length 
