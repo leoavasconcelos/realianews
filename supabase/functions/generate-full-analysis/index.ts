@@ -60,15 +60,18 @@ serve(async (req) => {
 
 Título da notícia: ${news.title}
 Resumo: ${news.summary_ai || ""}
-Tópicos: ${topics}
+Tópicos sugeridos (use apenas se forem coerentes com o conteúdo real da notícia, ignore se parecerem irrelevantes ou genéricos): ${topics || "nenhum"}
 
 Estruture o artigo com:
-1. **Contexto do Mercado** - Situe o leitor no cenário atual
-2. **Análise dos Fatos** - Aprofunde os pontos principais da notícia
-3. **Impacto e Consequências** - O que isso significa para investidores, compradores e o setor
-4. **Perspectivas** - Tendências e o que esperar
+1. **Contexto do Mercado** - Situe o leitor no cenário e geografia corretos da notícia (ex.: se for mercado norte-americano, fale do mercado norte-americano; não force paralelos com FIIs ou Brasil quando não houver relação clara).
+2. **Análise dos Fatos** - Aprofunde os pontos principais da notícia exatamente como descritos, sem inventar ângulos.
+3. **Impacto e Consequências** - Identifique quem é o público realmente afetado pela notícia (pode ser construtoras, compradores residenciais, locatários, investidores institucionais, governos, etc.) e fale especificamente para esse público — NÃO assuma que o leitor é investidor de FII a menos que a notícia trate explicitamente disso.
+4. **Perspectivas** - Tendências e o que esperar dentro do escopo real da notícia.
 
-Escreva de forma clara, informativa e profissional. Use parágrafos curtos. Não use markdown, apenas texto corrido com quebras de parágrafo. Não repita o título.`;
+Regras importantes:
+- Se a notícia for sobre mercado internacional (EUA, Europa, Ásia, etc.), mantenha o foco nesse mercado. Só compare com o Brasil se houver implicação direta clara.
+- Se a notícia for sobre construção/arquitetura/sustentabilidade/tecnologia e não mencionar investimento, NÃO direcione a análise para investidores.
+- Escreva de forma clara, informativa e profissional. Use parágrafos curtos. Não use markdown, apenas texto corrido com quebras de parágrafo. Não repita o título.`;
 
     const aiResponse = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -81,7 +84,7 @@ Escreva de forma clara, informativa e profissional. Use parágrafos curtos. Não
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [
-            { role: "system", content: "Você é um jornalista analítico especializado em mercado imobiliário brasileiro e global. Sempre responda em português brasileiro." },
+            { role: "system", content: "Você é um jornalista analítico especializado em mercado imobiliário global e brasileiro. Adapte o ângulo da análise ao tipo e à geografia real da notícia. Nunca force um viés de FIIs/investidores em notícias que não tratem disso. Sempre responda em português brasileiro." },
             { role: "user", content: prompt },
           ],
         }),
