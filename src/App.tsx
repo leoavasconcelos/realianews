@@ -13,6 +13,7 @@ import { AdminLayout } from "./pages/admin/AdminLayout";
 import { Dashboard } from "./pages/admin/Dashboard";
 import { NewsManagement } from "./pages/admin/NewsManagement";
 import { TopicsManagement } from "./pages/admin/TopicsManagement";
+import { TopicsAudit } from "./pages/admin/TopicsAudit";
 import { SourcesManagement } from "./pages/admin/SourcesManagement";
 import { UsersManagement } from "./pages/admin/UsersManagement";
 import { Analytics } from "./pages/admin/Analytics";
