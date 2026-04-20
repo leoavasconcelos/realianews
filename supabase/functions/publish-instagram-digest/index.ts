@@ -40,7 +40,7 @@ const BUCKET_NAME = "instagram-posts";
 const DEFAULT_TOP_N = 5;
 const MAX_TOP_N = 8;
 const BRAND_URL = "https://realia.digital";
-const SLIDE_SIZE = 1080;
+const SLIDE_SIZE = 864;
 const WEBHOOK_TEST_IMAGE_URL = `${BRAND_URL}/placeholder.svg`;
 
 const json = (body: unknown, status = 200) =>
@@ -202,26 +202,7 @@ const isUsableCoverImageUrl = (url: string | null) => {
   return !blockedFragments.some((fragment) => normalized.includes(fragment));
 };
 
-const fetchImageDataUrl = async (url: string | null) => {
-  if (!isUsableCoverImageUrl(url)) return null;
-
-  try {
-    const response = await fetch(url, { headers: { "User-Agent": "realia-instagram-digest" } });
-    if (!response.ok) return null;
-    const contentType = response.headers.get("content-type") || "image/jpeg";
-    if (!contentType.startsWith("image/") || contentType.includes("svg")) return null;
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength < 20_000) return null;
-    let binary = "";
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
-    }
-    return `data:${contentType};base64,${btoa(binary)}`;
-  } catch {
-    return null;
-  }
-};
+const fetchImageDataUrl = async (_url: string | null) => null;
 
 const slideShell = (children: React.ReactNode, background = "linear-gradient(135deg, #102A43 0%, #183A5A 60%, #1F7A72 100%)") =>
   React.createElement(
@@ -250,7 +231,6 @@ const renderToPng = async (node: React.ReactElement) => {
 };
 
 const renderCoverPng = async (news: NewsRow, totalStories: number) => {
-  const coverImage = await fetchImageDataUrl(news.image_url ?? null);
   const titleLines = wrapLines(news.title, 18).slice(0, 4);
   const topics = parseTopics(news.topics).slice(0, 2);
   const sourceName = sourceNameFromUrl(news.source_url);
@@ -260,23 +240,11 @@ const renderCoverPng = async (news: NewsRow, totalStories: number) => {
       React.createElement(
         React.Fragment,
         null,
-        coverImage
-          ? React.createElement("img", {
-              src: coverImage,
-              width: SLIDE_SIZE,
-              height: SLIDE_SIZE,
-              style: {
-                position: "absolute",
-                inset: 0,
-                objectFit: "cover",
-              },
-            })
-          : null,
         React.createElement("div", {
           style: {
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(180deg, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0.84) 100%)",
+              background: "radial-gradient(circle at top left, rgba(148,163,184,0.18) 0%, rgba(148,163,184,0.02) 26%, transparent 46%), linear-gradient(145deg, #030712 0%, #0B1120 54%, #111827 100%)",
           },
         }),
         React.createElement(
@@ -391,7 +359,7 @@ const renderCoverPng = async (news: NewsRow, totalStories: number) => {
               React.createElement(
                 "div",
                 { style: { fontSize: "18px", color: "rgba(248,250,252,0.64)", textTransform: "uppercase", letterSpacing: "0.12em" } },
-                coverImage ? "featured story" : "branded cover",
+                "branded cover",
               ),
               React.createElement(
                 "div",
@@ -402,9 +370,7 @@ const renderCoverPng = async (news: NewsRow, totalStories: number) => {
           ),
         ),
       ),
-      coverImage
-        ? "linear-gradient(135deg, #05070B 0%, #0F172A 60%, #111827 100%)"
-        : "radial-gradient(circle at top left, rgba(148,163,184,0.18) 0%, rgba(148,163,184,0.02) 26%, transparent 46%), linear-gradient(145deg, #030712 0%, #0B1120 54%, #111827 100%)",
+      "radial-gradient(circle at top left, rgba(148,163,184,0.18) 0%, rgba(148,163,184,0.02) 26%, transparent 46%), linear-gradient(145deg, #030712 0%, #0B1120 54%, #111827 100%)",
     ),
   );
 };
