@@ -262,19 +262,42 @@ const TopicsAuditPage = () => {
               Quantidade de notícias por tópico, considerando aliases usados pelo filtro do feed.
             </p>
           </div>
-          <Button onClick={handleRecategorize} disabled={recategorizing} variant="outline">
-            {recategorizing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Re-categorizando... ({recatProgress.updated}/{recatProgress.processed})
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Re-categorizar tópicos
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              onClick={() => runRecategorization('empty')}
+              disabled={recategorizing !== null}
+              variant="outline"
+            >
+              {recategorizing === 'empty' ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Re-categorizando vazias... ({recatProgress.updated}/{recatProgress.processed})
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Re-categorizar vazias
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={() => runRecategorization('all')}
+              disabled={recategorizing !== null}
+              variant="default"
+            >
+              {recategorizing === 'all' ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Re-categorizando todas... ({recatProgress.updated}/{recatProgress.processed})
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Re-categorizar todas as notícias
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* KPI cards */}
