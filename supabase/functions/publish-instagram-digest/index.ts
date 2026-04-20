@@ -104,6 +104,20 @@ const bulletize = (text: string, count = 3): string[] => {
     .slice(0, count);
 };
 
+const tightenLine = (text: string, maxLength: number) => {
+  const cleaned = text.replace(/\s+/g, " ").trim().replace(/[.!?]+$/g, "");
+  if (cleaned.length <= maxLength) return cleaned;
+
+  const truncated = cleaned.slice(0, maxLength + 1);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return (lastSpace > 40 ? truncated.slice(0, lastSpace) : truncated.slice(0, maxLength)).trim();
+};
+
+const toShortParagraph = (text: string, maxLength: number) => {
+  const bullets = bulletize(text, 2);
+  return tightenLine(bullets.join(". "), maxLength);
+};
+
 const wrapLines = (text: string, maxChars: number) => {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -503,11 +517,27 @@ const composeCaption = (newsItems: NewsRow[]) => {
     .map((tag) => `#${tag}`)
     .join(" ");
 
-  const storyLines = newsItems.map((item, index) => `${index + 1}. ${item.title}`).join("\n");
-  const summary = (lead.summary_ai || lead.title).replace(/\s+/g, " ").trim().slice(0, 1100);
-  const source = sourceNameFromUrl(lead.source_url);
+  const openingLine = tightenLine(lead.title, 110);
+  const contextParagraphs = newsItems
+    .slice(0, 3)
+    .map((item) => {
+      const source = sourceNameFromUrl(item.source_url);
+      const context = toShortParagraph(item.summary_ai || item.title, 180);
+      return `${source}: ${context}`;
+    })
+    .filter(Boolean);
 
-  return `${lead.title}\n\n${summary}\n\nHoje no carrossel:\n${storyLines}\n\n📍 Fonte: ${source}\n🔗 Leia mais no REalia News (${BRAND_URL})\n\n${hashtags}`;
+  const finalInsight = tightenLine(
+    `O recado é claro: liquidez, funding e demanda seguem seletivos — e leitura superficial já não basta para entender o próximo movimento.`,
+    170,
+  );
+
+  const softCta = tightenLine(
+    `Para quem decide com contexto, o carrossel completo está no REalia.`,
+    120,
+  );
+
+  return [openingLine, ...contextParagraphs, finalInsight, softCta, hashtags].join("\n\n");
 };
 
 const createPublicUrls = (supabase: ReturnType<typeof createClient>, paths: string[]) => {
