@@ -118,6 +118,31 @@ const toShortParagraph = (text: string, maxLength: number) => {
   return tightenLine(bullets.join(". "), maxLength);
 };
 
+const buildRealiaReading = (newsItems: NewsRow[]) => {
+  const analysisBase = newsItems
+    .slice(0, 3)
+    .map((item) => `${item.title} ${item.summary_ai || ""}`.toLowerCase())
+    .join(" ");
+
+  if (/(juros|selic|credito|financiamento|capital|funding|banco|spread)/.test(analysisBase)) {
+    return "O ponto central não é só a manchete, mas o custo de capital por trás dela. Quando crédito e funding entram na equação, o mercado tende a premiar operação eficiente, balanço sólido e timing de execução.";
+  }
+
+  if (/(locacao|aluguel|demanda|vacancia|ocupacao|absor[cç][aã]o|vendas|ticket)/.test(analysisBase)) {
+    return "A leitura mais importante está na demanda efetiva. Em um mercado mais seletivo, produto certo e preço correto seguem girando; o restante perde velocidade e margem.";
+  }
+
+  if (/(plano diretor|regulacao|licenciamento|prefeitura|zoneamento|lei|norma)/.test(analysisBase)) {
+    return "Quando a mudança vem por regulação, o impacto raramente é imediato na manchete — ele aparece depois em preço de terreno, prazo de aprovação e apetite de investimento.";
+  }
+
+  if (/(logistica|industrial|escritorio|laje|galp[aã]o|shopping|varejo|multifamily|hotel)/.test(analysisBase)) {
+    return "O sinal aqui é de reposicionamento de demanda e qualidade. Quem estiver melhor calibrado em produto, localização e ocupação tende a capturar valor antes do resto do mercado.";
+  }
+
+  return "Mais do que um fato isolado, o movimento reforça um mercado em que contexto vale tanto quanto notícia. A diferença competitiva está em interpretar cedo onde preço, liquidez e demanda podem se deslocar.";
+};
+
 const wrapLines = (text: string, maxChars: number) => {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -532,12 +557,21 @@ const composeCaption = (newsItems: NewsRow[]) => {
     170,
   );
 
+  const realiaReading = tightenLine(buildRealiaReading(newsItems), 220);
+
   const softCta = tightenLine(
     `Para quem decide com contexto, o carrossel completo está no REalia.`,
     120,
   );
 
-  return [openingLine, ...contextParagraphs, finalInsight, softCta, hashtags].join("\n\n");
+  return [
+    openingLine,
+    ...contextParagraphs,
+    `Leitura do REalia\n${realiaReading}`,
+    finalInsight,
+    softCta,
+    hashtags,
+  ].join("\n\n");
 };
 
 const createPublicUrls = (supabase: ReturnType<typeof createClient>, paths: string[]) => {
