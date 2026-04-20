@@ -143,6 +143,36 @@ const buildRealiaReading = (newsItems: NewsRow[]) => {
   return "Mais do que um fato isolado, o movimento reforça um mercado em que contexto vale tanto quanto notícia. A diferença competitiva está em interpretar cedo onde preço, liquidez e demanda podem se deslocar.";
 };
 
+const buildFinalInsight = (newsItems: NewsRow[]) => {
+  const analysisBase = newsItems
+    .map((item) => `${item.title} ${item.summary_ai || ""} ${parseTopics(item.topics).join(" ")}`.toLowerCase())
+    .join(" ");
+
+  const themes = [
+    {
+      score: (analysisBase.match(/juros|selic|credito|financiamento|funding|capital|spread|banco/g) || []).length,
+      text: "No fim, a variável decisiva parece ser capital: onde o dinheiro encarece, a execução precisa ficar mais disciplinada — e isso muda quem consegue crescer com qualidade.",
+    },
+    {
+      score: (analysisBase.match(/locacao|aluguel|vacancia|ocupacao|absor[cç][aã]o|demanda|ticket|vendas/g) || []).length,
+      text: "O pano de fundo é demanda real: o mercado segue ativo, mas cada vez mais intolerante a produto mal calibrado, preço fora de contexto e tese sem lastro operacional.",
+    },
+    {
+      score: (analysisBase.match(/regulacao|plano diretor|zoneamento|licenciamento|prefeitura|lei|norma/g) || []).length,
+      text: "Quando a agenda dominante é regulatória, a consequência mais relevante costuma aparecer depois: repricing de terrenos, mudança de viabilidade e nova disputa por timing.",
+    },
+    {
+      score: (analysisBase.match(/logistica|industrial|escritorio|laje|galp[aã]o|shopping|varejo|multifamily|hotel/g) || []).length,
+      text: "O tema central aqui é reposicionamento de ativos: valor tende a migrar para tipologias e localizações capazes de sustentar ocupação, margem e recorrência com mais consistência.",
+    },
+  ];
+
+  const bestTheme = themes.sort((a, b) => b.score - a.score)[0];
+  if (bestTheme && bestTheme.score > 0) return bestTheme.text;
+
+  return "O que une essas histórias não é o volume de notícia, mas a direção do mercado: capital mais seletivo, demanda mais criteriosa e vantagem para quem interpreta antes de reagir.";
+};
+
 const wrapLines = (text: string, maxChars: number) => {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -552,10 +582,7 @@ const composeCaption = (newsItems: NewsRow[]) => {
     })
     .filter(Boolean);
 
-  const finalInsight = tightenLine(
-    `O recado é claro: liquidez, funding e demanda seguem seletivos — e leitura superficial já não basta para entender o próximo movimento.`,
-    170,
-  );
+  const finalInsight = tightenLine(buildFinalInsight(newsItems), 210);
 
   const realiaReading = tightenLine(buildRealiaReading(newsItems), 220);
 
