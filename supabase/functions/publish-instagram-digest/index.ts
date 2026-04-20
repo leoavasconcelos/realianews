@@ -123,14 +123,26 @@ const wrapLines = (text: string, maxChars: number) => {
   return lines;
 };
 
+const isUsableCoverImageUrl = (url: string | null) => {
+  if (!url) return false;
+
+  const normalized = url.trim().toLowerCase();
+  if (!normalized) return false;
+
+  const blockedFragments = ["placeholder", "default", "blank", "fallback", "/placeholder.svg"];
+  return !blockedFragments.some((fragment) => normalized.includes(fragment));
+};
+
 const fetchImageDataUrl = async (url: string | null) => {
-  if (!url) return null;
+  if (!isUsableCoverImageUrl(url)) return null;
 
   try {
     const response = await fetch(url, { headers: { "User-Agent": "realia-instagram-digest" } });
     if (!response.ok) return null;
     const contentType = response.headers.get("content-type") || "image/jpeg";
+    if (!contentType.startsWith("image/") || contentType.includes("svg")) return null;
     const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength < 20_000) return null;
     let binary = "";
     const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -170,8 +182,9 @@ const renderToPng = async (node: React.ReactElement) => {
 
 const renderCoverPng = async (news: NewsRow, totalStories: number) => {
   const coverImage = await fetchImageDataUrl(news.image_url ?? null);
-  const titleLines = wrapLines(news.title, 22).slice(0, 4);
+  const titleLines = wrapLines(news.title, 18).slice(0, 4);
   const topics = parseTopics(news.topics).slice(0, 2);
+  const sourceName = sourceNameFromUrl(news.source_url);
 
   return renderToPng(
     slideShell(
@@ -218,48 +231,111 @@ const renderCoverPng = async (news: NewsRow, totalStories: number) => {
               "div",
               {
                 style: {
-                  padding: "12px 24px",
-                  borderRadius: "999px",
-                  background: "rgba(248,250,252,0.12)",
-                  fontSize: "22px",
-                  fontWeight: 700,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
                 },
               },
-              "REalia · Digest",
+              React.createElement(
+                "div",
+                {
+                  style: {
+                    color: "#F8FAFC",
+                    fontSize: "22px",
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                  },
+                },
+                "REalia",
+              ),
+              React.createElement("div", {
+                style: {
+                  width: "96px",
+                  height: "2px",
+                  background: "rgba(248,250,252,0.85)",
+                },
+              }),
             ),
           ),
           React.createElement(
             "div",
-            { style: { display: "flex", flexDirection: "column", gap: "20px" } },
+            { style: { display: "flex", flexDirection: "column", gap: "24px" } },
             React.createElement(
               "div",
-              { style: { color: "#FDBA74", fontSize: "20px", fontWeight: 700, letterSpacing: "0.08em" } },
-              `TOP ${totalStories} · MERCADO IMOBILIÁRIO`,
+              {
+                style: {
+                  color: "rgba(248,250,252,0.72)",
+                  fontSize: "20px",
+                  fontWeight: 600,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                },
+              },
+              `Top ${totalStories} · editorial briefing`,
             ),
             ...titleLines.map((line) =>
               React.createElement(
                 "div",
-                { key: line, style: { fontSize: "58px", lineHeight: 1.08, fontWeight: 800, maxWidth: "820px" } },
+                {
+                  key: line,
+                  style: {
+                    fontSize: "72px",
+                    lineHeight: 0.98,
+                    fontWeight: 800,
+                    maxWidth: "860px",
+                    letterSpacing: "-0.02em",
+                  },
+                },
                 line,
               ),
             ),
           ),
           React.createElement(
             "div",
-            { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "24px" } },
+            {
+              style: {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+                gap: "24px",
+                paddingTop: "28px",
+                borderTop: "1px solid rgba(248,250,252,0.16)",
+              },
+            },
             React.createElement(
               "div",
-              { style: { fontSize: "26px", color: "#E2E8F0", fontWeight: 500 } },
-              sourceNameFromUrl(news.source_url),
+              { style: { fontSize: "26px", color: "#E2E8F0", fontWeight: 500, maxWidth: "420px" } },
+              sourceName,
             ),
             React.createElement(
               "div",
-              { style: { fontSize: "26px", color: "#F8FAFC", fontWeight: 700, textAlign: "right" } },
-              topics.join(" · ") || "realia.digital",
+              {
+                style: {
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  alignItems: "flex-end",
+                  textAlign: "right",
+                },
+              },
+              React.createElement(
+                "div",
+                { style: { fontSize: "18px", color: "rgba(248,250,252,0.64)", textTransform: "uppercase", letterSpacing: "0.12em" } },
+                coverImage ? "featured story" : "branded cover",
+              ),
+              React.createElement(
+                "div",
+                { style: { fontSize: "26px", color: "#F8FAFC", fontWeight: 700 } },
+                topics.join(" · ") || "realia.digital",
+              ),
             ),
           ),
         ),
       ),
+      coverImage
+        ? "linear-gradient(135deg, #05070B 0%, #0F172A 60%, #111827 100%)"
+        : "radial-gradient(circle at top left, rgba(148,163,184,0.18) 0%, rgba(148,163,184,0.02) 26%, transparent 46%), linear-gradient(145deg, #030712 0%, #0B1120 54%, #111827 100%)",
     ),
   );
 };
