@@ -153,6 +153,22 @@ export const InstagramAutomation = () => {
     },
   });
 
+  const webhookTestMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('publish-instagram-digest', {
+        body: { mode: 'webhook_test' },
+      });
+      if (error) throw error;
+      return data as { message?: string };
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Teste enviado ao Zapier');
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao testar webhook: ${error.message}`);
+    },
+  });
+
   const latestStatus = publications?.[0]?.status;
 
   return (
@@ -235,9 +251,18 @@ export const InstagramAutomation = () => {
                 {previewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
                 Publicar agora (preview)
               </Button>
-              <Button variant="accent" onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending || previewMutation.isPending}>
+              <Button variant="accent" onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending || previewMutation.isPending || webhookTestMutation.isPending}>
                 {sendMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Disparar digest manualmente
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => webhookTestMutation.mutate()}
+                disabled={webhookTestMutation.isPending || previewMutation.isPending || sendMutation.isPending}
+              >
+                {webhookTestMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Testar webhook
               </Button>
             </div>
           </CardContent>
