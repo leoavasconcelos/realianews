@@ -439,6 +439,11 @@ Responda APENAS com o resumo.`;
         if (translatedTitle && translatedTitle !== news.title) {
           updatePayload.title = translatedTitle.substring(0, 500);
         }
+        // Re-detect topics now that we have the (possibly translated) title + new PT-BR summary.
+        const detectedAfter = detectTopics(displayTitle ?? "", summary);
+        if (detectedAfter.length > 0) {
+          updatePayload.topics = detectedAfter;
+        }
 
         const { error: updateError } = await supabase
           .from("news")
