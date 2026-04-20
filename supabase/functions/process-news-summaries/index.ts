@@ -335,6 +335,16 @@ Diretrizes:
             updatePayload.title = translatedTitle.substring(0, 500);
           }
 
+          // Re-detect topics on the translated PT-BR title + summary.
+          // Fixes intl news that came in with wrong/missing topics from English-only detection.
+          const detected = detectTopics(
+            (translatedTitle || news.title) ?? "",
+            (news as { summary_ai?: string | null }).summary_ai ?? "",
+          );
+          if (detected.length > 0) {
+            updatePayload.topics = detected;
+          }
+
           const { error: updateError } = await supabase
             .from("news")
             .update(updatePayload)
@@ -345,7 +355,7 @@ Diretrizes:
 
         const alreadyHasSummary = !!(news as { summary_ai?: string | null }).summary_ai;
 
-        // Backfill mode (summary already exists): just persist title_original + translated title
+        // Backfill mode (summary already exists): persist title_original + translated title + re-detect topics
         if (alreadyHasSummary) {
           if (!isInternational) return { id: news.id, status: "skipped_not_intl" };
           const updatePayload: Record<string, unknown> = {
@@ -353,6 +363,13 @@ Diretrizes:
           };
           if (translatedTitle && translatedTitle !== news.title) {
             updatePayload.title = translatedTitle.substring(0, 500);
+          }
+          const detected = detectTopics(
+            (translatedTitle || news.title) ?? "",
+            (news as { summary_ai?: string | null }).summary_ai ?? "",
+          );
+          if (detected.length > 0) {
+            updatePayload.topics = detected;
           }
           const { error: updateError } = await supabase
             .from("news")
