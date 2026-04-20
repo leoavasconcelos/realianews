@@ -61,7 +61,7 @@ const menuItems = [
   },
   { 
     path: '/admin/instagram', 
-    label: 'Instagram', 
+    label: 'Fila Instagram', 
     icon: Instagram,
     adminOnly: false 
   },

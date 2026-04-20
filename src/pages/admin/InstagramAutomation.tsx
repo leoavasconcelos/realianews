@@ -75,6 +75,12 @@ interface PreviewResponse {
   }>;
 }
 
+const isQueueResponse = (
+  value: PreviewResponse | { message?: string; queuedCount?: number; publicationIds?: string[] },
+): value is { message?: string; queuedCount?: number; publicationIds?: string[] } => {
+  return 'queuedCount' in value || 'message' in value;
+};
+
 export const InstagramAutomation = () => {
   const queryClient = useQueryClient();
   const { isAdmin } = useAdminAuth();
@@ -199,7 +205,13 @@ export const InstagramAutomation = () => {
     mutationFn: async () => invokeInstagramFlow({ mode: 'generate_queue', limit: 4 }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
-      toast.success(data?.queuedCount ? `${data.queuedCount} posts entraram na fila` : data?.message || 'Fila atualizada');
+      toast.success(
+        isQueueResponse(data) && data.queuedCount
+          ? `${data.queuedCount} posts entraram na fila`
+          : isQueueResponse(data) && data.message
+            ? data.message
+            : 'Fila atualizada',
+      );
     },
     onError: (error: Error) => toast.error(`Erro ao gerar fila: ${error.message}`),
   });
