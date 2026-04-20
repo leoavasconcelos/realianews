@@ -409,10 +409,73 @@ const renderCoverPng = async (news: NewsRow, totalStories: number) => {
   );
 };
 
-const renderSummaryPng = async (news: NewsRow, index: number, totalStories: number) => {
-  const bullets = bulletize(news.summary_ai || news.title, 3);
-  const topics = parseTopics(news.topics).slice(0, 3);
-  const titleLines = wrapLines(news.title, 28).slice(0, 2);
+const buildWhatHappenedBullets = (newsItems: NewsRow[]) => {
+  const lead = newsItems[0];
+  const leadSummary = bulletize(lead.summary_ai || lead.title, 1)[0] || lead.title;
+  const supporting = newsItems
+    .slice(1, 3)
+    .map((item) => `${sourceNameFromUrl(item.source_url)} amplia o quadro com ${tightenLine(item.title.toLowerCase(), 90)}`);
+
+  return [
+    tightenLine(leadSummary, 120),
+    ...supporting,
+    tightenLine(`O recorte reúne ${newsItems.length} sinais que apontam para a mesma direção competitiva no mercado.`, 110),
+  ].slice(0, 3);
+};
+
+const buildWhyItMattersBullets = (newsItems: NewsRow[]) => {
+  const analysisBase = newsItems.map((item) => `${item.title} ${item.summary_ai || ""}`).join(" ").toLowerCase();
+
+  if (/(juros|selic|credito|financiamento|funding|capital|spread|banco)/.test(analysisBase)) {
+    return [
+      "Custo de capital volta ao centro da tomada de decisão.",
+      "Projetos dependentes de alavancagem perdem margem de erro.",
+      "Execução disciplinada ganha ainda mais peso na precificação.",
+    ];
+  }
+
+  if (/(locacao|aluguel|vacancia|ocupacao|absor[cç][aã]o|demanda|ticket|vendas)/.test(analysisBase)) {
+    return [
+      "Demanda continua ativa, mas mais criteriosa no ponto de entrada.",
+      "Produto e preço desalinhados tendem a perder velocidade.",
+      "Quem lê tração real antes da concorrência captura valor primeiro.",
+    ];
+  }
+
+  if (/(regulacao|plano diretor|zoneamento|licenciamento|prefeitura|lei|norma)/.test(analysisBase)) {
+    return [
+      "Mudança regulatória altera viabilidade antes de aparecer no preço final.",
+      "Timing de aprovação volta a ser variável estratégica.",
+      "Terra bem posicionada tende a reagir antes do mercado consolidado.",
+    ];
+  }
+
+  return [
+    "A disputa deixa de ser por volume e passa a ser por qualidade de leitura.",
+    "Liquidez e demanda seguem presentes, mas com filtros mais rígidos.",
+    "Contexto bem interpretado vira vantagem prática de execução.",
+  ];
+};
+
+const buildRealiaInsightBullets = (newsItems: NewsRow[]) => {
+  const reading = buildRealiaReading(newsItems);
+  const closing = buildFinalInsight(newsItems);
+
+  return [tightenLine(reading, 120), ...bulletize(closing, 2).map((item) => tightenLine(item, 100))].slice(0, 3);
+};
+
+const renderEditorialTextSlide = async ({
+  section,
+  title,
+  bullets,
+  footer,
+}: {
+  section: string;
+  title: string;
+  bullets: string[];
+  footer: string;
+}) => {
+  const titleLines = wrapLines(title, 20).slice(0, 3);
 
   return renderToPng(
     slideShell(
@@ -424,8 +487,8 @@ const renderSummaryPng = async (news: NewsRow, index: number, totalStories: numb
             inset: "56px",
             borderRadius: "46px",
             border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(255,255,255,0.04)",
-            padding: "28px",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.02) 100%)",
+            padding: "42px",
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
@@ -433,135 +496,102 @@ const renderSummaryPng = async (news: NewsRow, index: number, totalStories: numb
         },
         React.createElement(
           "div",
-          { style: { display: "flex", justifyContent: "space-between", gap: "20px", alignItems: "center" } },
-          React.createElement(
-            "div",
-            { style: { fontSize: "22px", fontWeight: 700 } },
-            `REalia · Resumo ${index + 1}/${totalStories}`,
-          ),
-          React.createElement(
-            "div",
-            { style: { fontSize: "20px", color: "#94A3B8" } },
-            sourceNameFromUrl(news.source_url),
-          ),
-        ),
-        React.createElement(
-          "div",
           { style: { display: "flex", flexDirection: "column", gap: "24px" } },
-          ...titleLines.map((line) =>
-            React.createElement(
-              "div",
-              { key: line, style: { fontSize: "48px", lineHeight: 1.1, fontWeight: 800, maxWidth: "860px" } },
-              line,
-            ),
+          React.createElement(
+            "div",
+            { style: { color: "rgba(248,250,252,0.68)", fontSize: "20px", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" } },
+            section,
           ),
           React.createElement(
             "div",
-            { style: { display: "flex", flexDirection: "column", gap: "34px", marginTop: "24px" } },
-            ...bullets.map((bullet) =>
+            { style: { display: "flex", flexDirection: "column", gap: "14px" } },
+            ...titleLines.map((line) =>
               React.createElement(
                 "div",
-                { key: bullet, style: { display: "flex", gap: "20px", alignItems: "flex-start" } },
-                React.createElement("div", {
-                  style: {
-                    width: "16px",
-                    height: "16px",
-                    minWidth: "16px",
-                    borderRadius: "999px",
-                    background: "#F97316",
-                    marginTop: "14px",
-                  },
-                }),
-                React.createElement(
-                  "div",
-                  { style: { fontSize: "34px", lineHeight: 1.35, color: "#E2E8F0", fontWeight: 500, maxWidth: "820px" } },
-                  bullet,
-                ),
+                { key: line, style: { fontSize: "66px", lineHeight: 0.98, fontWeight: 800, maxWidth: "860px", letterSpacing: "-0.02em" } },
+                line,
               ),
             ),
           ),
         ),
         React.createElement(
           "div",
-          { style: { display: "flex", gap: "18px", flexWrap: "wrap" } },
-          ...topics.map((topic) =>
+          { style: { display: "flex", flexDirection: "column", gap: "28px", marginTop: "16px" } },
+          ...bullets.map((bullet) =>
             React.createElement(
               "div",
-              {
-                key: topic,
+              { key: bullet, style: { display: "flex", gap: "18px", alignItems: "flex-start" } },
+              React.createElement("div", {
                 style: {
-                  padding: "14px 22px",
+                  width: "10px",
+                  height: "10px",
+                  minWidth: "10px",
                   borderRadius: "999px",
-                  background: "rgba(249,115,22,0.14)",
-                  border: "1px solid rgba(249,115,22,0.3)",
-                  fontSize: "22px",
-                  fontWeight: 600,
-                  color: "#FDBA74",
+                  background: "#F8FAFC",
+                  marginTop: "18px",
                 },
-              },
-              topic,
+              }),
+              React.createElement(
+                "div",
+                { style: { fontSize: "34px", lineHeight: 1.32, color: "#E2E8F0", fontWeight: 500, maxWidth: "840px" } },
+                bullet,
+              ),
             ),
           ),
-        ),
-      ),
-      "linear-gradient(135deg, #102A43 0%, #183A5A 100%)",
-    ),
-  );
-};
-
-const renderCtaPng = async (storiesCount: number) =>
-  renderToPng(
-    slideShell(
-      React.createElement(
-        "div",
-        {
-          style: {
-            position: "absolute",
-            inset: "56px",
-            borderRadius: "46px",
-            border: "1px solid rgba(255,255,255,0.15)",
-            background: "linear-gradient(135deg, rgba(24,58,90,0.28) 0%, rgba(249,115,22,0.20) 100%)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            padding: "64px",
-            gap: "28px",
-          },
-        },
-        React.createElement("div", { style: { color: "#FDBA74", fontSize: "34px", fontWeight: 700, letterSpacing: "0.08em" } }, "REalia NEWS"),
-        React.createElement("div", { style: { fontSize: "84px", fontWeight: 800, lineHeight: 1.05 } }, "Leia mais"),
-        React.createElement("div", { style: { fontSize: "84px", fontWeight: 800, lineHeight: 1.05, marginTop: "-18px" } }, "no app"),
-        React.createElement(
-          "div",
-          { style: { fontSize: "34px", lineHeight: 1.4, color: "#E2E8F0", maxWidth: "720px", marginTop: "10px" } },
-          `${storiesCount} destaques selecionados nas últimas 24 horas`,
         ),
         React.createElement(
           "div",
           {
             style: {
-              marginTop: "26px",
-              padding: "22px 36px",
-              borderRadius: "999px",
-              background: "rgba(248,250,252,0.12)",
-              border: "1px solid rgba(248,250,252,0.18)",
-              fontSize: "34px",
-              fontWeight: 700,
+              paddingTop: "24px",
+              borderTop: "1px solid rgba(248,250,252,0.14)",
+              fontSize: "24px",
+              color: "rgba(248,250,252,0.72)",
             },
           },
-          BRAND_URL,
-        ),
-        React.createElement(
-          "div",
-          { style: { fontSize: "24px", color: "#CBD5E1", marginTop: "20px" } },
-          "Mercado imobiliário com curadoria diária",
+          footer,
         ),
       ),
-      "linear-gradient(135deg, #0F172A 0%, #183A5A 60%, #F97316 100%)",
+      "linear-gradient(145deg, #030712 0%, #0B1120 58%, #111827 100%)",
     ),
   );
+};
+
+const renderWhatHappenedPng = async (newsItems: NewsRow[]) =>
+  renderEditorialTextSlide({
+    section: "Slide 2 · O que aconteceu",
+    title: "Os fatos que definem o recorte",
+    bullets: buildWhatHappenedBullets(newsItems),
+    footer: `${newsItems.length} histórias lidas em conjunto, não em isolamento.`,
+  });
+
+const renderWhyItMattersPng = async (newsItems: NewsRow[]) =>
+  renderEditorialTextSlide({
+    section: "Slide 3 · Por que importa",
+    title: "O efeito real para o mercado",
+    bullets: buildWhyItMattersBullets(newsItems),
+    footer: "Leitura voltada a preço, demanda, capital e execução.",
+  });
+
+const renderInsightPng = async (newsItems: NewsRow[]) =>
+  renderEditorialTextSlide({
+    section: "Slide 4 · Leitura do REalia",
+    title: "A interpretação que muda a decisão",
+    bullets: buildRealiaInsightBullets(newsItems),
+    footer: "Interpretação editorial para quem opera com contexto.",
+  });
+
+const renderCtaPng = async (storiesCount: number) =>
+  renderEditorialTextSlide({
+    section: "Slide 5 · Próximo passo",
+    title: "Acompanhe o mercado com mais profundidade",
+    bullets: [
+      tightenLine(`${storiesCount} sinais relevantes, organizados com leitura editorial e filtro de mercado.`, 110),
+      "Sem ruído, sem excesso, sem urgência artificial.",
+      tightenLine(`Quando o contexto importa, ${BRAND_URL} entra antes da decisão.`, 100),
+    ],
+    footer: BRAND_URL,
+  });
 
 const composeCaption = (newsItems: NewsRow[]) => {
   const lead = newsItems[0];
