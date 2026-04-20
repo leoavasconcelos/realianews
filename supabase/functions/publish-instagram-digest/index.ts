@@ -409,7 +409,7 @@ const getNewsById = async (supabase: ReturnType<typeof createClient>, newsId: st
 };
 
 const createQueuedPublication = async (supabase: ReturnType<typeof createClient>, userId: string | null, news: NewsRow, settings: InstagramSettings) => {
-  const postType: PostType = settings.carousel_when_multiple_images ? "carousel" : "single_image";
+  const postType: PostType = settings.single_post_default ? "single_image" : settings.carousel_when_multiple_images ? "carousel" : "single_image";
   const caption = captionFromNews(news, settings.max_caption_length || DEFAULT_CAPTION_LENGTH);
   const { data, error } = await supabase
     .from("instagram_publications")
@@ -616,7 +616,16 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const rawBody = await req.text();
-    const parsed = BodySchema.safeParse(rawBody ? JSON.parse(rawBody) : {});
+    let requestBody: unknown = {};
+    if (rawBody) {
+      try {
+        requestBody = JSON.parse(rawBody);
+      } catch {
+        return json({ error: { body: ["JSON inválido."] } }, 400);
+      }
+    }
+
+    const parsed = BodySchema.safeParse(requestBody);
     if (!parsed.success) {
       return json({ error: parsed.error.flatten().fieldErrors }, 400);
     }
@@ -652,7 +661,9 @@ serve(async (req) => {
     }
 
     if (mode === "generate_queue") {
-      if (isCronCall && !settings.enabled) return json({ success: true, message: "Instagram automation disabled" });
+      if (isCronCall && (!settings.enabled || !settings.auto_enqueue_enabled)) {
+        return json({ success: true, message: "Fila editorial automática desativada." });
+      }
       const { items, hasRecentPublication } = await getEligibleNews(
         supabase,
         parsed.data.limit ?? 4,
