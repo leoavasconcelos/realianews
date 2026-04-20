@@ -67,6 +67,48 @@ const parseTopics = (raw: unknown): string[] => {
 
 const TopicsAuditPage = () => {
   const [search, setSearch] = useState('');
+  const [recategorizing, setRecategorizing] = useState(false);
+  const [recatProgress, setRecatProgress] = useState({ updated: 0, processed: 0 });
+  const queryClient = useQueryClient();
+
+  const handleRecategorize = async () => {
+    setRecategorizing(true);
+    setRecatProgress({ updated: 0, processed: 0 });
+    let totalUpdated = 0;
+    let totalProcessed = 0;
+    let consecutiveEmpty = 0;
+    const MAX_BATCHES = 60;
+    try {
+      for (let i = 0; i < MAX_BATCHES; i++) {
+        const { data, error } = await supabase.functions.invoke('recategorize-news-topics', {
+          body: { batchSize: 200, onlyEmpty: true },
+        });
+        if (error) throw error;
+        const updated = (data as { updated?: number })?.updated ?? 0;
+        const processed = (data as { processed?: number })?.processed ?? 0;
+        totalUpdated += updated;
+        totalProcessed += processed;
+        setRecatProgress({ updated: totalUpdated, processed: totalProcessed });
+
+        if (processed === 0) break;
+        if (updated === 0) {
+          consecutiveEmpty++;
+          if (consecutiveEmpty >= 2) break;
+        } else {
+          consecutiveEmpty = 0;
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      toast.success(`Re-categorização concluída: ${totalUpdated} atualizadas (de ${totalProcessed} avaliadas)`);
+      queryClient.invalidateQueries({ queryKey: ['admin-topics-audit-news'] });
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error('Erro ao re-categorizar: ' + message);
+    } finally {
+      setRecategorizing(false);
+    }
+  };
 
   const { data: topics, isLoading: topicsLoading } = useQuery({
     queryKey: ['admin-topics-audit-list'],
