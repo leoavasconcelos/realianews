@@ -642,12 +642,9 @@ const createPublicUrls = (supabase: ReturnType<typeof createClient>, paths: stri
 const createSlides = async (supabase: ReturnType<typeof createClient>, publicationId: string, newsItems: NewsRow[]) => {
   const slideDefinitions = [
     { fileName: `cover-${newsItems[0].id}.png`, png: await renderCoverPng(newsItems[0], newsItems.length) },
-    ...await Promise.all(
-      newsItems.map(async (item, index) => ({
-        fileName: `story-${index + 1}-${item.id}.png`,
-        png: await renderSummaryPng(item, index, newsItems.length),
-      })),
-    ),
+    { fileName: `what-happened-${publicationId}.png`, png: await renderWhatHappenedPng(newsItems) },
+    { fileName: `why-it-matters-${publicationId}.png`, png: await renderWhyItMattersPng(newsItems) },
+    { fileName: `realia-insight-${publicationId}.png`, png: await renderInsightPng(newsItems) },
     { fileName: `cta-${publicationId}.png`, png: await renderCtaPng(newsItems.length) },
   ];
 
