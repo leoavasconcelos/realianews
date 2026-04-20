@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AdminGuard } from '@/components/admin/AdminGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -14,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, CheckCircle2, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Search, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 
 // Aliases used by the feed filter (src/hooks/useNews.ts) — keep in sync.
 const FILTER_ALIASES: Record<string, string[]> = {
@@ -65,6 +67,48 @@ const parseTopics = (raw: unknown): string[] => {
 
 const TopicsAuditPage = () => {
   const [search, setSearch] = useState('');
+  const [recategorizing, setRecategorizing] = useState(false);
+  const [recatProgress, setRecatProgress] = useState({ updated: 0, processed: 0 });
+  const queryClient = useQueryClient();
+
+  const handleRecategorize = async () => {
+    setRecategorizing(true);
+    setRecatProgress({ updated: 0, processed: 0 });
+    let totalUpdated = 0;
+    let totalProcessed = 0;
+    let consecutiveEmpty = 0;
+    const MAX_BATCHES = 60;
+    try {
+      for (let i = 0; i < MAX_BATCHES; i++) {
+        const { data, error } = await supabase.functions.invoke('recategorize-news-topics', {
+          body: { batchSize: 200, onlyEmpty: true },
+        });
+        if (error) throw error;
+        const updated = (data as { updated?: number })?.updated ?? 0;
+        const processed = (data as { processed?: number })?.processed ?? 0;
+        totalUpdated += updated;
+        totalProcessed += processed;
+        setRecatProgress({ updated: totalUpdated, processed: totalProcessed });
+
+        if (processed === 0) break;
+        if (updated === 0) {
+          consecutiveEmpty++;
+          if (consecutiveEmpty >= 2) break;
+        } else {
+          consecutiveEmpty = 0;
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      toast.success(`Re-categorização concluída: ${totalUpdated} atualizadas (de ${totalProcessed} avaliadas)`);
+      queryClient.invalidateQueries({ queryKey: ['admin-topics-audit-news'] });
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error('Erro ao re-categorizar: ' + message);
+    } finally {
+      setRecategorizing(false);
+    }
+  };
 
   const { data: topics, isLoading: topicsLoading } = useQuery({
     queryKey: ['admin-topics-audit-list'],
@@ -197,11 +241,26 @@ const TopicsAuditPage = () => {
   return (
     <AdminGuard>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Auditoria de Tópicos</h1>
-          <p className="text-muted-foreground mt-1">
-            Quantidade de notícias por tópico, considerando aliases usados pelo filtro do feed.
-          </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl font-bold">Auditoria de Tópicos</h1>
+            <p className="text-muted-foreground mt-1">
+              Quantidade de notícias por tópico, considerando aliases usados pelo filtro do feed.
+            </p>
+          </div>
+          <Button onClick={handleRecategorize} disabled={recategorizing} variant="outline">
+            {recategorizing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Re-categorizando... ({recatProgress.updated}/{recatProgress.processed})
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Re-categorizar tópicos
+              </>
+            )}
+          </Button>
         </div>
 
         {/* KPI cards */}
