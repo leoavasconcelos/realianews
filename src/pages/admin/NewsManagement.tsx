@@ -350,6 +350,19 @@ export const NewsManagement = () => {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => handleRegenerateAnalysis(item.id)}
+                          disabled={regeneratingId === item.id}
+                          title="Regenerar análise completa (limpa cache e chama IA)"
+                        >
+                          {regeneratingId === item.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => toggleTrendingMutation.mutate({ 
                             id: item.id, 
                             isTrending: item.is_trending 
