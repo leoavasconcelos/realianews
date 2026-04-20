@@ -343,10 +343,13 @@ export const InstagramAutomation = () => {
                 {publications?.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <Badge variant={item.status === 'sent' ? 'default' : item.status === 'failed' ? 'destructive' : 'secondary'} className="gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={item.status === 'sent' ? 'default' : item.status === 'failed' ? 'destructive' : 'secondary'} className="gap-1">
                         {item.status === 'sent' && <CheckCircle2 className="h-3 w-3" />}
                         {item.status}
-                      </Badge>
+                        </Badge>
+                        {item.caption?.startsWith('[TESTE WEBHOOK]') && <Badge variant="outline">teste webhook</Badge>}
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDistanceToNow(new Date(item.sent_at || item.created_at), { addSuffix: true, locale: ptBR })}
