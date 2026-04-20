@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { Resvg } from "https://esm.sh/@resvg/resvg-js@2.6.2";
+import React from "https://esm.sh/react@18.2.0";
+import { ImageResponse } from "https://deno.land/x/og_edge@0.0.6/mod.ts";
 
 type Mode = "preview" | "send";
 
@@ -39,20 +40,13 @@ const BUCKET_NAME = "instagram-posts";
 const DEFAULT_TOP_N = 5;
 const MAX_TOP_N = 8;
 const BRAND_URL = "https://realia.digital";
+const SLIDE_SIZE = 1080;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-
-const escapeXml = (value: string) =>
-  value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 
 const parseTopics = (raw: unknown): string[] => {
   if (Array.isArray(raw)) return raw.filter((item): item is string => typeof item === "string");
@@ -128,121 +122,6 @@ const wrapLines = (text: string, maxChars: number) => {
   return lines;
 };
 
-const renderTextLines = (lines: string[], x: number, startY: number, lineHeight: number, size: number, weight = 700, color = "#F8FAFC") =>
-  lines
-    .map(
-      (line, index) => `<text x="${x}" y="${startY + index * lineHeight}" font-size="${size}" font-weight="${weight}" font-family="Inter, Arial, sans-serif" fill="${color}">${escapeXml(line)}</text>`,
-    )
-    .join("");
-
-const buildCoverSvg = (news: NewsRow, heroImageDataUrl: string | null, totalStories: number) => {
-  const titleLines = wrapLines(news.title, 22).slice(0, 4);
-  const source = sourceNameFromUrl(news.source_url);
-  const topics = parseTopics(news.topics).slice(0, 2);
-
-  return `
-  <svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="coverGradient" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#183A5A" />
-        <stop offset="55%" stop-color="#234E70" />
-        <stop offset="100%" stop-color="#1F7A72" />
-      </linearGradient>
-      <linearGradient id="overlayGradient" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="rgba(10,15,24,0.20)" />
-        <stop offset="100%" stop-color="rgba(10,15,24,0.82)" />
-      </linearGradient>
-      <clipPath id="heroClip">
-        <rect x="56" y="56" width="968" height="968" rx="46" ry="46" />
-      </clipPath>
-    </defs>
-
-    <rect width="1080" height="1080" fill="url(#coverGradient)" />
-    ${heroImageDataUrl ? `<image href="${heroImageDataUrl}" x="56" y="56" width="968" height="968" preserveAspectRatio="xMidYMid slice" clip-path="url(#heroClip)" />` : ""}
-    <rect x="56" y="56" width="968" height="968" rx="46" ry="46" fill="url(#overlayGradient)" />
-    <rect x="56" y="56" width="968" height="968" rx="46" ry="46" fill="none" stroke="rgba(255,255,255,0.14)" />
-
-    <rect x="88" y="88" width="192" height="48" rx="24" fill="rgba(248,250,252,0.12)" />
-    <text x="112" y="119" font-size="22" font-weight="700" font-family="Inter, Arial, sans-serif" fill="#F8FAFC">REalia · Digest</text>
-
-    <text x="88" y="792" font-size="20" font-weight="600" font-family="Inter, Arial, sans-serif" fill="#FDBA74">TOP ${totalStories} · MERCADO IMOBILIÁRIO</text>
-    ${renderTextLines(titleLines, 88, 856, 72, 58, 800)}
-
-    <text x="88" y="1000" font-size="26" font-weight="500" font-family="Inter, Arial, sans-serif" fill="#E2E8F0">${escapeXml(source)}</text>
-    <text x="888" y="1000" font-size="26" font-weight="700" text-anchor="end" font-family="Inter, Arial, sans-serif" fill="#F8FAFC">${escapeXml(topics.join(" · ") || "realia.digital")}</text>
-  </svg>`;
-};
-
-const buildSummarySvg = (news: NewsRow, index: number, totalStories: number) => {
-  const source = sourceNameFromUrl(news.source_url);
-  const titleLines = wrapLines(news.title, 28).slice(0, 2);
-  const bullets = bulletize(news.summary_ai || news.title, 3);
-  const bulletSvg = bullets
-    .map((bullet, bulletIndex) => {
-      const y = 400 + bulletIndex * 170;
-      const bulletLines = wrapLines(bullet, 34).slice(0, 3);
-      return `
-        <circle cx="108" cy="${y - 18}" r="8" fill="#F97316" />
-        ${renderTextLines(bulletLines, 138, y, 48, 34, 500, "#E2E8F0")}
-      `;
-    })
-    .join("");
-
-  const tags = parseTopics(news.topics).slice(0, 3).map((topic, topicIndex) => {
-    const x = 84 + topicIndex * 300;
-    return `
-      <rect x="${x}" y="932" width="250" height="54" rx="27" fill="rgba(249,115,22,0.14)" stroke="rgba(249,115,22,0.3)" />
-      <text x="${x + 125}" y="966" text-anchor="middle" font-size="22" font-weight="600" font-family="Inter, Arial, sans-serif" fill="#FDBA74">${escapeXml(topic)}</text>
-    `;
-  }).join("");
-
-  return `
-  <svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="summaryGradient" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#102A43" />
-        <stop offset="100%" stop-color="#183A5A" />
-      </linearGradient>
-    </defs>
-    <rect width="1080" height="1080" fill="url(#summaryGradient)" />
-    <rect x="56" y="56" width="968" height="968" rx="46" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" />
-    <text x="84" y="122" font-size="22" font-weight="700" font-family="Inter, Arial, sans-serif" fill="#F8FAFC">REalia · Resumo ${index + 1}/${totalStories}</text>
-    <text x="996" y="122" text-anchor="end" font-size="20" font-weight="500" font-family="Inter, Arial, sans-serif" fill="#94A3B8">${escapeXml(source)}</text>
-    ${renderTextLines(titleLines, 84, 222, 62, 48, 800)}
-    ${bulletSvg}
-    ${tags}
-  </svg>`;
-};
-
-const buildCtaSvg = (storiesCount: number) => `
-  <svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="ctaGradient" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#183A5A" />
-        <stop offset="100%" stop-color="#F97316" />
-      </linearGradient>
-    </defs>
-    <rect width="1080" height="1080" fill="#0F172A" />
-    <rect x="56" y="56" width="968" height="968" rx="46" fill="url(#ctaGradient)" opacity="0.18" stroke="rgba(255,255,255,0.15)" />
-    <text x="540" y="310" text-anchor="middle" font-size="34" font-weight="700" font-family="Inter, Arial, sans-serif" fill="#FDBA74">REalia NEWS</text>
-    <text x="540" y="430" text-anchor="middle" font-size="84" font-weight="800" font-family="Inter, Arial, sans-serif" fill="#F8FAFC">Leia mais</text>
-    <text x="540" y="520" text-anchor="middle" font-size="84" font-weight="800" font-family="Inter, Arial, sans-serif" fill="#F8FAFC">no app</text>
-    <text x="540" y="646" text-anchor="middle" font-size="34" font-weight="500" font-family="Inter, Arial, sans-serif" fill="#E2E8F0">${storiesCount} destaques selecionados nas últimas 24 horas</text>
-    <rect x="318" y="744" width="444" height="86" rx="43" fill="rgba(248,250,252,0.12)" stroke="rgba(248,250,252,0.18)" />
-    <text x="540" y="798" text-anchor="middle" font-size="34" font-weight="700" font-family="Inter, Arial, sans-serif" fill="#F8FAFC">${BRAND_URL}</text>
-    <text x="540" y="928" text-anchor="middle" font-size="24" font-weight="500" font-family="Inter, Arial, sans-serif" fill="#CBD5E1">Mercado imobiliário com curadoria diária</text>
-  </svg>`;
-
-const svgToPng = (svg: string) => {
-  const resvg = new Resvg(svg, {
-    fitTo: {
-      mode: "width",
-      value: 1080,
-    },
-  });
-  return resvg.render().asPng();
-};
-
 const fetchImageDataUrl = async (url: string | null) => {
   if (!url) return null;
 
@@ -262,6 +141,282 @@ const fetchImageDataUrl = async (url: string | null) => {
   }
 };
 
+const slideShell = (children: React.ReactNode, background = "linear-gradient(135deg, #102A43 0%, #183A5A 60%, #1F7A72 100%)") =>
+  React.createElement(
+    "div",
+    {
+      style: {
+        width: `${SLIDE_SIZE}px`,
+        height: `${SLIDE_SIZE}px`,
+        display: "flex",
+        position: "relative",
+        background,
+        color: "#F8FAFC",
+        fontFamily: "Inter, Arial, sans-serif",
+      },
+    },
+    children,
+  );
+
+const renderToPng = async (node: React.ReactElement) => {
+  const response = new ImageResponse(node, {
+    width: SLIDE_SIZE,
+    height: SLIDE_SIZE,
+  });
+  const buffer = await response.arrayBuffer();
+  return new Uint8Array(buffer);
+};
+
+const renderCoverPng = async (news: NewsRow, totalStories: number) => {
+  const coverImage = await fetchImageDataUrl(news.image_url ?? null);
+  const titleLines = wrapLines(news.title, 22).slice(0, 4);
+  const topics = parseTopics(news.topics).slice(0, 2);
+
+  return renderToPng(
+    slideShell(
+      React.createElement(
+        React.Fragment,
+        null,
+        coverImage
+          ? React.createElement("img", {
+              src: coverImage,
+              width: SLIDE_SIZE,
+              height: SLIDE_SIZE,
+              style: {
+                position: "absolute",
+                inset: 0,
+                objectFit: "cover",
+              },
+            })
+          : null,
+        React.createElement("div", {
+          style: {
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0.84) 100%)",
+          },
+        }),
+        React.createElement(
+          "div",
+          {
+            style: {
+              position: "absolute",
+              inset: "56px",
+              borderRadius: "46px",
+              border: "1px solid rgba(255,255,255,0.14)",
+              padding: "32px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+            },
+          },
+          React.createElement(
+            "div",
+            { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            React.createElement(
+              "div",
+              {
+                style: {
+                  padding: "12px 24px",
+                  borderRadius: "999px",
+                  background: "rgba(248,250,252,0.12)",
+                  fontSize: "22px",
+                  fontWeight: 700,
+                },
+              },
+              "REalia · Digest",
+            ),
+          ),
+          React.createElement(
+            "div",
+            { style: { display: "flex", flexDirection: "column", gap: "20px" } },
+            React.createElement(
+              "div",
+              { style: { color: "#FDBA74", fontSize: "20px", fontWeight: 700, letterSpacing: "0.08em" } },
+              `TOP ${totalStories} · MERCADO IMOBILIÁRIO`,
+            ),
+            ...titleLines.map((line) =>
+              React.createElement(
+                "div",
+                { key: line, style: { fontSize: "58px", lineHeight: 1.08, fontWeight: 800, maxWidth: "820px" } },
+                line,
+              ),
+            ),
+          ),
+          React.createElement(
+            "div",
+            { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "24px" } },
+            React.createElement(
+              "div",
+              { style: { fontSize: "26px", color: "#E2E8F0", fontWeight: 500 } },
+              sourceNameFromUrl(news.source_url),
+            ),
+            React.createElement(
+              "div",
+              { style: { fontSize: "26px", color: "#F8FAFC", fontWeight: 700, textAlign: "right" } },
+              topics.join(" · ") || "realia.digital",
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+};
+
+const renderSummaryPng = async (news: NewsRow, index: number, totalStories: number) => {
+  const bullets = bulletize(news.summary_ai || news.title, 3);
+  const topics = parseTopics(news.topics).slice(0, 3);
+  const titleLines = wrapLines(news.title, 28).slice(0, 2);
+
+  return renderToPng(
+    slideShell(
+      React.createElement(
+        "div",
+        {
+          style: {
+            position: "absolute",
+            inset: "56px",
+            borderRadius: "46px",
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.04)",
+            padding: "28px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          },
+        },
+        React.createElement(
+          "div",
+          { style: { display: "flex", justifyContent: "space-between", gap: "20px", alignItems: "center" } },
+          React.createElement(
+            "div",
+            { style: { fontSize: "22px", fontWeight: 700 } },
+            `REalia · Resumo ${index + 1}/${totalStories}`,
+          ),
+          React.createElement(
+            "div",
+            { style: { fontSize: "20px", color: "#94A3B8" } },
+            sourceNameFromUrl(news.source_url),
+          ),
+        ),
+        React.createElement(
+          "div",
+          { style: { display: "flex", flexDirection: "column", gap: "24px" } },
+          ...titleLines.map((line) =>
+            React.createElement(
+              "div",
+              { key: line, style: { fontSize: "48px", lineHeight: 1.1, fontWeight: 800, maxWidth: "860px" } },
+              line,
+            ),
+          ),
+          React.createElement(
+            "div",
+            { style: { display: "flex", flexDirection: "column", gap: "34px", marginTop: "24px" } },
+            ...bullets.map((bullet) =>
+              React.createElement(
+                "div",
+                { key: bullet, style: { display: "flex", gap: "20px", alignItems: "flex-start" } },
+                React.createElement("div", {
+                  style: {
+                    width: "16px",
+                    height: "16px",
+                    minWidth: "16px",
+                    borderRadius: "999px",
+                    background: "#F97316",
+                    marginTop: "14px",
+                  },
+                }),
+                React.createElement(
+                  "div",
+                  { style: { fontSize: "34px", lineHeight: 1.35, color: "#E2E8F0", fontWeight: 500, maxWidth: "820px" } },
+                  bullet,
+                ),
+              ),
+            ),
+          ),
+        ),
+        React.createElement(
+          "div",
+          { style: { display: "flex", gap: "18px", flexWrap: "wrap" } },
+          ...topics.map((topic) =>
+            React.createElement(
+              "div",
+              {
+                key: topic,
+                style: {
+                  padding: "14px 22px",
+                  borderRadius: "999px",
+                  background: "rgba(249,115,22,0.14)",
+                  border: "1px solid rgba(249,115,22,0.3)",
+                  fontSize: "22px",
+                  fontWeight: 600,
+                  color: "#FDBA74",
+                },
+              },
+              topic,
+            ),
+          ),
+        ),
+      ),
+      "linear-gradient(135deg, #102A43 0%, #183A5A 100%)",
+    ),
+  );
+};
+
+const renderCtaPng = async (storiesCount: number) =>
+  renderToPng(
+    slideShell(
+      React.createElement(
+        "div",
+        {
+          style: {
+            position: "absolute",
+            inset: "56px",
+            borderRadius: "46px",
+            border: "1px solid rgba(255,255,255,0.15)",
+            background: "linear-gradient(135deg, rgba(24,58,90,0.28) 0%, rgba(249,115,22,0.20) 100%)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            padding: "64px",
+            gap: "28px",
+          },
+        },
+        React.createElement("div", { style: { color: "#FDBA74", fontSize: "34px", fontWeight: 700, letterSpacing: "0.08em" } }, "REalia NEWS"),
+        React.createElement("div", { style: { fontSize: "84px", fontWeight: 800, lineHeight: 1.05 } }, "Leia mais"),
+        React.createElement("div", { style: { fontSize: "84px", fontWeight: 800, lineHeight: 1.05, marginTop: "-18px" } }, "no app"),
+        React.createElement(
+          "div",
+          { style: { fontSize: "34px", lineHeight: 1.4, color: "#E2E8F0", maxWidth: "720px", marginTop: "10px" } },
+          `${storiesCount} destaques selecionados nas últimas 24 horas`,
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              marginTop: "26px",
+              padding: "22px 36px",
+              borderRadius: "999px",
+              background: "rgba(248,250,252,0.12)",
+              border: "1px solid rgba(248,250,252,0.18)",
+              fontSize: "34px",
+              fontWeight: 700,
+            },
+          },
+          BRAND_URL,
+        ),
+        React.createElement(
+          "div",
+          { style: { fontSize: "24px", color: "#CBD5E1", marginTop: "20px" } },
+          "Mercado imobiliário com curadoria diária",
+        ),
+      ),
+      "linear-gradient(135deg, #0F172A 0%, #183A5A 60%, #F97316 100%)",
+    ),
+  );
+
 const composeCaption = (newsItems: NewsRow[]) => {
   const lead = newsItems[0];
   const allTopics = [...new Set(newsItems.flatMap((item) => parseTopics(item.topics)))].slice(0, 6);
@@ -271,10 +426,7 @@ const composeCaption = (newsItems: NewsRow[]) => {
     .map((tag) => `#${tag}`)
     .join(" ");
 
-  const storyLines = newsItems
-    .map((item, index) => `${index + 1}. ${item.title}`)
-    .join("\n");
-
+  const storyLines = newsItems.map((item, index) => `${index + 1}. ${item.title}`).join("\n");
   const summary = (lead.summary_ai || lead.title).replace(/\s+/g, " ").trim().slice(0, 1100);
   const source = sourceNameFromUrl(lead.source_url);
 
@@ -293,22 +445,22 @@ const createSignedUrls = async (supabase: ReturnType<typeof createClient>, paths
 };
 
 const createSlides = async (supabase: ReturnType<typeof createClient>, publicationId: string, newsItems: NewsRow[]) => {
-  const coverImage = await fetchImageDataUrl(newsItems[0]?.image_url ?? null);
   const slideDefinitions = [
-    { fileName: `cover-${newsItems[0].id}.png`, svg: buildCoverSvg(newsItems[0], coverImage, newsItems.length) },
-    ...newsItems.map((item, index) => ({
-      fileName: `story-${index + 1}-${item.id}.png`,
-      svg: buildSummarySvg(item, index, newsItems.length),
-    })),
-    { fileName: `cta-${publicationId}.png`, svg: buildCtaSvg(newsItems.length) },
+    { fileName: `cover-${newsItems[0].id}.png`, png: await renderCoverPng(newsItems[0], newsItems.length) },
+    ...await Promise.all(
+      newsItems.map(async (item, index) => ({
+        fileName: `story-${index + 1}-${item.id}.png`,
+        png: await renderSummaryPng(item, index, newsItems.length),
+      })),
+    ),
+    { fileName: `cta-${publicationId}.png`, png: await renderCtaPng(newsItems.length) },
   ];
 
   const uploadedPaths: string[] = [];
 
   for (const slide of slideDefinitions) {
     const path = `${publicationId}/${slide.fileName}`;
-    const png = svgToPng(slide.svg);
-    const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, png, {
+    const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, slide.png, {
       contentType: "image/png",
       upsert: true,
     });
@@ -348,12 +500,7 @@ const getTopNews = async (supabase: ReturnType<typeof createClient>, topN: numbe
     .slice(0, topN);
 };
 
-const createPublication = async (
-  supabase: ReturnType<typeof createClient>,
-  userId: string | null,
-  mode: Mode,
-  topN: number,
-) => {
+const createPublication = async (supabase: ReturnType<typeof createClient>, userId: string | null, mode: Mode, topN: number) => {
   const { data, error } = await supabase
     .from("instagram_publications")
     .insert({
@@ -368,11 +515,7 @@ const createPublication = async (
   return data as PublicationRow;
 };
 
-const updatePublication = async (
-  supabase: ReturnType<typeof createClient>,
-  id: string,
-  values: Record<string, unknown>,
-) => {
+const updatePublication = async (supabase: ReturnType<typeof createClient>, id: string, values: Record<string, unknown>) => {
   const { error } = await supabase.from("instagram_publications").update(values).eq("id", id);
   if (error) throw error;
 };
@@ -397,11 +540,7 @@ const authorizeRequest = async (req: Request, supabaseUrl: string, anonKey: stri
     global: { headers: { Authorization: authHeader } },
   });
 
-  const {
-    data: { user },
-    error: userError,
-  } = await userClient.auth.getUser();
-
+  const { data: { user }, error: userError } = await userClient.auth.getUser();
   if (userError || !user) {
     throw new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
