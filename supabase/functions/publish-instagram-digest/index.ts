@@ -434,15 +434,12 @@ const composeCaption = (newsItems: NewsRow[]) => {
   return `${lead.title}\n\n${summary}\n\nHoje no carrossel:\n${storyLines}\n\n📍 Fonte: ${source}\n🔗 Leia mais no REalia News (${BRAND_URL})\n\n${hashtags}`;
 };
 
-const createSignedUrls = async (supabase: ReturnType<typeof createClient>, paths: string[]) => {
-  const results = await Promise.all(
-    paths.map(async (path) => {
-      const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(path, 60 * 60 * 24 * 7);
-      if (error || !data?.signedUrl) throw error || new Error("Failed to sign slide URL");
-      return data.signedUrl;
-    }),
-  );
-  return results;
+const createPublicUrls = (supabase: ReturnType<typeof createClient>, paths: string[]) => {
+  return paths.map((path) => {
+    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+    if (!data?.publicUrl) throw new Error("Failed to create public slide URL");
+    return data.publicUrl;
+  });
 };
 
 const createSlides = async (supabase: ReturnType<typeof createClient>, publicationId: string, newsItems: NewsRow[]) => {
@@ -470,8 +467,8 @@ const createSlides = async (supabase: ReturnType<typeof createClient>, publicati
     uploadedPaths.push(path);
   }
 
-  const signedUrls = await createSignedUrls(supabase, uploadedPaths);
-  return { uploadedPaths, signedUrls };
+  const publicUrls = createPublicUrls(supabase, uploadedPaths);
+  return { uploadedPaths, publicUrls };
 };
 
 const getSettings = async (supabase: ReturnType<typeof createClient>) => {
@@ -681,7 +678,7 @@ serve(async (req) => {
     const publication = await createPublication(supabase, userId, mode, topN);
 
     try {
-      const { uploadedPaths, signedUrls } = await createSlides(supabase, publication.id, newsItems);
+      const { uploadedPaths, publicUrls } = await createSlides(supabase, publication.id, newsItems);
       const caption = composeCaption(newsItems);
       const payload = {
         publicationId: publication.id,
@@ -689,7 +686,8 @@ serve(async (req) => {
         origin: "realia-instagram-digest",
         mode,
         caption,
-        slides: signedUrls,
+        image_url: publicUrls[0] ?? null,
+        slides: publicUrls,
         newsIds: newsItems.map((item) => item.id),
         topN: newsItems.length,
         websiteUrl: BRAND_URL,
@@ -723,7 +721,7 @@ serve(async (req) => {
           mode,
           top_n: newsItems.length,
           source_names: newsItems.map((item) => sourceNameFromUrl(item.source_url)),
-          signed_urls_preview: signedUrls,
+          public_urls_preview: publicUrls,
         },
       });
 
@@ -732,7 +730,8 @@ serve(async (req) => {
         publicationId: publication.id,
         mode,
         caption,
-        slides: signedUrls,
+        image_url: publicUrls[0] ?? null,
+        slides: publicUrls,
         news: newsItems.map((item) => ({
           id: item.id,
           title: item.title,
