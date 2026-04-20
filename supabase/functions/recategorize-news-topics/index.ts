@@ -253,13 +253,16 @@ serve(async (req) => {
       if (!updErr) updated++;
     }
 
+    const lastItem = newsBatch[newsBatch.length - 1] as { published_at?: string } | undefined;
+    const nextBefore = newsBatch.length === batchSize ? (lastItem?.published_at ?? null) : null;
+
     return new Response(
       JSON.stringify({
         processed: newsBatch.length,
         updated,
         unchanged,
         skipped,
-        remaining_hint: newsBatch.length === batchSize ? "more_likely" : "drained",
+        nextBefore,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
