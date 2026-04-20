@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import React from "https://esm.sh/react@18.2.0";
 import { ImageResponse } from "https://deno.land/x/og_edge@0.0.6/mod.ts";
 
-type Mode = "preview" | "send";
+type Mode = "preview" | "send" | "webhook_test";
 
 interface InstagramSettings {
   id: string;
@@ -41,6 +41,7 @@ const DEFAULT_TOP_N = 5;
 const MAX_TOP_N = 8;
 const BRAND_URL = "https://realia.digital";
 const SLIDE_SIZE = 1080;
+const WEBHOOK_TEST_IMAGE_URL = `${BRAND_URL}/placeholder.svg`;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -600,10 +601,40 @@ serve(async (req) => {
       body = {};
     }
 
-    const mode: Mode = body.mode === "send" ? "send" : "preview";
+    const mode: Mode = body.mode === "send" ? "send" : body.mode === "webhook_test" ? "webhook_test" : "preview";
     const settings = await getSettings(supabase);
     const topN = clampTopN(body.topN ?? settings?.top_n ?? DEFAULT_TOP_N);
     const webhookUrl = settings?.webhook_url?.trim() || Deno.env.get("ZAPIER_INSTAGRAM_WEBHOOK_URL")?.trim() || "";
+
+    if (mode === "webhook_test") {
+      if (!webhookUrl) {
+        throw new Error("Webhook do Zapier não configurado");
+      }
+
+      const payload = {
+        publicationId: null,
+        timestamp: new Date().toISOString(),
+        origin: "realia-instagram-digest",
+        mode,
+        image_url: WEBHOOK_TEST_IMAGE_URL,
+        caption: "🏙️ Teste do webhook REalia News\n\nCarrossel de validação enviado pelo painel admin.\n\n#realianews #mercadoimobiliario #imoveis",
+        slides: [WEBHOOK_TEST_IMAGE_URL],
+        websiteUrl: BRAND_URL,
+      };
+
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        throw new Error(`Zapier respondeu com ${response.status}: ${responseText.slice(0, 300)}`);
+      }
+
+      return json({ success: true, mode, message: "Teste enviado ao Zapier" });
+    }
 
     if (isCronCall && !settings?.enabled) {
       return json({ success: true, message: "Instagram automation disabled" });
