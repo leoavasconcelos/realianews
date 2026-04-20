@@ -176,10 +176,22 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter, prefe
           };
         });
 
-        // Apply topic filter
+        // Apply topic filter (with aliases for backward-compat with legacy tags like "FIIs", "REIT")
         if (topicFilter && topicFilter !== 'Todos') {
-          newsItems = newsItems.filter(news => 
-            news.topics.some(t => t.toLowerCase().includes(topicFilter.toLowerCase()))
+          const aliases: Record<string, string[]> = {
+            'fundos imobiliários': ['fundos imobiliários', 'fundo imobiliário', 'fiis', 'fii', 'reit', 'reits'],
+            'mercado imobiliário': ['mercado imobiliário', 'setor imobiliário'],
+            'comercial': ['comercial', 'corporativo', 'escritório', 'office'],
+            'logística': ['logística', 'logistic', 'galpão', 'warehouse', 'industrial'],
+            'governo': ['governo', 'mcmv', 'minha casa minha vida', 'casa verde amarela'],
+          };
+          const filterLc = topicFilter.toLowerCase();
+          const candidates = aliases[filterLc] ?? [filterLc];
+          newsItems = newsItems.filter(news =>
+            news.topics.some(t => {
+              const tagLc = t.toLowerCase();
+              return candidates.some(c => tagLc === c || tagLc.includes(c) || c.includes(tagLc));
+            })
           );
         }
 
