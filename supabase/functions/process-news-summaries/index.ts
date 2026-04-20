@@ -6,6 +6,122 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Topic detection aligned with the `topics` table names.
+// MUST stay in sync with aggregate-news/detectTopics.
+function detectTopics(title: string, description: string): string[] {
+  const text = `${title || ""} ${description || ""}`.toLowerCase();
+  const topics: string[] = [];
+
+  const topicKeywords: Record<string, string[]> = {
+    "Fundos Imobiliários": [
+      "\\bfii\\b", "\\bfiis\\b", "fundo\\s+imobili[áa]rio", "fundos\\s+imobili[áa]rios",
+      "\\breit\\b", "\\breits\\b", "real\\s+estate\\s+investment\\s+trust",
+      "\\bcri\\b", "\\bcris\\b", "certificado\\s+de\\s+receb[íi]veis", "\\bfiagro\\b",
+    ],
+    "Investimentos": [
+      "investimento", "investidor", "investor", "investment", "yield", "rentabilidade",
+      "retorno", "valorização", "ativo\\s+imobili[áa]rio", "real\\s+estate\\s+invest",
+      "private\\s+equity", "venture\\s+capital",
+    ],
+    "Financiamento": [
+      "financiamento", "cr[ée]dito\\s+imobili[áa]rio", "hipoteca", "mortgage", "loan",
+      "\\bfgts\\b", "\\bselic\\b", "\\btr\\b", "juros", "interest\\s+rate", "fed\\s+rate",
+      "refinanc",
+    ],
+    "Aluguel": [
+      "aluguel", "alugu[ée]is", "loca[çc][ãa]o", "inquilino", "locador", "locat[áa]rio",
+      "\\brent\\b", "rental", "renting", "tenant", "landlord", "lease", "leasing",
+      "\\bigp-m\\b", "\\bivar\\b",
+    ],
+    "Comercial": [
+      "comercial", "escrit[óo]rio", "office", "loja", "varejo", "retail", "shopping",
+      "shopping\\s+center", "mall", "commercial\\s+real\\s+estate", "\\bcre\\b",
+    ],
+    "Residencial": [
+      "residencial", "residential", "apartamento", "apartment", "\\bcasa\\b", "house",
+      "housing", "condom[íi]nio", "condo", "moradia", "habita[çc][ãa]o", "single-family",
+      "multifamily",
+    ],
+    "Logística": [
+      "log[íi]stica", "logistic", "galp[ãa]o", "warehouse", "industrial", "distribui[çc][ãa]o",
+      "distribution\\s+center", "centro\\s+log[íi]stico", "fulfillment",
+    ],
+    "Sustentabilidade": [
+      "sustentabilidade", "sustainable", "sustainability", "\\besg\\b", "verde",
+      "\\bgreen\\b", "carbon\\s+neutral", "net[\\s-]zero", "leed", "energia\\s+renov[áa]vel",
+      "renewable\\s+energy", "efici[êe]ncia\\s+energ[ée]tica",
+    ],
+    "Luxo": [
+      "\\bluxo\\b", "luxury", "high[\\s-]end", "alto\\s+padr[ãa]o", "premium",
+      "ultra[\\s-]luxury", "mans[ãa]o", "mansion", "penthouse",
+    ],
+    "PropTech": [
+      "proptech", "prop\\s+tech", "tecnologia\\s+imobili[áa]ria", "real\\s+estate\\s+tech",
+      "real\\s+estate\\s+technology", "fintech\\s+imobili[áa]rio",
+    ],
+    "Data Centers": [
+      "data\\s+center", "data\\s+centers", "centro\\s+de\\s+dados", "hyperscale", "colocation",
+    ],
+    "Coliving": [
+      "coliving", "co-living", "moradia\\s+compartilhada", "shared\\s+housing",
+    ],
+    "Leilões": [
+      "leil[ãa]o", "leil[õo]es", "auction", "foreclosure", "execu[çc][ãa]o\\s+judicial",
+    ],
+    "Multipropriedade": [
+      "multipropriedade", "fractional\\s+ownership", "timeshare", "tempo\\s+compartilhado",
+    ],
+    "Retrofit": [
+      "retrofit", "revitaliza[çc][ãa]o", "requalifica[çc][ãa]o", "reabilita[çc][ãa]o",
+      "renova[çc][ãa]o\\s+predial", "building\\s+renovation",
+    ],
+    "Startups": [
+      "startup", "scale[\\s-]?up", "rodada\\s+de\\s+investimento", "funding\\s+round",
+      "s[ée]rie\\s+[abc]\\b", "series\\s+[abc]\\b",
+    ],
+    "Regulamentação": [
+      "regulamenta[çc][ãa]o", "regula[çc][ãa]o", "regulation", "lei", "legisla[çc][ãa]o",
+      "legislation", "norma\\s+t[ée]cnica", "marco\\s+legal", "zoning", "zoneamento",
+    ],
+    "Corporativo": [
+      "corporativo", "corporate", "edif[íi]cio\\s+corporativo", "lajes\\s+corporativas",
+      "headquarters", "sede\\s+corporativa",
+    ],
+    "Lançamentos": [
+      "lan[çc]amento", "lan[çc]amentos", "novo\\s+empreendimento", "incorpora[çc][ãa]o",
+      "ground[\\s-]?breaking", "groundbreaking", "new\\s+development", "new\\s+project",
+      "topping\\s+off",
+    ],
+    "Construtoras": [
+      "construtora", "incorporadora", "homebuilder", "home\\s+builder", "developer",
+      "\\bmrv\\b", "\\bcyrela\\b", "\\beztec\\b", "\\btenda\\b", "direcional",
+      "even\\s+construtora", "moura\\s+dubeux",
+    ],
+    "Governo": [
+      "minha\\s+casa\\s+minha\\s+vida", "\\bmcmv\\b", "casa\\s+verde\\s+amarela",
+      "programa\\s+habitacional", "pol[íi]tica\\s+habitacional", "subs[íi]dio\\s+habitacional",
+      "housing\\s+policy", "affordable\\s+housing",
+    ],
+    "Mercado Imobiliário": [
+      "mercado\\s+imobili[áa]rio", "setor\\s+imobili[áa]rio", "real\\s+estate\\s+market",
+      "housing\\s+market", "property\\s+market", "\\bvgv\\b", "vendas\\s+imobili[áa]rias",
+    ],
+  };
+
+  for (const [topic, patterns] of Object.entries(topicKeywords)) {
+    const matched = patterns.some((pattern) => {
+      try {
+        return new RegExp(pattern, "i").test(text);
+      } catch {
+        return false;
+      }
+    });
+    if (matched) topics.push(topic);
+  }
+
+  return topics.slice(0, 4);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
