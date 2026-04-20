@@ -40,7 +40,7 @@ const BUCKET_NAME = "instagram-posts";
 const DEFAULT_TOP_N = 5;
 const MAX_TOP_N = 8;
 const BRAND_URL = "https://realia.digital";
-const SLIDE_SIZE = 1080;
+const SLIDE_SIZE = 864;
 const WEBHOOK_TEST_IMAGE_URL = `${BRAND_URL}/placeholder.svg`;
 
 const json = (body: unknown, status = 200) =>
@@ -202,26 +202,7 @@ const isUsableCoverImageUrl = (url: string | null) => {
   return !blockedFragments.some((fragment) => normalized.includes(fragment));
 };
 
-const fetchImageDataUrl = async (url: string | null) => {
-  if (!isUsableCoverImageUrl(url)) return null;
-
-  try {
-    const response = await fetch(url, { headers: { "User-Agent": "realia-instagram-digest" } });
-    if (!response.ok) return null;
-    const contentType = response.headers.get("content-type") || "image/jpeg";
-    if (!contentType.startsWith("image/") || contentType.includes("svg")) return null;
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength < 20_000) return null;
-    let binary = "";
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
-    }
-    return `data:${contentType};base64,${btoa(binary)}`;
-  } catch {
-    return null;
-  }
-};
+const fetchImageDataUrl = async (_url: string | null) => null;
 
 const slideShell = (children: React.ReactNode, background = "linear-gradient(135deg, #102A43 0%, #183A5A 60%, #1F7A72 100%)") =>
   React.createElement(
