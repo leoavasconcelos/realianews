@@ -67,46 +67,60 @@ const parseTopics = (raw: unknown): string[] => {
 
 const TopicsAuditPage = () => {
   const [search, setSearch] = useState('');
-  const [recategorizing, setRecategorizing] = useState(false);
+  const [recategorizing, setRecategorizing] = useState<null | 'empty' | 'all'>(null);
   const [recatProgress, setRecatProgress] = useState({ updated: 0, processed: 0 });
   const queryClient = useQueryClient();
 
-  const handleRecategorize = async () => {
-    setRecategorizing(true);
+  const runRecategorization = async (mode: 'empty' | 'all') => {
+    setRecategorizing(mode);
     setRecatProgress({ updated: 0, processed: 0 });
     let totalUpdated = 0;
     let totalProcessed = 0;
     let consecutiveEmpty = 0;
-    const MAX_BATCHES = 60;
+    let cursor: string | null = null;
+    const MAX_BATCHES = mode === 'all' ? 200 : 60;
     try {
       for (let i = 0; i < MAX_BATCHES; i++) {
         const { data, error } = await supabase.functions.invoke('recategorize-news-topics', {
-          body: { batchSize: 200, onlyEmpty: true },
+          body: {
+            batchSize: 200,
+            onlyEmpty: mode === 'empty',
+            ...(cursor ? { before: cursor } : {}),
+          },
         });
         if (error) throw error;
         const updated = (data as { updated?: number })?.updated ?? 0;
         const processed = (data as { processed?: number })?.processed ?? 0;
+        const nextBefore = (data as { nextBefore?: string | null })?.nextBefore ?? null;
         totalUpdated += updated;
         totalProcessed += processed;
         setRecatProgress({ updated: totalUpdated, processed: totalProcessed });
 
         if (processed === 0) break;
-        if (updated === 0) {
-          consecutiveEmpty++;
-          if (consecutiveEmpty >= 2) break;
+
+        if (mode === 'all') {
+          if (!nextBefore) break;
+          cursor = nextBefore;
         } else {
-          consecutiveEmpty = 0;
+          if (updated === 0) {
+            consecutiveEmpty++;
+            if (consecutiveEmpty >= 2) break;
+          } else {
+            consecutiveEmpty = 0;
+          }
         }
         await new Promise((r) => setTimeout(r, 400));
       }
-      toast.success(`Re-categorização concluída: ${totalUpdated} atualizadas (de ${totalProcessed} avaliadas)`);
+      toast.success(
+        `Re-categorização concluída (${mode === 'all' ? 'todas' : 'só vazias'}): ${totalUpdated} atualizadas de ${totalProcessed} avaliadas`
+      );
       queryClient.invalidateQueries({ queryKey: ['admin-topics-audit-news'] });
       queryClient.invalidateQueries({ queryKey: ['news'] });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
       toast.error('Erro ao re-categorizar: ' + message);
     } finally {
-      setRecategorizing(false);
+      setRecategorizing(null);
     }
   };
 
@@ -248,19 +262,42 @@ const TopicsAuditPage = () => {
               Quantidade de notícias por tópico, considerando aliases usados pelo filtro do feed.
             </p>
           </div>
-          <Button onClick={handleRecategorize} disabled={recategorizing} variant="outline">
-            {recategorizing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Re-categorizando... ({recatProgress.updated}/{recatProgress.processed})
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Re-categorizar tópicos
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              onClick={() => runRecategorization('empty')}
+              disabled={recategorizing !== null}
+              variant="outline"
+            >
+              {recategorizing === 'empty' ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Re-categorizando vazias... ({recatProgress.updated}/{recatProgress.processed})
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Re-categorizar vazias
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={() => runRecategorization('all')}
+              disabled={recategorizing !== null}
+              variant="default"
+            >
+              {recategorizing === 'all' ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Re-categorizando todas... ({recatProgress.updated}/{recatProgress.processed})
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Re-categorizar todas as notícias
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* KPI cards */}

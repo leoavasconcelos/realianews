@@ -174,18 +174,22 @@ serve(async (req) => {
       }
     }
 
-    // Parse optional body { batchSize?: number; onlyEmpty?: boolean }
+    // Parse optional body { batchSize?: number; onlyEmpty?: boolean; before?: string }
     let batchSize = 200;
     let onlyEmpty = true;
+    let before: string | null = null;
     try {
       const raw = await req.text();
       if (raw) {
-        const body = JSON.parse(raw) as { batchSize?: number; onlyEmpty?: boolean };
+        const body = JSON.parse(raw) as { batchSize?: number; onlyEmpty?: boolean; before?: string };
         if (typeof body.batchSize === "number" && body.batchSize > 0 && body.batchSize <= 500) {
           batchSize = body.batchSize;
         }
         if (typeof body.onlyEmpty === "boolean") {
           onlyEmpty = body.onlyEmpty;
+        }
+        if (typeof body.before === "string" && body.before) {
+          before = body.before;
         }
       }
     } catch {
@@ -195,13 +199,17 @@ serve(async (req) => {
     // Fetch a batch of news that need re-categorization.
     let query = supabaseAdmin
       .from("news")
-      .select("id, title, title_original, full_text, summary_ai, topics")
+      .select("id, title, title_original, full_text, summary_ai, topics, published_at")
       .order("published_at", { ascending: false })
       .limit(batchSize);
 
     if (onlyEmpty) {
       // Either NULL or empty array
       query = query.or("topics.is.null,topics.eq.[]");
+    }
+
+    if (before) {
+      query = query.lt("published_at", before);
     }
 
     const { data: newsBatch, error: fetchError } = await query;
@@ -215,7 +223,7 @@ serve(async (req) => {
 
     if (!newsBatch || newsBatch.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No news to re-categorize", processed: 0, updated: 0 }),
+        JSON.stringify({ message: "No news to re-categorize", processed: 0, updated: 0, nextBefore: null }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -245,13 +253,16 @@ serve(async (req) => {
       if (!updErr) updated++;
     }
 
+    const lastItem = newsBatch[newsBatch.length - 1] as { published_at?: string } | undefined;
+    const nextBefore = newsBatch.length === batchSize ? (lastItem?.published_at ?? null) : null;
+
     return new Response(
       JSON.stringify({
         processed: newsBatch.length,
         updated,
         unchanged,
         skipped,
-        remaining_hint: newsBatch.length === batchSize ? "more_likely" : "drained",
+        nextBefore,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
