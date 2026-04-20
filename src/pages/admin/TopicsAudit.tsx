@@ -180,14 +180,14 @@ const TopicsAuditPage = () => {
     }
     if (row.withSummary < 10) {
       return (
-        <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600">
+        <Badge variant="secondary" className="gap-1">
           <AlertTriangle className="h-3 w-3" />
           Baixo
         </Badge>
       );
     }
     return (
-      <Badge variant="outline" className="gap-1 text-green-600 border-green-600">
+      <Badge variant="default" className="gap-1">
         <CheckCircle2 className="h-3 w-3" />
         Saudável
       </Badge>
