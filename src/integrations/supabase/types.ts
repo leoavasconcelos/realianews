@@ -16,67 +16,118 @@ export type Database = {
     Tables: {
       instagram_publications: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           caption: string | null
           created_at: string
           created_by: string | null
           error: string | null
           id: string
+          image_count: number
           metadata: Json
           news_ids: string[]
+          post_type: string
+          primary_news_id: string | null
+          published_at: string | null
+          section_label: string | null
+          selected_image_urls: string[]
           sent_at: string | null
           slides_urls: string[]
+          source_snapshot: string | null
           status: string
+          title_snapshot: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           caption?: string | null
           created_at?: string
           created_by?: string | null
           error?: string | null
           id?: string
+          image_count?: number
           metadata?: Json
           news_ids?: string[]
+          post_type?: string
+          primary_news_id?: string | null
+          published_at?: string | null
+          section_label?: string | null
+          selected_image_urls?: string[]
           sent_at?: string | null
           slides_urls?: string[]
+          source_snapshot?: string | null
           status?: string
+          title_snapshot?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           caption?: string | null
           created_at?: string
           created_by?: string | null
           error?: string | null
           id?: string
+          image_count?: number
           metadata?: Json
           news_ids?: string[]
+          post_type?: string
+          primary_news_id?: string | null
+          published_at?: string | null
+          section_label?: string | null
+          selected_image_urls?: string[]
           sent_at?: string | null
           slides_urls?: string[]
+          source_snapshot?: string | null
           status?: string
+          title_snapshot?: string | null
         }
         Relationships: []
       }
       instagram_settings: {
         Row: {
+          auto_enqueue_enabled: boolean
+          brand_style: string
+          carousel_when_multiple_images: boolean
           created_at: string
           enabled: boolean
           id: string
+          max_caption_length: number
+          min_interval_minutes: number
+          mode: string
           schedule_hour: number
+          single_post_default: boolean
           top_n: number
           updated_at: string
           webhook_url: string | null
         }
         Insert: {
+          auto_enqueue_enabled?: boolean
+          brand_style?: string
+          carousel_when_multiple_images?: boolean
           created_at?: string
           enabled?: boolean
           id?: string
+          max_caption_length?: number
+          min_interval_minutes?: number
+          mode?: string
           schedule_hour?: number
+          single_post_default?: boolean
           top_n?: number
           updated_at?: string
           webhook_url?: string | null
         }
         Update: {
+          auto_enqueue_enabled?: boolean
+          brand_style?: string
+          carousel_when_multiple_images?: boolean
           created_at?: string
           enabled?: boolean
           id?: string
+          max_caption_length?: number
+          min_interval_minutes?: number
+          mode?: string
           schedule_hour?: number
+          single_post_default?: boolean
           top_n?: number
           updated_at?: string
           webhook_url?: string | null
