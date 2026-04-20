@@ -241,11 +241,26 @@ const TopicsAuditPage = () => {
   return (
     <AdminGuard>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Auditoria de Tópicos</h1>
-          <p className="text-muted-foreground mt-1">
-            Quantidade de notícias por tópico, considerando aliases usados pelo filtro do feed.
-          </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl font-bold">Auditoria de Tópicos</h1>
+            <p className="text-muted-foreground mt-1">
+              Quantidade de notícias por tópico, considerando aliases usados pelo filtro do feed.
+            </p>
+          </div>
+          <Button onClick={handleRecategorize} disabled={recategorizing} variant="outline">
+            {recategorizing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Re-categorizando... ({recatProgress.updated}/{recatProgress.processed})
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Re-categorizar tópicos
+              </>
+            )}
+          </Button>
         </div>
 
         {/* KPI cards */}
