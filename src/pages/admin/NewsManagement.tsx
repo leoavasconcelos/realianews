@@ -33,7 +33,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Download,
-  Languages
+  Languages,
+  Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -129,6 +130,36 @@ export const NewsManagement = () => {
   const [exporting, setExporting] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [translateProgress, setTranslateProgress] = useState(0);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+
+  const handleRegenerateAnalysis = async (id: string) => {
+    setRegeneratingId(id);
+    try {
+      // Clear cached analysis so the edge function regenerates from scratch with the latest prompt.
+      const { error: clearError } = await supabase
+        .from('news')
+        .update({ full_analysis: null })
+        .eq('id', id);
+      if (clearError) throw clearError;
+
+      const { data: result, error } = await supabase.functions.invoke('generate-full-analysis', {
+        body: { newsId: id },
+      });
+      if (error) throw error;
+      const analysis = (result as { fullAnalysis?: string })?.fullAnalysis;
+      if (!analysis) throw new Error('Análise vazia retornada pela IA');
+
+      toast.success('Análise regenerada com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['admin-news'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-news-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['full-analysis', id] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error('Erro ao regenerar análise: ' + message);
+    } finally {
+      setRegeneratingId(null);
+    }
+  };
 
   const handleTranslatePending = async () => {
     setTranslating(true);
@@ -315,6 +346,19 @@ export const NewsManagement = () => {
                           title="Editar notícia"
                         >
                           <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRegenerateAnalysis(item.id)}
+                          disabled={regeneratingId === item.id}
+                          title="Regenerar análise completa (limpa cache e chama IA)"
+                        >
+                          {regeneratingId === item.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
                         </Button>
                         <Button
                           variant="ghost"
