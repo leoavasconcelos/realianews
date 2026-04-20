@@ -6,6 +6,7 @@ import {
   Radio, 
   Users, 
   BarChart3,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -31,6 +32,12 @@ const menuItems = [
     path: '/admin/topics', 
     label: 'Tópicos', 
     icon: Tags,
+    adminOnly: true 
+  },
+  { 
+    path: '/admin/topics/audit', 
+    label: 'Auditoria de Tópicos', 
+    icon: ShieldCheck,
     adminOnly: true 
   },
   { 
