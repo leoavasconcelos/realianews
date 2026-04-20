@@ -713,6 +713,12 @@ const updatePublication = async (supabase: ReturnType<typeof createClient>, id: 
   if (error) throw error;
 };
 
+const unauthorizedResponse = () =>
+  new Response(JSON.stringify({ error: "Unauthorized" }), {
+    status: 401,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 const authorizeRequest = async (req: Request, supabaseUrl: string, anonKey: string, serviceRoleKey: string) => {
   const cronSecret = Deno.env.get("CRON_SECRET");
   const cronHeader = req.headers.get("x-cron-secret");
@@ -722,40 +728,38 @@ const authorizeRequest = async (req: Request, supabaseUrl: string, anonKey: stri
   const isCronCall = !!cronSecret && ((cronHeader && cronHeader === cronSecret) || (bearerToken && bearerToken === cronSecret));
   if (isCronCall) return { isCronCall: true, userId: null };
 
-  if (!authHeader?.startsWith("Bearer ")) {
-    throw new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (!authHeader?.startsWith("Bearer ") || !bearerToken) throw unauthorizedResponse();
 
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const { data: { user }, error: userError } = await userClient.auth.getUser();
-  if (userError || !user) {
-    throw new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  let userId: string | null = null;
+
+  const claimsResult = await (userClient.auth as { getClaims?: (jwt: string) => Promise<{ data?: { claims?: { sub?: string } }; error?: unknown }> }).getClaims?.(bearerToken);
+  userId = claimsResult?.data?.claims?.sub ?? null;
+
+  if (!userId) {
+    const { data, error } = await userClient.auth.getUser(bearerToken);
+    if (error || !data?.user?.id) throw unauthorizedResponse();
+    userId = data.user.id;
   }
 
   const now = Date.now();
-  const lastCall = rateLimitMap.get(user.id);
+  const lastCall = rateLimitMap.get(userId);
   if (lastCall && now - lastCall < RATE_LIMIT_WINDOW_MS) {
     throw new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
       status: 429,
       headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastCall)) / 1000)) },
     });
   }
-  rateLimitMap.set(user.id, now);
+  rateLimitMap.set(userId, now);
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
   const { data: roles, error: rolesError } = await adminClient
     .from("user_roles")
     .select("role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .in("role", ["admin", "moderator"]);
 
   if (rolesError || !roles?.length) {
@@ -765,7 +769,7 @@ const authorizeRequest = async (req: Request, supabaseUrl: string, anonKey: stri
     });
   }
 
-  return { isCronCall: false, userId: user.id };
+  return { isCronCall: false, userId };
 };
 
 serve(async (req) => {
