@@ -501,13 +501,14 @@ const getTopNews = async (supabase: ReturnType<typeof createClient>, topN: numbe
     .slice(0, topN);
 };
 
-const createPublication = async (supabase: ReturnType<typeof createClient>, userId: string | null, mode: Mode, topN: number) => {
+const createPublication = async (supabase: ReturnType<typeof createClient>, userId: string | null, mode: Mode, topN: number, initialValues: Record<string, unknown> = {}) => {
   const { data, error } = await supabase
     .from("instagram_publications")
     .insert({
       created_by: userId,
       status: "pending",
       metadata: { mode, requested_top_n: topN },
+      ...initialValues,
     })
     .select("id")
     .single();
@@ -611,26 +612,58 @@ serve(async (req) => {
         throw new Error("Webhook do Zapier não configurado");
       }
 
+      const testCaption = "[TESTE WEBHOOK] 🏙️ Teste do webhook REalia News\n\nCarrossel de validação enviado pelo painel admin.\n\n#realianews #mercadoimobiliario #imoveis";
+      const publication = await createPublication(supabase, userId, mode, 1, {
+        caption: testCaption,
+        slides_urls: [WEBHOOK_TEST_IMAGE_URL],
+      });
+
       const payload = {
-        publicationId: null,
+        publicationId: publication.id,
         timestamp: new Date().toISOString(),
         origin: "realia-instagram-digest",
         mode,
         image_url: WEBHOOK_TEST_IMAGE_URL,
-        caption: "🏙️ Teste do webhook REalia News\n\nCarrossel de validação enviado pelo painel admin.\n\n#realianews #mercadoimobiliario #imoveis",
+        caption: testCaption,
         slides: [WEBHOOK_TEST_IMAGE_URL],
         websiteUrl: BRAND_URL,
       };
 
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const responseText = await response.text();
+      try {
+        const response = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const responseText = await response.text();
 
-      if (!response.ok) {
-        throw new Error(`Zapier respondeu com ${response.status}: ${responseText.slice(0, 300)}`);
+        if (!response.ok) {
+          throw new Error(`Zapier respondeu com ${response.status}: ${responseText.slice(0, 300)}`);
+        }
+
+        await updatePublication(supabase, publication.id, {
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          error: null,
+          metadata: {
+            mode,
+            acknowledged: true,
+            webhook_response_preview: responseText.slice(0, 300),
+            is_test: true,
+          },
+        });
+      } catch (webhookError) {
+        const message = webhookError instanceof Error ? webhookError.message : "Erro ao testar webhook";
+        await updatePublication(supabase, publication.id, {
+          status: "failed",
+          error: message,
+          metadata: {
+            mode,
+            acknowledged: false,
+            is_test: true,
+          },
+        });
+        throw webhookError;
       }
 
       return json({ success: true, mode, message: "Teste enviado ao Zapier" });

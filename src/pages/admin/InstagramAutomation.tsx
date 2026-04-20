@@ -162,6 +162,7 @@ export const InstagramAutomation = () => {
       return data as { message?: string };
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
       toast.success(data?.message || 'Teste enviado ao Zapier');
     },
     onError: (error: Error) => {
