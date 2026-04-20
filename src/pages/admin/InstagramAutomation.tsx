@@ -60,6 +60,26 @@ export const InstagramAutomation = () => {
   const [topN, setTopN] = useState('5');
   const [previewData, setPreviewData] = useState<PreviewResponse | null>(null);
 
+  const invokeInstagramDigest = async (body: { mode: 'preview' | 'send' | 'webhook_test'; topN?: number }) => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
+    const { data, error } = await supabase.functions.invoke('publish-instagram-digest', {
+      body,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (error) throw error;
+    return data as PreviewResponse | { message?: string };
+  };
+
   const { data: settings, isLoading: settingsLoading } = useQuery({
     queryKey: ['instagram-settings'],
     queryFn: async () => {
@@ -119,11 +139,10 @@ export const InstagramAutomation = () => {
 
   const previewMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('publish-instagram-digest', {
-        body: { mode: 'preview', topN: Math.min(8, Math.max(1, Number(topN) || 5)) },
-      });
-      if (error) throw error;
-      return data as PreviewResponse;
+      return await invokeInstagramDigest({
+        mode: 'preview',
+        topN: Math.min(8, Math.max(1, Number(topN) || 5)),
+      }) as PreviewResponse;
     },
     onSuccess: (data) => {
       setPreviewData(data);
@@ -137,11 +156,10 @@ export const InstagramAutomation = () => {
 
   const sendMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('publish-instagram-digest', {
-        body: { mode: 'send', topN: Math.min(8, Math.max(1, Number(topN) || 5)) },
-      });
-      if (error) throw error;
-      return data as PreviewResponse;
+      return await invokeInstagramDigest({
+        mode: 'send',
+        topN: Math.min(8, Math.max(1, Number(topN) || 5)),
+      }) as PreviewResponse;
     },
     onSuccess: (data) => {
       setPreviewData(data);
@@ -155,11 +173,7 @@ export const InstagramAutomation = () => {
 
   const webhookTestMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('publish-instagram-digest', {
-        body: { mode: 'webhook_test' },
-      });
-      if (error) throw error;
-      return data as { message?: string };
+      return await invokeInstagramDigest({ mode: 'webhook_test' }) as { message?: string };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
