@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      instagram_publications: {
+        Row: {
+          caption: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          metadata: Json
+          news_ids: string[]
+          sent_at: string | null
+          slides_urls: string[]
+          status: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          metadata?: Json
+          news_ids?: string[]
+          sent_at?: string | null
+          slides_urls?: string[]
+          status?: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          metadata?: Json
+          news_ids?: string[]
+          sent_at?: string | null
+          slides_urls?: string[]
+          status?: string
+        }
+        Relationships: []
+      }
+      instagram_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          schedule_hour: number
+          top_n: number
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          schedule_hour?: number
+          top_n?: number
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          schedule_hour?: number
+          top_n?: number
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       news: {
         Row: {
           audio_url: string | null

@@ -8,7 +8,8 @@ import {
   BarChart3,
   ShieldCheck,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Instagram
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -56,6 +57,12 @@ const menuItems = [
     path: '/admin/analytics', 
     label: 'Analytics', 
     icon: BarChart3,
+    adminOnly: false 
+  },
+  { 
+    path: '/admin/instagram', 
+    label: 'Instagram', 
+    icon: Instagram,
     adminOnly: false 
   },
 ];

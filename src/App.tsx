@@ -17,6 +17,7 @@ import { TopicsAudit } from "./pages/admin/TopicsAudit";
 import { SourcesManagement } from "./pages/admin/SourcesManagement";
 import { UsersManagement } from "./pages/admin/UsersManagement";
 import { Analytics } from "./pages/admin/Analytics";
+import { InstagramAutomation } from "./pages/admin/InstagramAutomation";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
                 <Route path="sources" element={<SourcesManagement />} />
                 <Route path="users" element={<UsersManagement />} />
                 <Route path="analytics" element={<Analytics />} />
+                <Route path="instagram" element={<InstagramAutomation />} />
               </Route>
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
