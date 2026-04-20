@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -15,7 +15,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CheckCircle2, ExternalLink, Image as ImageIcon, Instagram, Loader2, Send, Sparkles } from 'lucide-react';
+import {
+  CheckCircle2,
+  ExternalLink,
+  Image as ImageIcon,
+  Instagram,
+  Loader2,
+  RefreshCcw,
+  Send,
+  Sparkles,
+  TimerReset,
+  Wand2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -24,26 +35,38 @@ interface InstagramSettingsRow {
   id: string;
   webhook_url: string | null;
   enabled: boolean;
-  schedule_hour: number;
-  top_n: number;
+  mode: 'approval_queue';
+  auto_enqueue_enabled: boolean;
+  min_interval_minutes: number;
+  single_post_default: boolean;
+  carousel_when_multiple_images: boolean;
+  max_caption_length: number;
+  brand_style: string;
   updated_at: string;
 }
 
 interface InstagramPublicationRow {
   id: string;
-  status: 'pending' | 'preview' | 'sent' | 'failed';
+  status: 'queued' | 'preview' | 'approved' | 'sent' | 'failed' | 'cancelled';
+  post_type: 'single_image' | 'carousel';
   caption: string | null;
   error: string | null;
   sent_at: string | null;
+  published_at: string | null;
   created_at: string;
+  title_snapshot: string | null;
+  section_label: string | null;
+  source_snapshot: string | null;
   news_ids: string[] | null;
   slides_urls: string[] | null;
+  metadata?: { public_urls_preview?: string[] } | null;
 }
 
 interface PreviewResponse {
   publicationId: string;
   caption: string;
   slides: string[];
+  postType: 'single_image' | 'carousel';
   news: Array<{
     id: string;
     title: string;
@@ -57,10 +80,20 @@ export const InstagramAutomation = () => {
   const { isAdmin } = useAdminAuth();
   const [webhookUrl, setWebhookUrl] = useState('');
   const [enabled, setEnabled] = useState(false);
-  const [topN, setTopN] = useState('5');
+  const [autoEnqueueEnabled, setAutoEnqueueEnabled] = useState(true);
+  const [minIntervalMinutes, setMinIntervalMinutes] = useState('90');
+  const [singlePostDefault, setSinglePostDefault] = useState(true);
+  const [carouselWhenMultipleImages, setCarouselWhenMultipleImages] = useState(true);
+  const [maxCaptionLength, setMaxCaptionLength] = useState('1600');
   const [previewData, setPreviewData] = useState<PreviewResponse | null>(null);
+  const [selectedPublicationId, setSelectedPublicationId] = useState<string | null>(null);
 
-  const invokeInstagramDigest = async (body: { mode: 'preview' | 'send' | 'webhook_test'; topN?: number }) => {
+  const invokeInstagramFlow = async (body: {
+    mode: 'generate_queue' | 'preview_post' | 'send_post' | 'regenerate_post' | 'webhook_test';
+    publicationId?: string;
+    limit?: number;
+    force?: boolean;
+  }) => {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
 
@@ -77,7 +110,7 @@ export const InstagramAutomation = () => {
     });
 
     if (error) throw error;
-    return data as PreviewResponse | { message?: string };
+    return data as PreviewResponse | { message?: string; queuedCount?: number; publicationIds?: string[] };
   };
 
   const { data: settings, isLoading: settingsLoading } = useQuery({
@@ -86,10 +119,11 @@ export const InstagramAutomation = () => {
       const { data, error } = await (supabase as any)
         .from('instagram_settings')
         .select('*')
+        .order('created_at', { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
       if (error) throw error;
-      return data as InstagramSettingsRow;
+      return data as InstagramSettingsRow | null;
     },
   });
 
@@ -98,9 +132,9 @@ export const InstagramAutomation = () => {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('instagram_publications')
-        .select('id, status, caption, error, sent_at, created_at, news_ids, slides_urls')
+        .select('id, status, post_type, caption, error, sent_at, published_at, created_at, title_snapshot, section_label, source_snapshot, news_ids, slides_urls, metadata')
         .order('created_at', { ascending: false })
-        .limit(7);
+        .limit(20);
       if (error) throw error;
       return (data || []) as InstagramPublicationRow[];
     },
@@ -110,115 +144,140 @@ export const InstagramAutomation = () => {
     if (!settings) return;
     setWebhookUrl(settings.webhook_url || '');
     setEnabled(settings.enabled);
-    setTopN(String(settings.top_n || 5));
+    setAutoEnqueueEnabled(settings.auto_enqueue_enabled);
+    setMinIntervalMinutes(String(settings.min_interval_minutes || 90));
+    setSinglePostDefault(settings.single_post_default);
+    setCarouselWhenMultipleImages(settings.carousel_when_multiple_images);
+    setMaxCaptionLength(String(settings.max_caption_length || 1600));
   }, [settings]);
+
+  const queueItems = useMemo(
+    () => (publications || []).filter((item) => ['queued', 'preview', 'approved', 'failed'].includes(item.status)),
+    [publications],
+  );
+
+  const historyItems = useMemo(
+    () => (publications || []).filter((item) => ['sent', 'cancelled'].includes(item.status)).slice(0, 7),
+    [publications],
+  );
+
+  const selectedPublication = queueItems.find((item) => item.id === selectedPublicationId) || null;
+  const latestStatus = publications?.[0]?.status;
 
   const saveSettings = useMutation({
     mutationFn: async () => {
-      const numericTopN = Math.min(8, Math.max(1, Number(topN) || 5));
       const payload = {
         webhook_url: webhookUrl.trim() || null,
         enabled,
-        top_n: numericTopN,
+        auto_enqueue_enabled: autoEnqueueEnabled,
+        min_interval_minutes: Math.max(15, Number(minIntervalMinutes) || 90),
+        single_post_default: singlePostDefault,
+        carousel_when_multiple_images: carouselWhenMultipleImages,
+        max_caption_length: Math.max(280, Number(maxCaptionLength) || 1600),
+        mode: 'approval_queue',
+        brand_style: 'notjournal_editorial',
       };
 
-      const { error } = await (supabase as any)
-        .from('instagram_settings')
-        .update(payload)
-        .eq('id', settings.id);
-      if (error) throw error;
+      if (settings?.id) {
+        const { error } = await (supabase as any).from('instagram_settings').update(payload).eq('id', settings.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any).from('instagram_settings').insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instagram-settings'] });
-      toast.success('Configuração do Instagram salva');
+      toast.success('Configuração editorial salva');
     },
     onError: (error: Error) => {
       toast.error(`Erro ao salvar: ${error.message}`);
     },
   });
 
-  const previewMutation = useMutation({
-    mutationFn: async () => {
-      return await invokeInstagramDigest({
-        mode: 'preview',
-        topN: Math.min(8, Math.max(1, Number(topN) || 5)),
-      }) as PreviewResponse;
+  const generateQueueMutation = useMutation({
+    mutationFn: async () => invokeInstagramFlow({ mode: 'generate_queue', limit: 4 }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
+      toast.success(data?.queuedCount ? `${data.queuedCount} posts entraram na fila` : data?.message || 'Fila atualizada');
     },
+    onError: (error: Error) => toast.error(`Erro ao gerar fila: ${error.message}`),
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: async (publicationId: string) => invokeInstagramFlow({ mode: 'preview_post', publicationId }) as Promise<PreviewResponse>,
     onSuccess: (data) => {
       setPreviewData(data);
+      setSelectedPublicationId(data.publicationId);
       queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
-      toast.success('Preview gerado com sucesso');
+      toast.success('Preview gerado');
     },
-    onError: (error: Error) => {
-      toast.error(`Erro ao gerar preview: ${error.message}`);
+    onError: (error: Error) => toast.error(`Erro ao gerar preview: ${error.message}`),
+  });
+
+  const regenerateMutation = useMutation({
+    mutationFn: async (publicationId: string) => invokeInstagramFlow({ mode: 'regenerate_post', publicationId }) as Promise<PreviewResponse>,
+    onSuccess: (data) => {
+      setPreviewData(data);
+      setSelectedPublicationId(data.publicationId);
+      queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
+      toast.success('Arte regenerada');
     },
+    onError: (error: Error) => toast.error(`Erro ao regenerar: ${error.message}`),
   });
 
   const sendMutation = useMutation({
-    mutationFn: async () => {
-      return await invokeInstagramDigest({
-        mode: 'send',
-        topN: Math.min(8, Math.max(1, Number(topN) || 5)),
-      }) as PreviewResponse;
-    },
+    mutationFn: async (publicationId: string) => invokeInstagramFlow({ mode: 'send_post', publicationId }) as Promise<PreviewResponse>,
     onSuccess: (data) => {
       setPreviewData(data);
       queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
-      toast.success('Digest enviado para o Zapier');
+      toast.success('Post enviado ao Zapier');
     },
-    onError: (error: Error) => {
-      toast.error(`Erro ao disparar digest: ${error.message}`);
-    },
+    onError: (error: Error) => toast.error(`Erro ao enviar: ${error.message}`),
   });
 
   const webhookTestMutation = useMutation({
-    mutationFn: async () => {
-      return await invokeInstagramDigest({ mode: 'webhook_test' }) as { message?: string };
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
-      toast.success(data?.message || 'Teste enviado ao Zapier');
-    },
-    onError: (error: Error) => {
-      toast.error(`Erro ao testar webhook: ${error.message}`);
-    },
+    mutationFn: async () => invokeInstagramFlow({ mode: 'webhook_test' }) as Promise<{ message?: string }>,
+    onSuccess: (data) => toast.success(data?.message || 'Teste enviado ao Zapier'),
+    onError: (error: Error) => toast.error(`Erro ao testar webhook: ${error.message}`),
   });
 
-  const latestStatus = publications?.[0]?.status;
+  const previewImages = previewData?.slides || (selectedPublication?.metadata?.public_urls_preview ?? []);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Instagram</h1>
-          <p className="text-muted-foreground mt-1">
-            Carrossel diário com as melhores notícias das últimas 24 horas.
+          <h1 className="text-3xl font-bold tracking-tight">Fila editorial do Instagram</h1>
+          <p className="mt-1 text-muted-foreground">
+            Posts frequentes com aprovação manual, imagem única por padrão e carrossel só quando fizer sentido.
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           {latestStatus && (
             <Badge variant={latestStatus === 'sent' ? 'default' : latestStatus === 'failed' ? 'destructive' : 'secondary'}>
               Último status: {latestStatus}
             </Badge>
           )}
-          <Badge variant="outline">09:00 BRT</Badge>
+          <Badge variant="outline">Tempo real</Badge>
+          <Badge variant="outline">Aprovação manual</Badge>
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
         <Card className="border-border/70 shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <Instagram className="h-5 w-5 text-primary" />
-              Automação diária
+              Configuração editorial
             </CardTitle>
             <CardDescription>
-              Configure o webhook do Zapier, o número de notícias e rode testes manuais.
+              Controle a fila, o intervalo mínimo entre posts e o comportamento visual do Instagram.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2">
+              <div className="space-y-2 md:col-span-2">
                 <label className="text-sm font-medium text-foreground">Webhook do Zapier</label>
                 <Input
                   value={webhookUrl}
@@ -227,33 +286,57 @@ export const InstagramAutomation = () => {
                   disabled={!isAdmin || saveSettings.isPending}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Se vazio, o backend usa o secret seguro configurado no projeto.
+                  Se vazio, o backend usa o secret seguro já configurado no projeto.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Top notícias do dia</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={8}
-                  value={topN}
-                  onChange={(e) => setTopN(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Máximo de 8 notícias por digest para caber no carrossel.
-                </p>
+                <label className="text-sm font-medium text-foreground">Intervalo mínimo entre posts</label>
+                <Input type="number" min={15} step={15} value={minIntervalMinutes} onChange={(e) => setMinIntervalMinutes(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Máximo da legenda</label>
+                <Input type="number" min={280} step={50} value={maxCaptionLength} onChange={(e) => setMaxCaptionLength(e.target.value)} />
               </div>
             </div>
 
-            <div className="rounded-xl border border-border/70 bg-secondary/30 p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="font-medium">Envio automático diário</p>
-                <p className="text-sm text-muted-foreground">Ativa o disparo recorrente às 09:00 BRT.</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-border bg-secondary/30 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Fila habilitada</p>
+                    <p className="text-sm text-muted-foreground">Permite gerar e revisar posts no painel.</p>
+                  </div>
+                  <Switch checked={enabled} onCheckedChange={setEnabled} disabled={!isAdmin || saveSettings.isPending} />
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">{enabled ? 'Ativo' : 'Desligado'}</span>
-                <Switch checked={enabled} onCheckedChange={setEnabled} disabled={!isAdmin || saveSettings.isPending} />
+              <div className="rounded-lg border border-border bg-secondary/30 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Entrada automática na fila</p>
+                    <p className="text-sm text-muted-foreground">Prepara novos posts assim que surgirem notícias elegíveis.</p>
+                  </div>
+                  <Switch checked={autoEnqueueEnabled} onCheckedChange={setAutoEnqueueEnabled} disabled={!isAdmin || saveSettings.isPending} />
+                </div>
+              </div>
+              <div className="rounded-lg border border-border bg-secondary/30 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Imagem única como padrão</p>
+                    <p className="text-sm text-muted-foreground">Mantém a linguagem de portal nativo do Instagram.</p>
+                  </div>
+                  <Switch checked={singlePostDefault} onCheckedChange={setSinglePostDefault} disabled={!isAdmin || saveSettings.isPending} />
+                </div>
+              </div>
+              <div className="rounded-lg border border-border bg-secondary/30 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Carrossel opcional</p>
+                    <p className="text-sm text-muted-foreground">Só ativa quando houver mais imagens realmente úteis.</p>
+                  </div>
+                  <Switch checked={carouselWhenMultipleImages} onCheckedChange={setCarouselWhenMultipleImages} disabled={!isAdmin || saveSettings.isPending} />
+                </div>
               </div>
             </div>
 
@@ -262,20 +345,11 @@ export const InstagramAutomation = () => {
                 {saveSettings.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar configuração
               </Button>
-              <Button variant="outline" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending || sendMutation.isPending}>
-                {previewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
-                Publicar agora (preview)
+              <Button variant="outline" onClick={() => generateQueueMutation.mutate()} disabled={generateQueueMutation.isPending}>
+                {generateQueueMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Atualizar fila
               </Button>
-              <Button variant="accent" onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending || previewMutation.isPending || webhookTestMutation.isPending}>
-                {sendMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Disparar digest manualmente
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => webhookTestMutation.mutate()}
-                disabled={webhookTestMutation.isPending || previewMutation.isPending || sendMutation.isPending}
-              >
+              <Button variant="outline" onClick={() => webhookTestMutation.mutate()} disabled={webhookTestMutation.isPending}>
                 {webhookTestMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Testar webhook
               </Button>
@@ -286,44 +360,44 @@ export const InstagramAutomation = () => {
         <Card className="border-border/70 shadow-card bg-gradient-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
-              <Sparkles className="h-5 w-5 text-accent" />
-              Preview do carrossel
+              <ImageIcon className="h-5 w-5 text-accent" />
+              Preview do post
             </CardTitle>
             <CardDescription>
-              Gera a capa, slides de resumo e CTA final antes de enviar ao Zapier.
+              Foto protagonista, título sobre a imagem e legenda curta em ritmo de portal.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {previewData ? (
+            {previewImages.length ? (
               <>
-                <div className="grid grid-cols-2 gap-3">
-                  {previewData.slides.map((slide, index) => (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {previewImages.map((slide, index) => (
                     <a
                       key={slide}
                       href={slide}
                       target="_blank"
                       rel="noreferrer"
-                      className="group overflow-hidden rounded-xl border border-border bg-card"
+                      className="group overflow-hidden rounded-lg border border-border bg-card"
                     >
                       <img
                         src={slide}
-                        alt={`Slide ${index + 1}`}
+                        alt={`Preview ${index + 1}`}
                         loading="lazy"
                         className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                       />
                     </a>
                   ))}
                 </div>
-                <div className="rounded-xl border border-border bg-card p-4">
+                <div className="rounded-lg border border-border bg-card p-4">
                   <p className="mb-2 text-sm font-medium text-foreground">Legenda</p>
-                  <pre className="whitespace-pre-wrap break-words text-sm text-muted-foreground font-sans">
-                    {previewData.caption}
+                  <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
+                    {previewData?.caption || selectedPublication?.caption || '—'}
                   </pre>
                 </div>
               </>
             ) : (
-              <div className="rounded-xl border border-dashed border-border bg-background/60 p-6 text-sm text-muted-foreground">
-                Gere um preview para visualizar os slides e a legenda que serão enviados ao Instagram.
+              <div className="rounded-lg border border-dashed border-border bg-background/60 p-6 text-sm text-muted-foreground">
+                Selecione um item da fila para gerar a arte principal e revisar a legenda antes de enviar.
               </div>
             )}
           </CardContent>
@@ -332,9 +406,9 @@ export const InstagramAutomation = () => {
 
       <Card className="border-border/70 shadow-card">
         <CardHeader>
-          <CardTitle className="text-xl">Últimas 7 execuções</CardTitle>
+          <CardTitle className="text-xl">Fila de posts</CardTitle>
           <CardDescription>
-            Histórico dos previews e disparos manuais/automáticos do digest.
+            Revise, gere preview, regenere e aprove o envio de cada notícia individualmente.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -347,44 +421,55 @@ export const InstagramAutomation = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
-                  <TableHead>Quando</TableHead>
-                  <TableHead>Notícias</TableHead>
-                  <TableHead>Slides</TableHead>
-                  <TableHead>Resumo</TableHead>
+                  <TableHead>Post</TableHead>
+                  <TableHead>Fonte</TableHead>
+                  <TableHead>Quando entrou</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {publications?.map((item) => (
+                {queueItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={item.status === 'sent' ? 'default' : item.status === 'failed' ? 'destructive' : 'secondary'} className="gap-1">
-                        {item.status === 'sent' && <CheckCircle2 className="h-3 w-3" />}
-                        {item.status}
+                        <Badge variant={item.status === 'failed' ? 'destructive' : item.status === 'approved' ? 'default' : 'secondary'}>
+                          {item.status}
                         </Badge>
-                        {item.caption?.startsWith('[TESTE WEBHOOK]') && <Badge variant="outline">teste webhook</Badge>}
+                        <Badge variant="outline">{item.post_type === 'carousel' ? 'carrossel' : 'imagem única'}</Badge>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDistanceToNow(new Date(item.sent_at || item.created_at), { addSuffix: true, locale: ptBR })}
-                    </TableCell>
-                    <TableCell>{item.news_ids?.length || 0}</TableCell>
-                    <TableCell>{item.slides_urls?.length || 0}</TableCell>
                     <TableCell>
-                      <div className="max-w-[420px]">
-                        {item.error ? (
-                          <p className="text-sm text-destructive">{item.error}</p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground line-clamp-2">{item.caption || '—'}</p>
-                        )}
+                      <div className="max-w-[360px]">
+                        <p className="line-clamp-2 text-sm font-medium text-foreground">{item.title_snapshot || 'Sem título'}</p>
+                        <p className="text-xs text-muted-foreground">{item.section_label || 'Mercado'}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{item.source_snapshot || '—'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: ptBR })}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={() => previewMutation.mutate(item.id)} disabled={previewMutation.isPending}>
+                          {previewMutation.isPending && selectedPublicationId === item.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
+                          Preview
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => regenerateMutation.mutate(item.id)} disabled={regenerateMutation.isPending}>
+                          {regenerateMutation.isPending && selectedPublicationId === item.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                          Regenerar
+                        </Button>
+                        <Button size="sm" variant="accent" onClick={() => sendMutation.mutate(item.id)} disabled={sendMutation.isPending}>
+                          {sendMutation.isPending && selectedPublicationId === item.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                          Aprovar e enviar
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
-                {!publications?.length && (
+                {!queueItems.length && (
                   <TableRow>
                     <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                      Nenhuma execução registrada ainda.
+                      Nenhum post pendente na fila agora.
                     </TableCell>
                   </TableRow>
                 )}
@@ -394,20 +479,78 @@ export const InstagramAutomation = () => {
         </CardContent>
       </Card>
 
+      <Card className="border-border/70 shadow-card">
+        <CardHeader>
+          <CardTitle className="text-xl">Histórico recente</CardTitle>
+          <CardDescription>
+            Últimas publicações enviadas ou arquivadas pela operação editorial.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Status</TableHead>
+                <TableHead>Post</TableHead>
+                <TableHead>Publicado</TableHead>
+                <TableHead>Legenda</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {historyItems.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <Badge variant={item.status === 'sent' ? 'default' : 'secondary'} className="gap-1">
+                      {item.status === 'sent' && <CheckCircle2 className="h-3 w-3" />}
+                      {item.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-[320px]">
+                      <p className="line-clamp-2 text-sm font-medium text-foreground">{item.title_snapshot || 'Sem título'}</p>
+                      <p className="text-xs text-muted-foreground">{item.post_type === 'carousel' ? 'Carrossel' : 'Imagem única'}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {item.published_at || item.sent_at
+                      ? formatDistanceToNow(new Date(item.published_at || item.sent_at || item.created_at), { addSuffix: true, locale: ptBR })
+                      : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <p className="max-w-[420px] line-clamp-2 text-sm text-muted-foreground">{item.caption || item.error || '—'}</p>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!historyItems.length && (
+                <TableRow>
+                  <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
+                    Ainda não há publicações concluídas.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       <Card className="border-border/70 bg-secondary/20 shadow-card">
         <CardContent className="flex flex-col gap-3 py-5 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="font-medium">Zap pronto?</p>
             <p className="text-sm text-muted-foreground">
-              Use trigger “Webhooks by Zapier → Catch Hook” e mapeie o array <code>slides</code> + campo <code>caption</code>.
+              Use trigger “Webhooks by Zapier → Catch Hook” e mapeie <code>images</code>, <code>caption</code>, <code>postType</code> e <code>title</code>.
             </p>
           </div>
-          <a href="https://zapier.com/apps/webhook/help" target="_blank" rel="noreferrer">
-            <Button variant="outline">
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Ver setup do Zapier
-            </Button>
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="gap-1"><TimerReset className="h-3.5 w-3.5" /> Intervalo mínimo</Badge>
+            <Badge variant="outline" className="gap-1"><Wand2 className="h-3.5 w-3.5" /> Preview manual</Badge>
+            <a href="https://zapier.com/apps/webhook/help" target="_blank" rel="noreferrer">
+              <Button variant="outline">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Ver setup do Zapier
+              </Button>
+            </a>
+          </div>
         </CardContent>
       </Card>
     </div>
