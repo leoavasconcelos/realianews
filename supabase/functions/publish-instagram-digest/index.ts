@@ -176,142 +176,6 @@ const captionFromNews = (news: NewsRow, maxLength: number) => {
   );
 };
 
-const fetchImageAsDataUrl = async (url: string | null) => {
-  if (!url) return null;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const contentType = response.headers.get("content-type") || "image/jpeg";
-    const arrayBuffer = await response.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = "";
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    const base64 = btoa(binary);
-    return `data:${contentType};base64,${base64}`;
-  } catch {
-    return null;
-  }
-};
-
-const renderToPng = async (node: React.ReactElement) => {
-  const response = new ImageResponse(node, { width: OG_SIZE, height: OG_SIZE });
-  const buffer = await response.arrayBuffer();
-  return new Uint8Array(buffer);
-};
-
-const createPosterPng = async (news: NewsRow) => {
-  const titleLines = wrapLines(tightenLine(news.title, 110), 24).slice(0, 4);
-  const section = extractSectionLabel(news);
-  const source = sourceNameFromUrl(news.source_url);
-  const summary = tightenLine(news.summary_ai || news.title, 180);
-  const imageDataUrl = await fetchImageAsDataUrl(news.image_url);
-
-  return renderToPng(
-    React.createElement(
-      "div",
-      {
-        style: {
-          width: `${OG_SIZE}px`,
-          height: `${OG_SIZE}px`,
-          position: "relative",
-          display: "flex",
-          overflow: "hidden",
-          background: "linear-gradient(145deg, #0f172a 0%, #16253d 55%, #1f5f59 100%)",
-          color: "#ffffff",
-          fontFamily: "Inter, system-ui, sans-serif",
-        },
-      },
-      imageDataUrl
-        ? React.createElement("img", {
-            src: imageDataUrl,
-            alt: news.title,
-            width: OG_SIZE,
-            height: OG_SIZE,
-            style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" },
-          })
-        : null,
-      React.createElement("div", {
-        style: {
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(180deg, rgba(2,6,23,0.12) 0%, rgba(2,6,23,0.38) 35%, rgba(2,6,23,0.88) 100%)",
-        },
-      }),
-      React.createElement(
-        "div",
-        {
-          style: {
-            position: "relative",
-            zIndex: 1,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            padding: "56px",
-            width: "100%",
-          },
-        },
-        React.createElement(
-          "div",
-          { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
-          React.createElement(
-            "div",
-            {
-              style: {
-                borderRadius: "999px",
-                background: "rgba(255,255,255,0.12)",
-                border: "1px solid rgba(255,255,255,0.18)",
-                padding: "12px 20px",
-                fontSize: "24px",
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-              },
-            },
-            section,
-          ),
-          React.createElement(
-            "div",
-            { style: { fontSize: "28px", fontWeight: 700, letterSpacing: "0.08em" } },
-            "REalia",
-          ),
-        ),
-        React.createElement(
-          "div",
-          { style: { display: "flex", flexDirection: "column", gap: "18px" } },
-          ...titleLines.map((line) =>
-            React.createElement(
-              "div",
-              { key: line, style: { fontSize: "78px", fontWeight: 800, lineHeight: 0.95, maxWidth: "880px" } },
-              line,
-            ),
-          ),
-          React.createElement(
-            "div",
-            { style: { maxWidth: "820px", fontSize: "28px", lineHeight: 1.35, color: "rgba(255,255,255,0.88)" } },
-            summary,
-          ),
-        ),
-        React.createElement(
-          "div",
-          { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px" } },
-          React.createElement(
-            "div",
-            { style: { fontSize: "24px", color: "rgba(255,255,255,0.78)" } },
-            source,
-          ),
-          React.createElement(
-            "div",
-            { style: { fontSize: "22px", color: "rgba(255,255,255,0.72)" } },
-            BRAND_URL.replace("https://", ""),
-          ),
-        ),
-      ),
-    ),
-  );
-};
-
 const createPublicUrls = (supabase: ReturnType<typeof createClient>, paths: string[]) =>
   paths.map((path) => {
     const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
@@ -320,21 +184,21 @@ const createPublicUrls = (supabase: ReturnType<typeof createClient>, paths: stri
   });
 
 const buildAssets = async (supabase: ReturnType<typeof createClient>, publicationId: string, news: NewsRow, postType: PostType) => {
-  const poster = await createPosterPng(news);
-  const posterPath = `${publicationId}/cover-${news.id}.png`;
+  // Usa diretamente a imagem original da notícia, sem renderização pesada.
+  // Isso evita timeouts no bundle (og_edge/react) e segue o padrão "foto real
+  // como protagonista" definido para o feed editorial.
+  if (!news.image_url) {
+    throw new Error("Notícia sem imagem disponível para publicação.");
+  }
 
-  const { error } = await supabase.storage.from(BUCKET_NAME).upload(posterPath, poster, {
-    contentType: "image/png",
-    upsert: true,
-  });
+  const publicUrls = [news.image_url];
+  const selectedImages = postType === "carousel" ? [news.image_url] : [news.image_url];
 
-  if (error) throw error;
-
-  const paths = [posterPath];
-  const selectedImages = postType === "carousel" && news.image_url ? [news.image_url] : [];
+  // Mantém o mesmo formato de retorno; uploadedPaths fica vazio porque não há
+  // upload no Storage neste fluxo simplificado.
   return {
-    uploadedPaths: paths,
-    publicUrls: createPublicUrls(supabase, paths),
+    uploadedPaths: [] as string[],
+    publicUrls,
     selectedImages,
   };
 };
