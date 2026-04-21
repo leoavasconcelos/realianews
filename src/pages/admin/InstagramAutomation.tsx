@@ -378,7 +378,7 @@ export const InstagramAutomation = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 shadow-card bg-gradient-card">
+        <Card ref={previewRef} className="border-border/70 shadow-card bg-gradient-card scroll-mt-24 ring-1 ring-transparent data-[has-preview=true]:ring-primary/40 transition" data-has-preview={previewImages.length > 0}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <ImageIcon className="h-5 w-5 text-accent" />
@@ -415,6 +415,25 @@ export const InstagramAutomation = () => {
                     {previewData?.caption || selectedPublication?.caption || '—'}
                   </pre>
                 </div>
+                {selectedPublicationId && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button
+                      onClick={() => sendMutation.mutate(selectedPublicationId)}
+                      disabled={sendMutation.isPending}
+                    >
+                      {sendMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                      Aprovar e enviar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => regenerateMutation.mutate(selectedPublicationId)}
+                      disabled={regenerateMutation.isPending}
+                    >
+                      {regenerateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                      Regenerar
+                    </Button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="rounded-lg border border-dashed border-border bg-background/60 p-6 text-sm text-muted-foreground">
