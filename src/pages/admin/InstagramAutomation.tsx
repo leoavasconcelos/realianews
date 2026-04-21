@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -93,6 +93,13 @@ export const InstagramAutomation = () => {
   const [maxCaptionLength, setMaxCaptionLength] = useState('1600');
   const [previewData, setPreviewData] = useState<PreviewResponse | null>(null);
   const [selectedPublicationId, setSelectedPublicationId] = useState<string | null>(null);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToPreview = () => {
+    requestAnimationFrame(() => {
+      previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
   const invokeInstagramFlow = async (body: {
     mode: 'generate_queue' | 'preview_post' | 'send_post' | 'regenerate_post' | 'webhook_test';
