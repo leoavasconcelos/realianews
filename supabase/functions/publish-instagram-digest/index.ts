@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import React from "https://esm.sh/react@18.2.0";
-import { ImageResponse } from "https://deno.land/x/og_edge@0.0.6/mod.ts";
 import { z } from "npm:zod@3.24.1";
 
 type Mode = "generate_queue" | "preview_post" | "send_post" | "regenerate_post" | "webhook_test";
