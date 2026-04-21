@@ -1,0 +1,1 @@
+UPDATE public.instagram_publications SET status = 'failed', error = 'Registro órfão sem notícia principal' WHERE primary_news_id IS NULL AND (news_ids IS NULL OR array_length(news_ids, 1) IS NULL) AND status NOT IN ('sent', 'failed', 'cancelled');
