@@ -482,7 +482,13 @@ const approveAndRenderPublication = async (supabase: ReturnType<typeof createCli
 
 const sendPublication = async (supabase: ReturnType<typeof createClient>, publication: PublicationRow, settings: InstagramSettings, userId: string | null) => {
   const primaryNewsId = publication.primary_news_id || publication.news_ids?.[0];
-  if (!primaryNewsId) throw new Error("Publicação sem notícia principal.");
+  if (!primaryNewsId) {
+    await updatePublication(supabase, publication.id, {
+      status: "failed",
+      error: "Publicação sem notícia principal (registro órfão).",
+    });
+    throw new Error("Publicação sem notícia principal. Item marcado como falho — gere a fila novamente.");
+  }
   const news = await getNewsById(supabase, primaryNewsId);
 
   const previewUrls = Array.isArray(publication.metadata?.public_urls_preview)
