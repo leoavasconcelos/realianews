@@ -444,7 +444,13 @@ const updatePublication = async (supabase: ReturnType<typeof createClient>, id: 
 
 const approveAndRenderPublication = async (supabase: ReturnType<typeof createClient>, publication: PublicationRow, settings: InstagramSettings, userId: string | null, markApproved = false) => {
   const primaryNewsId = publication.primary_news_id || publication.news_ids?.[0];
-  if (!primaryNewsId) throw new Error("Publicação sem notícia principal.");
+  if (!primaryNewsId) {
+    await updatePublication(supabase, publication.id, {
+      status: "failed",
+      error: "Publicação sem notícia principal (registro órfão).",
+    });
+    throw new Error("Publicação sem notícia principal. Item marcado como falho — gere a fila novamente.");
+  }
   const news = await getNewsById(supabase, primaryNewsId);
   const { uploadedPaths, publicUrls, selectedImages } = await buildAssets(supabase, publication.id, news, publication.post_type);
   const caption = captionFromNews(news, settings.max_caption_length || DEFAULT_CAPTION_LENGTH);
