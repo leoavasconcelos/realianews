@@ -230,6 +230,7 @@ export const InstagramAutomation = () => {
       setSelectedPublicationId(data.publicationId);
       queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
       toast.success('Preview gerado');
+      scrollToPreview();
     },
     onError: (error: Error) => toast.error(`Erro ao gerar preview: ${error.message}`),
   });
@@ -241,6 +242,7 @@ export const InstagramAutomation = () => {
       setSelectedPublicationId(data.publicationId);
       queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
       toast.success('Arte regenerada');
+      scrollToPreview();
     },
     onError: (error: Error) => toast.error(`Erro ao regenerar: ${error.message}`),
   });
