@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -93,6 +93,13 @@ export const InstagramAutomation = () => {
   const [maxCaptionLength, setMaxCaptionLength] = useState('1600');
   const [previewData, setPreviewData] = useState<PreviewResponse | null>(null);
   const [selectedPublicationId, setSelectedPublicationId] = useState<string | null>(null);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToPreview = () => {
+    requestAnimationFrame(() => {
+      previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
   const invokeInstagramFlow = async (body: {
     mode: 'generate_queue' | 'preview_post' | 'send_post' | 'regenerate_post' | 'webhook_test';
@@ -223,6 +230,7 @@ export const InstagramAutomation = () => {
       setSelectedPublicationId(data.publicationId);
       queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
       toast.success('Preview gerado');
+      scrollToPreview();
     },
     onError: (error: Error) => toast.error(`Erro ao gerar preview: ${error.message}`),
   });
@@ -234,6 +242,7 @@ export const InstagramAutomation = () => {
       setSelectedPublicationId(data.publicationId);
       queryClient.invalidateQueries({ queryKey: ['instagram-publications'] });
       toast.success('Arte regenerada');
+      scrollToPreview();
     },
     onError: (error: Error) => toast.error(`Erro ao regenerar: ${error.message}`),
   });
@@ -369,7 +378,7 @@ export const InstagramAutomation = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 shadow-card bg-gradient-card">
+        <Card ref={previewRef} className="border-border/70 shadow-card bg-gradient-card scroll-mt-24 ring-1 ring-transparent data-[has-preview=true]:ring-primary/40 transition" data-has-preview={previewImages.length > 0}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <ImageIcon className="h-5 w-5 text-accent" />
@@ -406,6 +415,25 @@ export const InstagramAutomation = () => {
                     {previewData?.caption || selectedPublication?.caption || '—'}
                   </pre>
                 </div>
+                {selectedPublicationId && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button
+                      onClick={() => sendMutation.mutate(selectedPublicationId)}
+                      disabled={sendMutation.isPending}
+                    >
+                      {sendMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                      Aprovar e enviar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => regenerateMutation.mutate(selectedPublicationId)}
+                      disabled={regenerateMutation.isPending}
+                    >
+                      {regenerateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                      Regenerar
+                    </Button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="rounded-lg border border-dashed border-border bg-background/60 p-6 text-sm text-muted-foreground">
