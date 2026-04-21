@@ -1,0 +1,1 @@
+UPDATE public.instagram_settings SET enabled = true WHERE id = '0c893812-ecec-447f-bfe1-d300e86cff6b';
