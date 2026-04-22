@@ -573,7 +573,7 @@ serve(async (req) => {
     }
 
     if (mode === "send_post") {
-      if (!["queued", "preview", "approved", "failed"].includes(publication.status)) {
+      if (!["queued", "preview", "approved"].includes(publication.status)) {
         return json({ error: "Essa publicação não pode ser enviada no estado atual." }, 400);
       }
       const result = await sendPublication(supabase, publication, settings, userId);
