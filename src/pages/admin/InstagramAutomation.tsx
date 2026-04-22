@@ -165,12 +165,12 @@ export const InstagramAutomation = () => {
   }, [settings]);
 
   const queueItems = useMemo(
-    () => (publications || []).filter((item) => ['queued', 'preview', 'approved', 'failed'].includes(item.status)),
+    () => (publications || []).filter((item) => ['queued', 'preview', 'approved'].includes(item.status)),
     [publications],
   );
 
   const historyItems = useMemo(
-    () => (publications || []).filter((item) => ['sent', 'cancelled'].includes(item.status)).slice(0, 7),
+    () => (publications || []).filter((item) => ['sent', 'cancelled', 'failed'].includes(item.status)).slice(0, 7),
     [publications],
   );
 
