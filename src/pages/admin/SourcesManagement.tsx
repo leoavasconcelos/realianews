@@ -260,6 +260,7 @@ export const SourcesManagement = () => {
                           <img 
                             src={source.logo_url} 
                             alt={source.name} 
+                            loading="lazy"
                             className="h-8 w-8 rounded object-contain"
                           />
                         ) : (
