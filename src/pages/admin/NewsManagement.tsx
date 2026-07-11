@@ -137,9 +137,10 @@ export const NewsManagement = () => {
   const [exporting, setExporting] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [translateProgress, setTranslateProgress] = useState(0);
-  const [cleaningBacklog, setCleaningBacklog] = useState(false);
-  const [cleanupProgress, setCleanupProgress] = useState(0);
-  const [cleanupResults, setCleanupResults] = useState<Array<{ id: string; title: string; status: string; reason?: string }>>([]);
+  const [startingCleanup, setStartingCleanup] = useState(false);
+  const [checkingCleanupStatus, setCheckingCleanupStatus] = useState(false);
+  const [cleanupBacklogRemaining, setCleanupBacklogRemaining] = useState<number | null>(null);
+  const [cleanupRemoved, setCleanupRemoved] = useState<Array<{ id: string; title: string; reason: string | null; relevance_rechecked_at: string }>>([]);
   const [showCleanupResults, setShowCleanupResults] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
@@ -215,48 +216,62 @@ export const NewsManagement = () => {
     }
   };
 
-  const handleCleanupBacklog = async () => {
-    setCleaningBacklog(true);
-    setCleanupProgress(0);
-    setCleanupResults([]);
-    const allResults: Array<{ id: string; title: string; status: string; reason?: string }> = [];
-    let consecutiveEmpty = 0;
-    const MAX_BATCHES = 100;
-
+  const handleStartCleanup = async () => {
+    setStartingCleanup(true);
     try {
-      for (let i = 0; i < MAX_BATCHES; i++) {
-        const { data: result, error } = await supabase.functions.invoke('process-news-summaries', {
-          body: { mode: 'recheck_relevance' },
+      const { data: result, error } = await supabase.functions.invoke('process-news-summaries', {
+        body: { mode: 'recheck_relevance' },
+      });
+      if (error) throw error;
+
+      if ((result as { started?: boolean })?.started) {
+        toast.success('Faxina iniciada em segundo plano', {
+          description: 'Continua rodando mesmo se você sair dessa tela. Volte em alguns minutos e clique em "Ver progresso da faxina".',
         });
-        if (error) throw error;
-
-        const processed = (result as { processed?: number })?.processed ?? 0;
-        const results = (result as { results?: Array<{ id: string; title: string; status: string; reason?: string }> })?.results ?? [];
-
-        allResults.push(...results);
-        setCleanupProgress((prev) => prev + processed);
-        setCleanupResults([...allResults]);
-
-        if (processed === 0) {
-          consecutiveEmpty++;
-          if (consecutiveEmpty >= 2) break;
-        } else {
-          consecutiveEmpty = 0;
-        }
-
-        await new Promise((r) => setTimeout(r, 800));
+      } else {
+        toast.info('Nada pendente pra revisar no momento.');
       }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error('Erro ao iniciar a faxina: ' + message);
+    } finally {
+      setStartingCleanup(false);
+    }
+  };
 
-      const removedCount = allResults.filter((r) => r.status === 'removed').length;
-      toast.success(`Faxina concluída: ${allResults.length} revisadas, ${removedCount} removidas do feed`);
+  const handleCheckCleanupStatus = async () => {
+    setCheckingCleanupStatus(true);
+    try {
+      const { count: remaining } = await supabase
+        .from('news')
+        .select('id', { count: 'exact', head: true })
+        .not('summary_ai', 'is', null)
+        .is('relevance_rechecked_at', null);
+
+      const { data: removed } = await supabase
+        .from('news')
+        .select('id, title, rejection_reason, relevance_rechecked_at')
+        .eq('is_relevant', false)
+        .order('relevance_rechecked_at', { ascending: false })
+        .limit(100);
+
+      setCleanupBacklogRemaining(remaining ?? 0);
+      setCleanupRemoved(
+        (removed ?? []).map((r) => ({
+          id: r.id,
+          title: r.title,
+          reason: r.rejection_reason,
+          relevance_rechecked_at: r.relevance_rechecked_at,
+        }))
+      );
       setShowCleanupResults(true);
       queryClient.invalidateQueries({ queryKey: ['admin-news'] });
       queryClient.invalidateQueries({ queryKey: ['news'] });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      toast.error('Erro na faxina de relevância: ' + message);
+      toast.error('Erro ao consultar progresso: ' + message);
     } finally {
-      setCleaningBacklog(false);
+      setCheckingCleanupStatus(false);
     }
   };
 
@@ -314,9 +329,13 @@ export const NewsManagement = () => {
             {translating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Languages className="h-4 w-4 mr-2" />}
             {translating ? `Traduzindo... (${translateProgress})` : 'Traduzir títulos pendentes'}
           </Button>
-          <Button variant="outline" size="sm" onClick={handleCleanupBacklog} disabled={cleaningBacklog}>
-            {cleaningBacklog ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            {cleaningBacklog ? `Revisando... (${cleanupProgress})` : 'Faxina de relevância (backlog)'}
+          <Button variant="outline" size="sm" onClick={handleStartCleanup} disabled={startingCleanup}>
+            {startingCleanup ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            {startingCleanup ? 'Iniciando...' : 'Iniciar faxina de relevância'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleCheckCleanupStatus} disabled={checkingCleanupStatus}>
+            {checkingCleanupStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            Ver progresso da faxina
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={exporting}>
             {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
@@ -524,30 +543,31 @@ export const NewsManagement = () => {
         </div>
       )}
 
-      {/* Relevance backlog cleanup results */}
+      {/* Relevance backlog cleanup status */}
       <Dialog open={showCleanupResults} onOpenChange={setShowCleanupResults}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Resultado da faxina de relevância</DialogTitle>
+            <DialogTitle>Progresso da faxina de relevância</DialogTitle>
             <DialogDescription>
-              {cleanupResults.filter(r => r.status === 'removed').length} notícia(s) removida(s) do feed
-              de {cleanupResults.length} revisada(s). As mantidas não precisam de ação.
-              Se alguma remoção parecer errada, reabra a notícia em "Editar" e marque como relevante
-              novamente, ou peça pra eu reprocessar.
+              {cleanupBacklogRemaining === null
+                ? 'Consultando...'
+                : cleanupBacklogRemaining > 0
+                  ? `Ainda faltam ${cleanupBacklogRemaining} notícia(s) por revisar — clique em "Iniciar faxina" de novo pra continuar.`
+                  : 'Backlog totalmente revisado! Nada pendente.'}
+              {' '}Lista abaixo mostra até as 100 remoções mais recentes. As mantidas não precisam de ação.
+              Se alguma remoção parecer errada, reabra a notícia em "Editar" e marque como relevante de novo.
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 space-y-2">
-            {cleanupResults
-              .filter(r => r.status === 'removed')
-              .map((r) => (
-                <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm">
-                  <p className="font-medium">{r.title}</p>
-                  {r.reason && <p className="text-muted-foreground text-xs mt-1">{r.reason}</p>}
-                </div>
-              ))}
-            {cleanupResults.filter(r => r.status === 'removed').length === 0 && (
+            {cleanupRemoved.map((r) => (
+              <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm">
+                <p className="font-medium">{r.title}</p>
+                {r.reason && <p className="text-muted-foreground text-xs mt-1">{r.reason}</p>}
+              </div>
+            ))}
+            {cleanupRemoved.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-6">
-                Nada foi removido nessa faxina — o backlog já estava limpo.
+                Nada foi removido até agora.
               </p>
             )}
           </div>

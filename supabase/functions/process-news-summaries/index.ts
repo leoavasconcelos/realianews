@@ -224,102 +224,113 @@ serve(async (req) => {
     // One-time backlog cleanup: re-evaluate articles that already have a
     // summary (published before the relevance-check existed) and remove
     // the ones that don't actually belong in a real estate feed.
+    //
+    // This runs as a background task (EdgeRuntime.waitUntil) instead of
+    // being driven by the client in a loop: the browser tab can be closed
+    // or backgrounded and the sweep keeps running server-side. We respond
+    // to the request immediately and keep processing batches until either
+    // the backlog is empty or we're close to the platform's background-task
+    // time ceiling (150s on the free plan) — if there's still backlog left
+    // when we stop, clicking the button again just picks up where it left
+    // off, since relevance_rechecked_at tracks progress in the database.
     if (mode === "recheck_relevance") {
-      const { data: backlog, error: backlogError } = await supabase
-        .from("news")
-        .select("id, title, full_text, summary_ai, region")
-        .not("summary_ai", "is", null)
-        .is("relevance_rechecked_at", null)
-        .order("created_at", { ascending: true })
-        .limit(10);
-
-      if (backlogError) {
-        console.error("Error fetching backlog:", backlogError);
-        return new Response(
-          JSON.stringify({ error: "Failed to fetch backlog" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (!backlog || backlog.length === 0) {
-        return new Response(
-          JSON.stringify({ message: "No backlog articles left to recheck", processed: 0, results: [] }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
       const recheckPrompt = `Você é um curador de notícias do mercado imobiliário brasileiro. Avalie se a notícia abaixo é GENUINAMENTE sobre o mercado imobiliário (compra, venda, aluguel, construção civil, incorporação, financiamento imobiliário, fundos imobiliários/FIIs, políticas habitacionais, grandes players do setor). O CONTEXTO e ASSUNTO PRINCIPAL precisam ser sobre imóveis — não basta mencionar uma palavra relacionada de passagem, e não importa qual fonte publicou. Notícias de política, esportes, entretenimento, acidentes, crime ou qualquer assunto sem relação direta com o setor imobiliário NÃO são relevantes, mesmo que mencionem termos como "residencial" ou "casa" incidentalmente.
 
 Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
 {"relevant": true} ou {"relevant": false, "reason": "explicação curta de 1 frase"}`;
 
-      const recheckResults: Array<{ id: string; title: string; status: string; reason?: string }> = [];
+      async function runRelevanceCleanup() {
+        const startedAt = Date.now();
+        const TIME_BUDGET_MS = 120_000;
+        let totalProcessed = 0;
+        let totalRemoved = 0;
 
-      for (const item of backlog) {
-        try {
-          const content = (item.full_text || item.summary_ai || item.title || "").substring(0, 3000);
-          const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-3-flash-preview",
-              messages: [
-                { role: "system", content: recheckPrompt },
-                { role: "user", content: `Título: ${item.title}\n\nConteúdo: ${content}` },
-              ],
-              max_tokens: 150,
-              temperature: 0.1,
-            }),
-          });
-
-          let relevant = true;
-          let reason: string | undefined;
-
-          if (aiResponse.ok) {
-            const aiData = await aiResponse.json();
-            const raw = aiData.choices?.[0]?.message?.content?.trim() || "";
-            try {
-              const cleaned = raw.replace(/^```json\s*|^```\s*|```$/gm, "").trim();
-              const parsed = JSON.parse(cleaned);
-              if (typeof parsed.relevant === "boolean") relevant = parsed.relevant;
-              if (typeof parsed.reason === "string") reason = parsed.reason;
-            } catch {
-              relevant = true;
-            }
-          } else {
-            console.error(`AI error rechecking ${item.id}:`, aiResponse.status);
-          }
-
-          const updatePayload: Record<string, unknown> = {
-            relevance_rechecked_at: new Date().toISOString(),
-            is_relevant: relevant,
-          };
-          if (!relevant) {
-            updatePayload.summary_ai = null;
-          }
-
-          const { error: updateError } = await supabase
+        while (Date.now() - startedAt < TIME_BUDGET_MS) {
+          const { data: backlog, error: backlogError } = await supabase
             .from("news")
-            .update(updatePayload)
-            .eq("id", item.id);
+            .select("id, title, full_text, summary_ai, region")
+            .not("summary_ai", "is", null)
+            .is("relevance_rechecked_at", null)
+            .order("created_at", { ascending: true })
+            .limit(10);
 
-          recheckResults.push({
-            id: item.id,
-            title: item.title,
-            status: updateError ? "update_failed" : (relevant ? "kept" : "removed"),
-            reason,
-          });
-        } catch (err) {
-          console.error(`Error rechecking news ${item.id}:`, err);
-          recheckResults.push({ id: item.id, title: item.title, status: "error" });
+          if (backlogError) {
+            console.error("Error fetching backlog:", backlogError);
+            break;
+          }
+          if (!backlog || backlog.length === 0) {
+            console.log(`Relevance cleanup: backlog empty, stopping. Total processed: ${totalProcessed}, removed: ${totalRemoved}`);
+            break;
+          }
+
+          for (const item of backlog) {
+            try {
+              const content = (item.full_text || item.summary_ai || item.title || "").substring(0, 3000);
+              const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "google/gemini-3-flash-preview",
+                  messages: [
+                    { role: "system", content: recheckPrompt },
+                    { role: "user", content: `Título: ${item.title}\n\nConteúdo: ${content}` },
+                  ],
+                  max_tokens: 150,
+                  temperature: 0.1,
+                }),
+              });
+
+              let relevant = true;
+              let reason: string | undefined;
+
+              if (aiResponse.ok) {
+                const aiData = await aiResponse.json();
+                const raw = aiData.choices?.[0]?.message?.content?.trim() || "";
+                try {
+                  const cleaned = raw.replace(/^```json\s*|^```\s*|```$/gm, "").trim();
+                  const parsed = JSON.parse(cleaned);
+                  if (typeof parsed.relevant === "boolean") relevant = parsed.relevant;
+                  if (typeof parsed.reason === "string") reason = parsed.reason;
+                } catch {
+                  relevant = true;
+                }
+              } else {
+                console.error(`AI error rechecking ${item.id}:`, aiResponse.status);
+              }
+
+              const updatePayload: Record<string, unknown> = {
+                relevance_rechecked_at: new Date().toISOString(),
+                is_relevant: relevant,
+              };
+              if (!relevant) {
+                updatePayload.summary_ai = null;
+                updatePayload.rejection_reason = reason ?? null;
+              }
+
+              await supabase.from("news").update(updatePayload).eq("id", item.id);
+
+              totalProcessed++;
+              if (!relevant) totalRemoved++;
+            } catch (err) {
+              console.error(`Error rechecking news ${item.id}:`, err);
+            }
+          }
+
+          if (Date.now() - startedAt >= TIME_BUDGET_MS) {
+            console.log(`Relevance cleanup: time budget reached, stopping for now. Processed: ${totalProcessed}, removed: ${totalRemoved}`);
+            break;
+          }
         }
       }
 
+      // @ts-ignore — EdgeRuntime is a Supabase/Deno Deploy global, not in standard lib types
+      EdgeRuntime.waitUntil(runRelevanceCleanup());
+
       return new Response(
-        JSON.stringify({ processed: recheckResults.length, results: recheckResults }),
+        JSON.stringify({ started: true, message: "Faxina iniciada em segundo plano" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
