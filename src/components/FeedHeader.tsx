@@ -21,6 +21,7 @@ const FeedHeader: React.FC<FeedHeaderProps> = ({ onSearchClick, onNotificationsC
             size="icon"
             onClick={onSearchClick}
             className="h-9 w-9"
+            aria-label="Buscar notícias"
           >
             <Search className="w-5 h-5" />
           </Button>
@@ -29,6 +30,7 @@ const FeedHeader: React.FC<FeedHeaderProps> = ({ onSearchClick, onNotificationsC
             size="icon"
             onClick={onNotificationsClick}
             className="h-9 w-9 relative"
+            aria-label="Notificações"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
