@@ -276,6 +276,143 @@ export const Analytics = () => {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      {/* AI Relevance Filter — last 30 days */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Filter className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-bold">Filtro de Relevância da IA (30 dias)</h2>
+        </div>
+
+        {/* Totals */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatsCard
+            title="Avaliadas"
+            value={analytics?.relevanceTotals?.total ?? 0}
+            icon={Newspaper}
+          />
+          <StatsCard
+            title="Relevantes"
+            value={analytics?.relevanceTotals?.relevant ?? 0}
+            icon={ShieldCheck}
+          />
+          <StatsCard
+            title="Rejeitadas"
+            value={analytics?.relevanceTotals?.rejected ?? 0}
+            icon={ShieldOff}
+          />
+          <StatsCard
+            title="Pendentes"
+            value={analytics?.relevanceTotals?.pending ?? 0}
+            icon={BarChart3}
+          />
+        </div>
+
+        {/* Breakdown by source & region */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Por Fonte</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!analytics?.relevanceBySource?.length ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  Nenhuma notícia avaliada nos últimos 30 dias.
+                </p>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart
+                      data={analytics.relevanceBySource.slice(0, 10)}
+                      layout="vertical"
+                      stackOffset="sign"
+                    >
+                      <XAxis type="number" fontSize={10} />
+                      <YAxis type="category" dataKey="name" fontSize={10} width={100} />
+                      <Tooltip />
+                      <Bar dataKey="relevant" stackId="a" fill="hsl(var(--primary))" name="Relevantes" />
+                      <Bar dataKey="rejected" stackId="a" fill="hsl(var(--destructive))" name="Rejeitadas" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <RejectionRateList
+                    items={analytics.relevanceBySource.slice(0, 10).map((s) => ({
+                      label: s.name || '—',
+                      evaluated: s.evaluated,
+                      rejected: s.rejected,
+                      rate: s.rejectionRate,
+                    }))}
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Por Região</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!analytics?.relevanceByRegion?.length ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  Nenhuma notícia avaliada nos últimos 30 dias.
+                </p>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={analytics.relevanceByRegion} stackOffset="sign">
+                      <XAxis dataKey="region" fontSize={10} />
+                      <YAxis fontSize={10} />
+                      <Tooltip />
+                      <Bar dataKey="relevant" stackId="a" fill="hsl(var(--primary))" name="Relevantes" />
+                      <Bar dataKey="rejected" stackId="a" fill="hsl(var(--destructive))" name="Rejeitadas" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <RejectionRateList
+                    items={analytics.relevanceByRegion.map((r) => ({
+                      label: r.region || '—',
+                      evaluated: r.evaluated,
+                      rejected: r.rejected,
+                      rate: r.rejectionRate,
+                    }))}
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
+
+// Small table under each chart with the raw numbers + rejection rate, so
+// admins can eyeball which sources/regions the AI is filtering most aggressively.
+function RejectionRateList({
+  items,
+}: {
+  items: Array<{ label: string; evaluated: number; rejected: number; rate: number }>;
+}) {
+  return (
+    <div className="mt-4 space-y-1 text-xs">
+      {items.map((it) => (
+        <div key={it.label} className="flex items-center justify-between gap-2 py-1 border-b border-border/50 last:border-0">
+          <span className="truncate text-foreground">{it.label}</span>
+          <span className="text-muted-foreground shrink-0">
+            {it.rejected}/{it.evaluated}{' '}
+            <span
+              className={
+                it.rate >= 50
+                  ? 'text-destructive font-medium'
+                  : it.rate >= 25
+                    ? 'text-orange-500 font-medium'
+                    : 'text-muted-foreground'
+              }
+            >
+              ({it.rate}%)
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
