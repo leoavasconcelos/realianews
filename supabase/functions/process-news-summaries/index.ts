@@ -199,10 +199,12 @@ serve(async (req) => {
     const supabase = supabaseAdmin;
 
     let mode: "all" | "titles_only" | "recheck_relevance" = "all";
+    let chainDepth = 0;
     const rawBody = await req.text();
     if (rawBody) {
       try {
-        const body = JSON.parse(rawBody) as { mode?: string };
+        const body = JSON.parse(rawBody) as { mode?: string; chainDepth?: number };
+        if (typeof body.chainDepth === "number") chainDepth = body.chainDepth;
         if (body.mode === "titles_only") {
           mode = "titles_only";
         } else if (body.mode === "recheck_relevance") {
@@ -317,6 +319,7 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
         const TIME_BUDGET_MS = 120_000;
         let totalProcessed = 0;
         let totalRemoved = 0;
+        let hitTimeBudget = false;
         try {
 
         while (Date.now() - startedAt < TIME_BUDGET_MS) {
@@ -397,17 +400,42 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
           await updateLockProgress(totalProcessed, totalRemoved);
 
           if (Date.now() - startedAt >= TIME_BUDGET_MS) {
+            hitTimeBudget = true;
             console.log(`Relevance cleanup: time budget reached, stopping for now. Processed: ${totalProcessed}, removed: ${totalRemoved}`);
             break;
           }
         }
         } finally {
-          // Always release the lock so the next click can start immediately.
+          // Always release the lock so the next click (or the auto-chain
+          // continuation below) can start immediately.
           const { error: releaseError } = await supabase
             .from("job_locks")
             .delete()
             .eq("name", LOCK_NAME);
           if (releaseError) console.error("Error releasing cleanup lock:", releaseError);
+        }
+
+        // Self-chain: if we stopped only because the time budget ran out
+        // (there's still backlog left, not because it's empty), kick off
+        // the next batch automatically instead of waiting for another
+        // click. Capped so a bug can't spin this forever.
+        const MAX_CHAIN_DEPTH = 50;
+        if (hitTimeBudget && chainDepth < MAX_CHAIN_DEPTH) {
+          const cronSecret = Deno.env.get("CRON_SECRET");
+          if (cronSecret) {
+            try {
+              const selfUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/process-news-summaries`;
+              await fetch(selfUrl, {
+                method: "POST",
+                headers: { "X-Cron-Secret": cronSecret, "Content-Type": "application/json" },
+                body: JSON.stringify({ mode: "recheck_relevance", chainDepth: chainDepth + 1 }),
+              });
+            } catch (chainErr) {
+              console.error("Failed to auto-chain next relevance-cleanup batch:", chainErr);
+            }
+          } else {
+            console.warn("CRON_SECRET not configured — cannot auto-chain. Click 'Iniciar faxina' again to continue.");
+          }
         }
       }
 
@@ -415,7 +443,7 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
       EdgeRuntime.waitUntil(runRelevanceCleanup());
 
       return new Response(
-        JSON.stringify({ started: true, message: "Faxina iniciada em segundo plano" }),
+        JSON.stringify({ started: true, message: "Faxina iniciada — vai continuar sozinha até acabar o backlog" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
