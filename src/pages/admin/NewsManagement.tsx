@@ -315,6 +315,7 @@ export const NewsManagement = () => {
         if (cancelled) return;
         if (remaining === 0) {
           setCleanupRunning(false);
+          setCleanupCompleted(true);
           toast.success('Faxina concluída — backlog totalmente revisado.');
           queryClient.invalidateQueries({ queryKey: ['admin-news'] });
           queryClient.invalidateQueries({ queryKey: ['news'] });
