@@ -256,9 +256,24 @@ serve(async (req) => {
         .eq("name", LOCK_NAME)
         .lt("expires_at", new Date().toISOString());
 
+      // Snapshot the initial backlog size so the UI can show progress.
+      const { count: initialBacklog } = await supabase
+        .from("news")
+        .select("id", { count: "exact", head: true })
+        .not("summary_ai", "is", null)
+        .is("relevance_rechecked_at", null);
+
       const { error: lockError } = await supabase
         .from("job_locks")
-        .insert({ name: LOCK_NAME, expires_at: expiresIso });
+        .insert({
+          name: LOCK_NAME,
+          expires_at: expiresIso,
+          metadata: {
+            initial_backlog: initialBacklog ?? 0,
+            processed_count: 0,
+            removed_count: 0,
+          },
+        });
 
       if (lockError) {
         // 23505 = unique_violation → another sweep already owns the lock
@@ -283,6 +298,19 @@ serve(async (req) => {
 
 Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
 {"relevant": true} ou {"relevant": false, "reason": "explicação curta de 1 frase"}`;
+
+      async function updateLockProgress(processed: number, removed: number) {
+        await supabase
+          .from("job_locks")
+          .update({
+            metadata: {
+              initial_backlog: initialBacklog ?? 0,
+              processed_count: processed,
+              removed_count: removed,
+            },
+          })
+          .eq("name", LOCK_NAME);
+      }
 
       async function runRelevanceCleanup() {
         const startedAt = Date.now();
@@ -364,6 +392,9 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
               console.error(`Error rechecking news ${item.id}:`, err);
             }
           }
+
+          // Publish progress to the lock row so the admin UI can show it live.
+          await updateLockProgress(totalProcessed, totalRemoved);
 
           if (Date.now() - startedAt >= TIME_BUDGET_MS) {
             console.log(`Relevance cleanup: time budget reached, stopping for now. Processed: ${totalProcessed}, removed: ${totalRemoved}`);
