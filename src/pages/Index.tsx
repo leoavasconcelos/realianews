@@ -1,29 +1,25 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import FeedHeader from '@/components/FeedHeader';
+import { useState, useCallback, useEffect } from 'react';
 import { Seo } from '@/components/Seo';
 import BottomNav from '@/components/BottomNav';
-import NewsCard, { NewsItem } from '@/components/NewsCard';
+import { NewsItem } from '@/components/NewsCard';
 import NewsDetail from '@/components/NewsDetail';
-import FilterPills from '@/components/FilterPills';
-import RegionFilter from '@/components/RegionFilter';
 import OnboardingModal from '@/components/OnboardingModal';
 import ProfileScreen from '@/components/ProfileScreen';
 import PlaceholderScreen from '@/components/PlaceholderScreen';
 import ExploreScreen from '@/components/ExploreScreen';
 import SavedItemsScreen from '@/components/SavedItemsScreen';
 import AuthModal from '@/components/AuthModal';
-import PullToRefresh from '@/components/PullToRefresh';
 import PasswordResetModal from '@/components/PasswordResetModal';
 import NotificationCenter from '@/components/NotificationCenter';
 import ShareSheet from '@/components/ShareSheet';
-import { Compass, GraduationCap, Users, Loader2, Bell } from 'lucide-react';
+import ScreenHeader from '@/components/ScreenHeader';
+import { GraduationCap, Users, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType, flattenNewsPages } from '@/hooks/useNews';
-import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useAppBootstrap } from '@/hooks/useAppBootstrap';
+import { MercadoScreen } from '@/pages/screens/MercadoScreen';
 import {
   Dialog,
   DialogContent,
@@ -33,117 +29,31 @@ import {
 
 const Index = () => {
   const queryClient = useQueryClient();
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [activeTab, setActiveTab] = useState('mercado');
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
-
-  // early SEO tags injected below in the render tree
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [shareNewsItem, setShareNewsItem] = useState<NewsItem | null>(null);
-  const { user, profile, authLoading, updateProfile, updatePassword } = useAuth();
-  const rawAuthLoading = authLoading;
+
+  const {
+    user,
+    profile,
+    authLoading,
+    updateProfile,
+    updatePassword,
+    showOnboarding,
+    showAuthModal,
+    setShowAuthModal,
+    showPasswordReset,
+    setShowPasswordReset,
+    preferredRegions,
+    handleOnboardingComplete,
+  } = useAppBootstrap(setActiveRegion);
+
   const { unreadCount } = useNotifications(user?.id);
 
-  // Determine onboarding visibility based on localStorage + profile data
-  useEffect(() => {
-    if (authLoading) return; // Wait for auth to resolve
-    
-    const localStorageComplete = localStorage.getItem('realia_onboarding_complete');
-    
-    if (localStorageComplete) {
-      setShowOnboarding(false);
-      return;
-    }
-    
-    // No localStorage flag - check if user has interests saved in DB
-    if (user && profile) {
-      // Profile loaded: check interests
-      if (profile.interests && profile.interests.length > 0) {
-        // User already completed onboarding before, mark localStorage and skip
-        localStorage.setItem('realia_onboarding_complete', 'true');
-        setShowOnboarding(false);
-      } else {
-        setShowOnboarding(true);
-      }
-    } else if (!user) {
-      // No user, no localStorage flag → show onboarding
-      setShowOnboarding(true);
-    }
-    // If user exists but profile is still null (loading), wait
-  }, [authLoading, user, profile]);
-
-  // Auto-close auth modal when user is authenticated
-  useEffect(() => {
-    if (user && showAuthModal) {
-      setShowAuthModal(false);
-    }
-  }, [user, showAuthModal]);
-
-  // Synchronous localStorage read - stable across hot reloads
-  const getStoredRegions = (): string[] | null => {
-    try {
-      const stored = localStorage.getItem('realia_preferred_regions');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  };
-
-  // Ref initialized synchronously (not in useEffect) to avoid HMR issues
-  const storedRegionsRef = useRef<string[] | null>(getStoredRegions());
-  const regionInitializedRef = useRef(false);
-
-  // Get preferred regions - stable value that never returns undefined
-  const preferredRegions = useMemo(() => {
-    if (profile?.preferred_regions && profile.preferred_regions.length > 0) {
-      return profile.preferred_regions;
-    }
-    // Always return a valid array, never undefined
-    return storedRegionsRef.current || ['Brazil'];
-  }, [profile?.preferred_regions]);
-
-  // Initialize region filter from user preferences - runs once when auth finishes loading
-  useEffect(() => {
-    if (authLoading) return;
-    if (regionInitializedRef.current) return;
-    
-    regionInitializedRef.current = true;
-    
-    // Apply filter based on preferences - only set specific region if exactly one selected
-    if (preferredRegions.length === 1) {
-      setActiveRegion(preferredRegions[0] as RegionFilterType);
-    }
-  }, [authLoading, preferredRegions]);
-
-  // Detect password recovery event from Supabase
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setShowPasswordReset(true);
-        // Clean the URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    });
-
-    // Also check URL for reset parameter (fallback)
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('reset') === 'true') {
-      // Wait a bit for Supabase to process the token
-      setTimeout(() => {
-        setShowPasswordReset(true);
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }, 500);
-    }
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Auto-refresh news when switching to mercado tab
   useEffect(() => {
     if (activeTab === 'mercado') {
       queryClient.invalidateQueries({ queryKey: ['news'] });
@@ -165,27 +75,6 @@ const Index = () => {
 
   const filters = ['Todos', ...(topics?.map(t => t.name) || [])];
 
-  const handleOnboardingComplete = async (interests: string[], preferredRegions: string[]) => {
-    localStorage.setItem('realia_onboarding_complete', 'true');
-    setShowOnboarding(false);
-    
-    // Store preferred regions in localStorage for unauthenticated users
-    localStorage.setItem('realia_preferred_regions', JSON.stringify(preferredRegions));
-    
-    if (user) {
-      await updateProfile({ interests, preferred_regions: preferredRegions });
-      toast.success('Feed personalizado!', {
-        description: `Seu feed foi configurado com ${interests.length} interesses.`,
-      });
-    } else if (interests.length > 0) {
-      // Store interests in localStorage for later sync
-      localStorage.setItem('realia_interests', JSON.stringify(interests));
-      toast.success('Preferências salvas!', {
-        description: 'Faça login para sincronizar suas preferências.',
-      });
-    }
-  };
-
   const handleSaveNews = async (id: string) => {
     if (!user) {
       setShowAuthModal(true);
@@ -193,7 +82,7 @@ const Index = () => {
     }
 
     const isSaved = savedItems?.includes(id);
-    
+
     try {
       if (isSaved) {
         await unsaveNewsMutation.mutateAsync({ userId: user.id, newsId: id });
@@ -217,97 +106,39 @@ const Index = () => {
     }
   };
 
-  // Render content based on active tab
   const handlePullRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['news'] });
   }, [queryClient]);
 
-  // Render content based on active tab
   const renderContent = () => {
     switch (activeTab) {
       case 'mercado':
         return (
-          <div className="flex flex-col min-h-screen pb-20">
-            <FeedHeader
-              unreadCount={unreadCount}
-              onNotificationsClick={() => setNotifCenterOpen(true)}
-            />
-            
-            {/* Filters */}
-            <div className="px-4 py-3 border-b border-border bg-background/50 backdrop-blur-sm sticky top-[57px] z-30 space-y-2">
-              <RegionFilter 
-                activeRegion={activeRegion} 
-                onRegionChange={setActiveRegion}
-              />
-              <FilterPills
-                filters={filters}
-                activeFilter={activeFilter}
-                onFilterChange={setActiveFilter}
-              />
-            </div>
-            
-            {/* News Feed with Pull to Refresh */}
-            <PullToRefresh onRefresh={handlePullRefresh}>
-              <main className="flex-1 px-4 py-4 md:px-6 lg:px-8 md:max-w-7xl md:mx-auto w-full">
-                <h1 className="sr-only">Notícias e Inteligência do Mercado Imobiliário</h1>
-                {newsLoading ? (
-                  <div className="flex items-center justify-center py-20">
-                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                    {news?.map((item, index) => (
-                      <div
-                        key={item.id}
-                        className="animate-slide-up"
-                        style={{ animationDelay: `${Math.min(index, 8) * 0.05}s` }}
-                      >
-                        <NewsCard
-                          news={item}
-                          onSave={handleSaveNews}
-                          onShare={handleShareNews}
-                          onClick={setSelectedNews}
-                          isSaved={savedItems?.includes(item.id)}
-                        />
-                      </div>
-                    ))}
-                    
-                    {news.length === 0 && (
-                      <div className="text-center py-12">
-                        <p className="text-muted-foreground">Nenhuma notícia encontrada para este filtro.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {hasNextPage && !newsLoading && (
-                  <div className="flex justify-center py-6">
-                    <Button
-                      variant="outline"
-                      onClick={() => fetchNextPage()}
-                      disabled={isFetchingNextPage}
-                    >
-                      {isFetchingNextPage ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Carregando...
-                        </>
-                      ) : (
-                        'Carregar mais notícias'
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </main>
-            </PullToRefresh>
-          </div>
+          <MercadoScreen
+            unreadCount={unreadCount}
+            onNotificationsClick={() => setNotifCenterOpen(true)}
+            activeRegion={activeRegion}
+            onRegionChange={setActiveRegion}
+            filters={filters}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            onPullRefresh={handlePullRefresh}
+            newsLoading={newsLoading}
+            news={news}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onFetchNextPage={() => fetchNextPage()}
+            onSaveNews={handleSaveNews}
+            onShareNews={handleShareNews}
+            onSelectNews={setSelectedNews}
+            savedItems={savedItems}
+          />
         );
-      
+
       case 'explorar':
         return (
           <div className="flex flex-col min-h-screen pb-20">
-            <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40 px-4 py-4">
-              <h1 className="text-xl font-bold text-foreground">Explorar</h1>
-            </header>
+            <ScreenHeader title="Explorar" />
             <ExploreScreen
               onNewsClick={setSelectedNews}
               onSaveNews={handleSaveNews}
@@ -316,13 +147,11 @@ const Index = () => {
             />
           </div>
         );
-      
+
       case 'comunidade':
         return (
           <div className="flex flex-col min-h-screen pb-20">
-            <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40 px-4 py-4">
-              <h1 className="text-xl font-bold text-foreground">Comunidade</h1>
-            </header>
+            <ScreenHeader title="Comunidade" />
             <PlaceholderScreen
               title="Comunidade"
               description="Conecte-se com outros profissionais do mercado imobiliário. Em desenvolvimento!"
@@ -330,13 +159,11 @@ const Index = () => {
             />
           </div>
         );
-      
+
       case 'academia':
         return (
           <div className="flex flex-col min-h-screen pb-20">
-            <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40 px-4 py-4">
-              <h1 className="text-xl font-bold text-foreground">Academia REalia</h1>
-            </header>
+            <ScreenHeader title="Academia REalia" />
             <PlaceholderScreen
               title="Academia REalia"
               description="Cursos e conteúdos educacionais sobre o mercado imobiliário. Em desenvolvimento!"
@@ -344,30 +171,26 @@ const Index = () => {
             />
           </div>
         );
-      
+
       case 'salvos':
         return (
           <div className="flex flex-col min-h-screen pb-20">
-            <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40 px-4 py-4">
-              <h1 className="text-xl font-bold text-foreground">Salvos</h1>
-            </header>
+            <ScreenHeader title="Salvos" />
             <SavedItemsScreen
               onNewsClick={setSelectedNews}
               onLoginClick={() => setShowAuthModal(true)}
             />
           </div>
         );
-      
+
       case 'perfil':
         return (
           <div className="flex flex-col min-h-screen pb-20">
-            <header className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-40 px-4 py-4">
-              <h1 className="text-xl font-bold text-foreground">Perfil</h1>
-            </header>
-            <ProfileScreen 
-              user={user} 
-              profile={profile} 
-              onLoginClick={() => setShowAuthModal(true)} 
+            <ScreenHeader title="Perfil" />
+            <ProfileScreen
+              user={user}
+              profile={profile}
+              onLoginClick={() => setShowAuthModal(true)}
               onNotificationCenterClick={() => setNotifCenterOpen(true)}
               onSavedClick={() => setActiveTab('salvos')}
               updateProfile={updateProfile}
@@ -375,7 +198,7 @@ const Index = () => {
             />
           </div>
         );
-      
+
       default:
         return null;
     }
@@ -388,37 +211,31 @@ const Index = () => {
         description="Notícias personalizadas por IA, resumos inteligentes e análises do setor imobiliário brasileiro."
         path="/"
       />
-      {/* Onboarding Modal */}
       {showOnboarding && (
-        <OnboardingModal 
-          onComplete={handleOnboardingComplete} 
-          user={user} 
-          authLoading={rawAuthLoading} 
+        <OnboardingModal
+          onComplete={handleOnboardingComplete}
+          user={user}
+          authLoading={authLoading}
         />
       )}
-      
-      {/* Auth Modal */}
+
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
       )}
 
-      {/* Password Reset Modal */}
       {showPasswordReset && (
         <PasswordResetModal
           onClose={() => setShowPasswordReset(false)}
           onSuccess={() => setShowPasswordReset(false)}
         />
       )}
-      
-      {/* Main Content */}
+
       {!showOnboarding && (
         <>
           {renderContent()}
-          
-          {/* Bottom Navigation */}
+
           <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-          
-          {/* News Detail Modal */}
+
           {selectedNews && (
             <NewsDetail
               news={selectedNews}
@@ -431,7 +248,6 @@ const Index = () => {
         </>
       )}
 
-      {/* Share Sheet */}
       {shareNewsItem && (
         <ShareSheet
           open={shareSheetOpen}
@@ -442,7 +258,6 @@ const Index = () => {
         />
       )}
 
-      {/* Notification Center Dialog */}
       <Dialog open={notifCenterOpen} onOpenChange={setNotifCenterOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
