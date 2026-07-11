@@ -234,6 +234,51 @@ serve(async (req) => {
     // when we stop, clicking the button again just picks up where it left
     // off, since relevance_rechecked_at tracks progress in the database.
     if (mode === "recheck_relevance") {
+      // Server-side lock so two overlapping clicks don't spawn two
+      // background sweeps at the same time.
+      //
+      // Algorithm (relies on the UNIQUE PK on job_locks.name to be atomic):
+      //   1. Best-effort cleanup: delete any row for this lock name whose
+      //      expires_at has already passed. Handles the case where a
+      //      previous run crashed without releasing.
+      //   2. Try INSERT. If the row already exists (live lock), the unique
+      //      constraint fires and PostgREST returns error code 23505 —
+      //      that's how we know another sweep is already running.
+      //   3. On success, we own the lock; runRelevanceCleanup() releases
+      //      it in its finally block.
+      const LOCK_NAME = "relevance_cleanup";
+      const LOCK_TTL_MS = 180_000; // 3 min — safety net if the task dies
+      const expiresIso = new Date(Date.now() + LOCK_TTL_MS).toISOString();
+
+      await supabase
+        .from("job_locks")
+        .delete()
+        .eq("name", LOCK_NAME)
+        .lt("expires_at", new Date().toISOString());
+
+      const { error: lockError } = await supabase
+        .from("job_locks")
+        .insert({ name: LOCK_NAME, expires_at: expiresIso });
+
+      if (lockError) {
+        // 23505 = unique_violation → another sweep already owns the lock
+        if ((lockError as { code?: string }).code === "23505") {
+          return new Response(
+            JSON.stringify({
+              started: false,
+              alreadyRunning: true,
+              message: "Uma faxina de relevância já está em execução — aguarde ela terminar.",
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        console.error("Error acquiring cleanup lock:", lockError);
+        return new Response(
+          JSON.stringify({ error: "Failed to acquire lock" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const recheckPrompt = `Você é um curador de notícias do mercado imobiliário brasileiro. Avalie se a notícia abaixo é GENUINAMENTE sobre o mercado imobiliário (compra, venda, aluguel, construção civil, incorporação, financiamento imobiliário, fundos imobiliários/FIIs, políticas habitacionais, grandes players do setor). O CONTEXTO e ASSUNTO PRINCIPAL precisam ser sobre imóveis — não basta mencionar uma palavra relacionada de passagem, e não importa qual fonte publicou. Notícias de política, esportes, entretenimento, acidentes, crime ou qualquer assunto sem relação direta com o setor imobiliário NÃO são relevantes, mesmo que mencionem termos como "residencial" ou "casa" incidentalmente.
 
 Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
@@ -244,6 +289,7 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
         const TIME_BUDGET_MS = 120_000;
         let totalProcessed = 0;
         let totalRemoved = 0;
+        try {
 
         while (Date.now() - startedAt < TIME_BUDGET_MS) {
           const { data: backlog, error: backlogError } = await supabase
@@ -323,6 +369,14 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
             console.log(`Relevance cleanup: time budget reached, stopping for now. Processed: ${totalProcessed}, removed: ${totalRemoved}`);
             break;
           }
+        }
+        } finally {
+          // Always release the lock so the next click can start immediately.
+          const { error: releaseError } = await supabase
+            .from("job_locks")
+            .delete()
+            .eq("name", LOCK_NAME);
+          if (releaseError) console.error("Error releasing cleanup lock:", releaseError);
         }
       }
 
