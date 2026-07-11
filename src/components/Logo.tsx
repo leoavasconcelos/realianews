@@ -34,7 +34,7 @@ const Logo = React.forwardRef<HTMLDivElement, LogoProps>(
 
         {showText && (
           <div className="flex flex-col">
-            <span className={`font-bold tracking-tight ${textSizeClasses[size]} ${useGradientText ? 'text-gradient-brand' : 'text-foreground'}`}>
+            <span className={`font-serif font-semibold tracking-tight ${textSizeClasses[size]} ${useGradientText ? 'text-gradient-brand' : 'text-foreground'}`}>
               REalia
             </span>
             {size !== 'sm' && (

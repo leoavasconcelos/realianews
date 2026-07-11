@@ -65,7 +65,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
         
         {/* Trending Badge */}
         {news.trending && (
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-accent text-accent-foreground px-2.5 py-1 rounded-full text-xs font-semibold">
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-accent text-accent-foreground px-2.5 py-1 rounded-md text-xs font-semibold tracking-wide">
             <TrendingUp className="w-3 h-3" />
             Em Alta
           </div>
@@ -102,20 +102,15 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
       
       {/* Content Section */}
       <div className="p-4">
-        {/* Topics */}
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {news.topics.slice(0, 2).map((topic) => (
-            <span
-              key={topic}
-              className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-md"
-            >
-              {topic}
-            </span>
-          ))}
-        </div>
+        {/* Kicker — editorial category label with a thin brass rule */}
+        {news.topics[0] && (
+          <div className="kicker mb-2">
+            {news.topics[0]}
+          </div>
+        )}
         
-        {/* Title */}
-        <h3 className="font-semibold text-foreground leading-snug mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+        {/* Title — serif, carries the editorial voice of the card */}
+        <h3 className="font-serif text-[1.05rem] font-semibold text-foreground leading-snug mb-1 line-clamp-2 group-hover:text-primary transition-colors">
           {news.title}
         </h3>
 

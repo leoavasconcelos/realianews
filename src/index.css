@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,137 +6,142 @@
 
 @layer base {
   :root {
-    /* REalia Design System - Light Editorial Theme */
-    --background: 0 0% 99%;
-    --foreground: 220 14% 20%;
+    /* REalia Design System — Editorial Ivory Theme
+       Palette: warm parchment background, ink text, deep bottle-green as
+       the primary brand color, and a brass accent used sparingly for the
+       "kicker" labels and highlights. Grounded in the same editorial
+       ivory + serif family Leo already uses for AV Imóveis, adapted with
+       its own distinct palette so the two products stay visually related
+       but not identical. */
+    --background: 40 46% 90%;
+    --foreground: 36 19% 11%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 14% 20%;
+    --card: 40 53% 97%;
+    --card-foreground: 36 19% 11%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 14% 20%;
+    --popover: 40 53% 97%;
+    --popover-foreground: 36 19% 11%;
 
-    /* Deep Navy Blue - Primary */
-    --primary: 213 52% 24%;
-    --primary-foreground: 0 0% 100%;
+    /* Bottle Green - Primary */
+    --primary: 155 34% 18%;
+    --primary-foreground: 40 53% 97%;
 
-    /* Light Gray - Secondary */
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 14% 20%;
+    /* Warm subtle fill - Secondary */
+    --secondary: 40 41% 85%;
+    --secondary-foreground: 36 19% 11%;
 
     /* Muted */
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 40 41% 85%;
+    --muted-foreground: 35 11% 38%;
 
-    /* Burnt Orange Accent */
-    --accent: 21 90% 48%;
-    --accent-foreground: 0 0% 100%;
+    /* Brass Accent */
+    --accent: 41 57% 42%;
+    --accent-foreground: 40 53% 97%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 9 59% 44%;
+    --destructive-foreground: 40 53% 97%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 213 52% 24%;
+    --border: 39 35% 79%;
+    --input: 39 35% 79%;
+    --ring: 155 34% 18%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     /* REalia Custom Tokens */
-    --navy: 213 52% 24%;
-    --navy-light: 213 40% 35%;
-    --graphite: 220 14% 35%;
-    --graphite-light: 220 9% 46%;
-    --burnt-orange: 21 90% 48%;
-    --burnt-orange-light: 21 85% 55%;
-    --teal: 173 58% 39%;
-    --success: 142 76% 36%;
-    
-    /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(213 52% 24%) 0%, hsl(213 40% 35%) 50%, hsl(173 58% 39%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 14% 98%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(21 90% 48%) 0%, hsl(21 85% 55%) 100%);
-    --gradient-metallic: linear-gradient(135deg, hsl(220 14% 96%) 0%, hsl(220 14% 90%) 50%, hsl(220 14% 96%) 100%);
-    
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-    --shadow-card-hover: 0 10px 40px -15px rgb(30 58 95 / 0.15);
+    --ink: 36 19% 11%;
+    --ink-light: 35 11% 38%;
+    --bottle-green: 155 34% 18%;
+    --bottle-green-light: 150 28% 25%;
+    --brass: 41 57% 42%;
+    --brass-light: 41 51% 51%;
+    --success: 142 40% 32%;
+
+    /* Gradients — used sparingly; kept within the green/brass family
+       rather than crossing hues, so nothing reads as a loud "SaaS" gradient. */
+    --gradient-hero: linear-gradient(135deg, hsl(155 34% 18%) 0%, hsl(150 28% 25%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(40 53% 97%) 0%, hsl(40 46% 95%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(41 57% 42%) 0%, hsl(41 51% 51%) 100%);
+    --gradient-metallic: linear-gradient(135deg, hsl(40 41% 88%) 0%, hsl(40 35% 82%) 50%, hsl(40 41% 88%) 100%);
+
+    /* Shadows — soft and warm-tinted rather than cool gray, kept subtle */
+    --shadow-sm: 0 1px 2px 0 rgb(36 28 16 / 0.04);
+    --shadow-md: 0 4px 6px -1px rgb(36 28 16 / 0.06), 0 2px 4px -2px rgb(36 28 16 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(36 28 16 / 0.06), 0 4px 6px -4px rgb(36 28 16 / 0.05);
+    --shadow-xl: 0 20px 25px -5px rgb(36 28 16 / 0.07), 0 8px 10px -6px rgb(36 28 16 / 0.05);
+    --shadow-card: 0 1px 2px 0 rgb(36 28 16 / 0.05);
+    --shadow-card-hover: 0 12px 32px -12px rgb(30 61 48 / 0.22);
 
     /* Sidebar */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 213 52% 24%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 96%;
-    --sidebar-accent-foreground: 220 14% 20%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 213 52% 24%;
+    --sidebar-background: 40 46% 92%;
+    --sidebar-foreground: 36 19% 15%;
+    --sidebar-primary: 155 34% 18%;
+    --sidebar-primary-foreground: 40 53% 97%;
+    --sidebar-accent: 40 41% 85%;
+    --sidebar-accent-foreground: 36 19% 11%;
+    --sidebar-border: 39 35% 79%;
+    --sidebar-ring: 155 34% 18%;
   }
 
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 210 40% 98%;
+    --background: 150 18% 9%;
+    --foreground: 40 30% 92%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 150 16% 12%;
+    --card-foreground: 40 30% 92%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 150 16% 12%;
+    --popover-foreground: 40 30% 92%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 41 57% 55%;
+    --primary-foreground: 150 18% 9%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 150 12% 18%;
+    --secondary-foreground: 40 30% 92%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 150 12% 18%;
+    --muted-foreground: 40 12% 65%;
 
-    --accent: 21 90% 55%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 41 57% 55%;
+    --accent-foreground: 150 18% 9%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 9 55% 42%;
+    --destructive-foreground: 40 30% 92%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 212 27% 84%;
+    --border: 150 12% 18%;
+    --input: 150 12% 18%;
+    --ring: 41 57% 55%;
 
     /* REalia Custom Tokens - Dark */
-    --navy: 213 40% 60%;
-    --navy-light: 213 35% 50%;
-    --graphite: 220 14% 65%;
-    --graphite-light: 220 9% 55%;
-    --burnt-orange: 21 90% 55%;
-    --burnt-orange-light: 21 85% 60%;
-    --teal: 173 58% 50%;
-    --success: 142 76% 46%;
+    --ink: 40 30% 92%;
+    --ink-light: 40 12% 65%;
+    --bottle-green: 150 28% 45%;
+    --bottle-green-light: 150 24% 55%;
+    --brass: 41 57% 55%;
+    --brass-light: 41 51% 62%;
+    --success: 142 40% 50%;
 
     /* Gradients - Dark */
-    --gradient-hero: linear-gradient(135deg, hsl(213 40% 45%) 0%, hsl(213 35% 35%) 50%, hsl(173 58% 40%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 13%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(21 90% 55%) 0%, hsl(21 85% 60%) 100%);
-    --gradient-metallic: linear-gradient(135deg, hsl(217 33% 17%) 0%, hsl(217 33% 22%) 50%, hsl(217 33% 17%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(150 24% 22%) 0%, hsl(150 20% 28%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(150 16% 12%) 0%, hsl(150 16% 14%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(41 57% 55%) 0%, hsl(41 51% 62%) 100%);
+    --gradient-metallic: linear-gradient(135deg, hsl(150 12% 16%) 0%, hsl(150 12% 20%) 50%, hsl(150 12% 16%) 100%);
 
     /* Shadows - Dark */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.2);
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.2), 0 1px 2px -1px rgb(0 0 0 / 0.15);
-    --shadow-card-hover: 0 10px 40px -15px rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.25);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.25);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.35), 0 4px 6px -4px rgb(0 0 0 / 0.25);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.25);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.25), 0 1px 2px -1px rgb(0 0 0 / 0.2);
+    --shadow-card-hover: 0 10px 40px -15px rgb(0 0 0 / 0.5);
 
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 240 5% 96%;
-    --sidebar-primary: 224 76% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4% 16%;
-    --sidebar-accent-foreground: 240 5% 96%;
-    --sidebar-border: 240 4% 16%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 150 18% 9%;
+    --sidebar-foreground: 40 20% 90%;
+    --sidebar-primary: 41 57% 55%;
+    --sidebar-primary-foreground: 150 18% 9%;
+    --sidebar-accent: 150 12% 16%;
+    --sidebar-accent-foreground: 40 20% 90%;
+    --sidebar-border: 150 12% 16%;
+    --sidebar-ring: 41 57% 55%;
   }
 }
 
@@ -191,11 +196,11 @@
   .metallic-texture {
     background: linear-gradient(
       135deg,
-      hsl(220 14% 96%) 0%,
-      hsl(220 14% 92%) 25%,
-      hsl(220 14% 88%) 50%,
-      hsl(220 14% 92%) 75%,
-      hsl(220 14% 96%) 100%
+      hsl(40 41% 88%) 0%,
+      hsl(40 35% 82%) 25%,
+      hsl(40 30% 76%) 50%,
+      hsl(40 35% 82%) 75%,
+      hsl(40 41% 88%) 100%
     );
     position: relative;
   }
@@ -207,24 +212,23 @@
     background: linear-gradient(
       45deg,
       transparent 30%,
-      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0.25) 50%,
       transparent 70%
     );
     pointer-events: none;
   }
 
-  /* News card styles */
+  /* News card styles — a quiet hairline border replaces the old colored
+     gradient top-bar; the card should feel like a printed clipping, not
+     a SaaS dashboard tile. */
   .news-card {
-    @apply bg-card rounded-xl transition-all duration-300;
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
-    border-top: 2px solid transparent;
-    background-image: linear-gradient(hsl(var(--card)), hsl(var(--card))), var(--gradient-accent);
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
+    @apply bg-card rounded-lg border border-border transition-all duration-300;
+    box-shadow: var(--shadow-card);
   }
 
   .news-card:hover {
     @apply shadow-card-hover -translate-y-1;
+    border-color: hsl(var(--brass) / 0.4);
   }
 
   /* Glass card for premium surfaces */
@@ -235,18 +239,34 @@
     border: 1px solid hsl(var(--border) / 0.5);
   }
 
-  /* Accent line - thin gradient bar */
+  /* Accent line - slim solid brass hairline (masthead rule), not a gradient bar */
   .accent-line {
-    height: 2px;
-    background: var(--gradient-hero);
+    height: 1px;
+    background: hsl(var(--brass) / 0.6);
   }
 
-  /* Brand text gradient */
+  /* Brand wordmark color — solid ink/green, no gradient-text trick.
+     Kept as a class (rather than switching Logo.tsx to a plain text-*
+     utility) so any other place already using text-gradient-brand still
+     picks up the new, quieter treatment automatically. */
   .text-gradient-brand {
-    background: var(--gradient-hero);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: hsl(var(--primary));
+  }
+
+  /* Editorial "kicker": a small-caps, letter-spaced category label with
+     a thin brass rule — the signature device used above headlines
+     throughout the app (news cards, article view, section headers). */
+  .kicker {
+    @apply inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em];
+    color: hsl(var(--brass));
+  }
+
+  .kicker::before {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 1px;
+    background: hsl(var(--brass));
   }
 
   /* Filter pill styles */

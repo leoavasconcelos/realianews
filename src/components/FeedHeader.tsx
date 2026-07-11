@@ -9,10 +9,16 @@ interface FeedHeaderProps {
   unreadCount?: number;
 }
 
+const EDITION_DATE = new Intl.DateTimeFormat('pt-BR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+}).format(new Date());
+
 const FeedHeader: React.FC<FeedHeaderProps> = ({ onSearchClick, onNotificationsClick, unreadCount = 0 }) => {
   return (
     <header className="sticky top-0 bg-background/95 backdrop-blur-lg z-40">
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <Logo size="sm" showText={true} useGradientText />
         
         <div className="flex items-center gap-1">
@@ -41,7 +47,13 @@ const FeedHeader: React.FC<FeedHeaderProps> = ({ onSearchClick, onNotificationsC
           </Button>
         </div>
       </div>
-      {/* Accent gradient line */}
+      {/* Edition line — a print-masthead convention: dateline above the rule */}
+      <div className="px-4 pb-2">
+        <p className="text-[11px] text-muted-foreground tracking-wide capitalize">
+          {EDITION_DATE}
+        </p>
+      </div>
+      {/* Accent rule */}
       <div className="accent-line" />
     </header>
   );
