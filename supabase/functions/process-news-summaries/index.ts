@@ -235,57 +235,47 @@ serve(async (req) => {
     // off, since relevance_rechecked_at tracks progress in the database.
     if (mode === "recheck_relevance") {
       // Server-side lock so two overlapping clicks don't spawn two
-      // background sweeps at the same time. We upsert into public.job_locks
-      // only when there's no live lock (existing row expired or missing).
-      // If we don't get a row back, someone else holds it.
+      // background sweeps at the same time.
+      //
+      // Algorithm (relies on the UNIQUE PK on job_locks.name to be atomic):
+      //   1. Best-effort cleanup: delete any row for this lock name whose
+      //      expires_at has already passed. Handles the case where a
+      //      previous run crashed without releasing.
+      //   2. Try INSERT. If the row already exists (live lock), the unique
+      //      constraint fires and PostgREST returns error code 23505 —
+      //      that's how we know another sweep is already running.
+      //   3. On success, we own the lock; runRelevanceCleanup() releases
+      //      it in its finally block.
       const LOCK_NAME = "relevance_cleanup";
-      const LOCK_TTL_MS = 180_000; // 3 min — slightly larger than TIME_BUDGET_MS
-      const nowIso = new Date().toISOString();
+      const LOCK_TTL_MS = 180_000; // 3 min — safety net if the task dies
       const expiresIso = new Date(Date.now() + LOCK_TTL_MS).toISOString();
 
-      // Try to insert; if a row already exists and is still valid, this
-      // conflict path returns nothing and we abort.
-      const { data: lockRow, error: lockError } = await supabase
+      await supabase
         .from("job_locks")
-        .upsert(
-          { name: LOCK_NAME, acquired_at: nowIso, expires_at: expiresIso },
-          { onConflict: "name", ignoreDuplicates: false }
-        )
-        // Only take the lock if there was no row, or the previous one expired.
-        // We emulate that by re-reading and comparing.
-        .select("expires_at")
-        .maybeSingle();
+        .delete()
+        .eq("name", LOCK_NAME)
+        .lt("expires_at", new Date().toISOString());
+
+      const { error: lockError } = await supabase
+        .from("job_locks")
+        .insert({ name: LOCK_NAME, expires_at: expiresIso });
 
       if (lockError) {
+        // 23505 = unique_violation → another sweep already owns the lock
+        if ((lockError as { code?: string }).code === "23505") {
+          return new Response(
+            JSON.stringify({
+              started: false,
+              alreadyRunning: true,
+              message: "Uma faxina de relevância já está em execução — aguarde ela terminar.",
+            }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         console.error("Error acquiring cleanup lock:", lockError);
         return new Response(
           JSON.stringify({ error: "Failed to acquire lock" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // The upsert above unconditionally overwrites. To make it a real lock,
-      // check whether we actually stole an expired one or grabbed a free
-      // slot. Fetch previous state BEFORE upserting is racy, so instead we
-      // check the acquired_at we just wrote against a fresh read and abort
-      // if a DIFFERENT concurrent caller wrote later. Simpler and safe:
-      // do a conditional update via SQL — but PostgREST supports filtered
-      // updates. Redo with a two-step approach:
-      const { data: currentLock } = await supabase
-        .from("job_locks")
-        .select("acquired_at, expires_at")
-        .eq("name", LOCK_NAME)
-        .maybeSingle();
-
-      if (currentLock && currentLock.acquired_at !== nowIso) {
-        // Someone else took the lock after us (or before) — back off.
-        return new Response(
-          JSON.stringify({
-            started: false,
-            alreadyRunning: true,
-            message: "Uma faxina já está em execução — aguarde ela terminar.",
-          }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
