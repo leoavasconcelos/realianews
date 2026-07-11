@@ -347,7 +347,9 @@ export const NewsManagement = () => {
   const handleCheckCleanupStatus = async () => {
     setCheckingCleanupStatus(true);
     try {
-      await fetchCleanupSnapshot();
+      const remaining = await fetchCleanupSnapshot();
+      setCleanupCompleted(remaining === 0);
+      setCleanupRunning(false);
       setShowCleanupResults(true);
       queryClient.invalidateQueries({ queryKey: ['admin-news'] });
       queryClient.invalidateQueries({ queryKey: ['news'] });
