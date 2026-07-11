@@ -146,7 +146,8 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           </div>
 
           {/* Audio Player — mobile/tablet only (desktop shows it in sidebar) */}
-          <div className="bg-secondary rounded-xl p-4 mb-6 lg:hidden">
+          <div className="bg-secondary rounded-lg border border-border p-4 mb-6 lg:hidden">
+            <div className="kicker mb-3">Ouvir resumo</div>
             <div className="flex items-center gap-3 mb-3">
               <Button
                 variant="default"
@@ -243,13 +244,13 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             href={news.sourceUrl || '#'}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between p-4 bg-secondary rounded-xl hover:bg-muted transition-colors lg:hidden"
+            className="flex items-center justify-between p-4 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity lg:hidden"
           >
             <div>
-              <p className="text-sm font-medium text-foreground">Ler matéria original</p>
-              <p className="text-xs text-muted-foreground">{news.source}</p>
+              <p className="text-sm font-semibold">Ler matéria original</p>
+              <p className="text-xs opacity-90">{news.source}</p>
             </div>
-            <ExternalLink className="w-5 h-5 text-muted-foreground" />
+            <ExternalLink className="w-5 h-5" />
           </a>
         </div>
 
