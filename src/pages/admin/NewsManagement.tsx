@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NewsEditModal } from '@/components/admin/NewsEditModal';
 import { supabase } from '@/integrations/supabase/client';
