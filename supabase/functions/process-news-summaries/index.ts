@@ -224,14 +224,15 @@ serve(async (req) => {
       ? { data: [], error: null }
       : await supabase
           .from("news")
-          .select("id, title, full_text, topics, region, summary_ai")
+          .select("id, title, full_text, topics, region, summary_ai, is_relevant")
           .is("summary_ai", null)
+          .is("is_relevant", null)
           .limit(10);
 
     // Backfill: international news that haven't been translated yet (title_original is null)
     const { data: untranslatedIntl, error: untranslatedError } = await supabase
       .from("news")
-      .select("id, title, full_text, topics, region, summary_ai")
+      .select("id, title, full_text, topics, region, summary_ai, is_relevant")
       .neq("region", "Brazil")
       .is("title_original", null)
       .limit(40);
@@ -378,24 +379,33 @@ Diretrizes:
           return { id: news.id, status: updateError ? "update_failed" : "title_translated" };
         }
 
-        // Generate summary
+        // Generate summary (and, in the same call, judge whether the
+        // article is genuinely about the real estate market — see the
+        // is_relevant column added in
+        // supabase/migrations/20260711040000_add_news_is_relevant.sql).
+        // The keyword-based filter in aggregate-news/index.ts is a cheap
+        // first pass; this catches articles that merely mention a related
+        // word without actually being about real estate.
         const content = news.full_text || displayTitle;
         const topics = Array.isArray(news.topics) ? news.topics : [];
         const topicsContext = topics.length
           ? `Tópicos relacionados: ${topics.join(", ")}.`
           : "";
 
-        const systemPrompt = `Você é um especialista em resumir notícias do mercado imobiliário brasileiro. 
-Seu objetivo é criar resumos concisos, informativos e em português brasileiro.
+        const systemPrompt = `Você é um curador e editor especializado em notícias do mercado imobiliário brasileiro, para um app de inteligência de mercado voltado a corretores, incorporadoras e investidores.
 
-Diretrizes:
-- Escreva em português brasileiro formal mas acessível
-- O resumo deve ter no máximo 3-4 frases (cerca de 50-80 palavras)
-- Destaque os pontos mais importantes e impactantes
-- Inclua números e dados relevantes quando disponíveis
-- Mantenha um tom neutro e jornalístico`;
+Sua tarefa tem duas partes:
 
-        const userPrompt = `Crie um resumo conciso da seguinte notícia:
+1. Avaliar se a notícia é GENUINAMENTE sobre o mercado imobiliário (compra, venda, aluguel, construção civil, incorporação, financiamento imobiliário, fundos imobiliários/FIIs, políticas habitacionais, grandes players do setor, etc). Não basta a notícia mencionar de passagem uma palavra relacionada (ex: "casa", "juros", "construção") — o CONTEXTO e o ASSUNTO PRINCIPAL da notícia precisam ser sobre o setor imobiliário. Notícias de economia geral, política, ou de outros setores que só citam um termo relacionado incidentalmente NÃO são relevantes.
+
+2. Se for relevante, escrever um resumo conciso (3-4 frases, 50-80 palavras), em português brasileiro formal mas acessível, com tom neutro e jornalístico, destacando os pontos mais importantes e números/dados quando disponíveis.
+
+Responda ESTRITAMENTE em formato JSON, sem nenhum texto antes ou depois, sem markdown, no formato exato:
+{"relevant": true, "summary": "texto do resumo aqui"}
+ou, se não for relevante:
+{"relevant": false, "summary": null}`;
+
+        const userPrompt = `Avalie e, se aplicável, resuma a seguinte notícia:
 
 Título: ${displayTitle}
 
@@ -404,7 +414,7 @@ ${topicsContext}
 Conteúdo:
 ${content.substring(0, 4000)}
 
-Responda APENAS com o resumo.`;
+Responda apenas com o JSON, no formato especificado.`;
 
         const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -418,7 +428,7 @@ Responda APENAS com o resumo.`;
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
             ],
-            max_tokens: 300,
+            max_tokens: 350,
             temperature: 0.3,
           }),
         });
@@ -429,10 +439,40 @@ Responda APENAS com o resumo.`;
         }
 
         const aiData = await aiResponse.json();
-        const summary = aiData.choices?.[0]?.message?.content?.trim();
+        const rawContent = aiData.choices?.[0]?.message?.content?.trim() || "";
+
+        // Parse the model's JSON response. Strip a ```json fence if the
+        // model added one despite instructions not to, and fail open
+        // (treat as relevant, keep the raw text as the summary) if parsing
+        // fails — a formatting hiccup isn't evidence the article is
+        // irrelevant, and this matches the previous (pre-relevance-check)
+        // behavior as the fallback.
+        let relevant = true;
+        let summary: string | null = null;
+        try {
+          const cleaned = rawContent.replace(/^```json\s*|^```\s*|```$/gm, "").trim();
+          const parsed = JSON.parse(cleaned);
+          if (typeof parsed.relevant === "boolean") {
+            relevant = parsed.relevant;
+          }
+          summary = typeof parsed.summary === "string" ? parsed.summary.trim() : null;
+        } catch (parseErr) {
+          console.warn(`Could not parse relevance/summary JSON for news ${news.id}, failing open:`, parseErr);
+          summary = rawContent || null;
+        }
+
+        if (!relevant) {
+          const { error: updateError } = await supabase
+            .from("news")
+            .update({ is_relevant: false })
+            .eq("id", news.id);
+          console.log(`Filtered out non-real-estate article: ${displayTitle?.substring(0, 60)}...`);
+          return { id: news.id, status: updateError ? "update_failed" : "filtered_not_relevant" };
+        }
+
         if (!summary) return { id: news.id, status: "no_summary" };
 
-        const updatePayload: Record<string, unknown> = { summary_ai: summary };
+        const updatePayload: Record<string, unknown> = { summary_ai: summary, is_relevant: true };
         if (isInternational && news.title) {
           updatePayload.title_original = news.title.substring(0, 500);
         }
