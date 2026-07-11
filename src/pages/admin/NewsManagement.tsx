@@ -34,7 +34,8 @@ import {
   ChevronsRight,
   Download,
   Languages,
-  Sparkles
+  Sparkles,
+  Activity
 } from 'lucide-react';
 import {
   Dialog,
