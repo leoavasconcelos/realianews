@@ -403,7 +403,15 @@ Sua tarefa tem duas partes:
 Responda ESTRITAMENTE em formato JSON, sem nenhum texto antes ou depois, sem markdown, no formato exato:
 {"relevant": true, "summary": "texto do resumo aqui"}
 ou, se não for relevante:
-{"relevant": false, "summary": null}`;
+{"relevant": false, "summary": null, "rejection_reason": "categoria curta + explicação de 1 frase"}
+
+Para o campo rejection_reason, comece com uma CATEGORIA curta em maiúsculas entre colchetes, seguida de uma frase explicando. Categorias possíveis:
+[ECONOMIA_GERAL] — matéria de macroeconomia sem foco no setor
+[POLITICA] — política/eleições sem relação direta com imóveis
+[OUTRO_SETOR] — outro setor econômico que só cita termo relacionado
+[MENCAO_INCIDENTAL] — só menciona uma palavra-chave de passagem
+[CONTEUDO_INSUFICIENTE] — texto vazio, muito curto ou ilegível
+[OUTRO] — qualquer outro motivo (explique)`;
 
         const userPrompt = `Avalie e, se aplicável, resuma a seguinte notícia:
 
@@ -449,6 +457,7 @@ Responda apenas com o JSON, no formato especificado.`;
         // behavior as the fallback.
         let relevant = true;
         let summary: string | null = null;
+        let rejectionReason: string | null = null;
         try {
           const cleaned = rawContent.replace(/^```json\s*|^```\s*|```$/gm, "").trim();
           const parsed = JSON.parse(cleaned);
@@ -456,6 +465,9 @@ Responda apenas com o JSON, no formato especificado.`;
             relevant = parsed.relevant;
           }
           summary = typeof parsed.summary === "string" ? parsed.summary.trim() : null;
+          if (typeof parsed.rejection_reason === "string") {
+            rejectionReason = parsed.rejection_reason.trim().substring(0, 500) || null;
+          }
         } catch (parseErr) {
           console.warn(`Could not parse relevance/summary JSON for news ${news.id}, failing open:`, parseErr);
           summary = rawContent || null;
@@ -464,9 +476,9 @@ Responda apenas com o JSON, no formato especificado.`;
         if (!relevant) {
           const { error: updateError } = await supabase
             .from("news")
-            .update({ is_relevant: false })
+            .update({ is_relevant: false, rejection_reason: rejectionReason })
             .eq("id", news.id);
-          console.log(`Filtered out non-real-estate article: ${displayTitle?.substring(0, 60)}...`);
+          console.log(`Filtered out non-real-estate article: ${displayTitle?.substring(0, 60)}... | reason: ${rejectionReason ?? "n/a"}`);
           return { id: news.id, status: updateError ? "update_failed" : "filtered_not_relevant" };
         }
 
