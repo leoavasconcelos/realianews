@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import FeedHeader from '@/components/FeedHeader';
+import { Seo } from '@/components/Seo';
 import BottomNav from '@/components/BottomNav';
 import NewsCard, { NewsItem } from '@/components/NewsCard';
 import NewsDetail from '@/components/NewsDetail';
@@ -38,6 +39,8 @@ const Index = () => {
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeRegion, setActiveRegion] = useState<RegionFilterType>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+
+  // early SEO tags injected below in the render tree
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [shareNewsItem, setShareNewsItem] = useState<NewsItem | null>(null);
@@ -354,6 +357,11 @@ const Index = () => {
 
   return (
     <div className="bg-background min-h-screen">
+      <Seo
+        title="REalia — Inteligência do Mercado Imobiliário"
+        description="Notícias personalizadas por IA, resumos inteligentes e análises do setor imobiliário brasileiro."
+        path="/"
+      />
       {/* Onboarding Modal */}
       {showOnboarding && (
         <OnboardingModal 
