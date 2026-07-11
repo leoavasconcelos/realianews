@@ -249,6 +249,7 @@ export const NewsManagement = () => {
 
   const handleStartCleanup = async () => {
     setStartingCleanup(true);
+    setCleanupCompleted(false);
     try {
       // Snapshot the backlog size right before starting so we can show
       // "X de Y processadas" during the run.
@@ -272,6 +273,7 @@ export const NewsManagement = () => {
         cleanupLastRemainingRef.current = initial ?? 0;
         cleanupStaleCountRef.current = 0;
         setCleanupRunning(true);
+        setCleanupCompleted(false);
         setShowCleanupResults(true);
         toast.info(payload.message ?? 'Uma faxina já está em execução — acompanhando o progresso.');
       } else if (payload?.started) {
@@ -280,12 +282,18 @@ export const NewsManagement = () => {
         cleanupLastRemainingRef.current = initial ?? 0;
         cleanupStaleCountRef.current = 0;
         setCleanupRunning(true);
+        setCleanupCompleted(false);
         setShowCleanupResults(true);
         toast.success('Faxina iniciada em segundo plano', {
           description: 'Continua rodando mesmo se você sair dessa tela — o progresso atualiza sozinho.',
         });
       } else {
-        toast.info('Nada pendente pra revisar no momento.');
+        setCleanupInitialBacklog(initial ?? 0);
+        setCleanupBacklogRemaining(initial ?? 0);
+        setCleanupRunning(false);
+        setCleanupCompleted(initial === 0);
+        setShowCleanupResults(true);
+        toast.info(initial === 0 ? 'Backlog já está vazio — nada para revisar.' : 'Faxina concluída!');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
