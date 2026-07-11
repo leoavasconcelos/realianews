@@ -256,9 +256,24 @@ serve(async (req) => {
         .eq("name", LOCK_NAME)
         .lt("expires_at", new Date().toISOString());
 
+      // Snapshot the initial backlog size so the UI can show progress.
+      const { count: initialBacklog } = await supabase
+        .from("news")
+        .select("id", { count: "exact", head: true })
+        .not("summary_ai", "is", null)
+        .is("relevance_rechecked_at", null);
+
       const { error: lockError } = await supabase
         .from("job_locks")
-        .insert({ name: LOCK_NAME, expires_at: expiresIso });
+        .insert({
+          name: LOCK_NAME,
+          expires_at: expiresIso,
+          metadata: {
+            initial_backlog: initialBacklog ?? 0,
+            processed_count: 0,
+            removed_count: 0,
+          },
+        });
 
       if (lockError) {
         // 23505 = unique_violation → another sweep already owns the lock
