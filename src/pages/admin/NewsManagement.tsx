@@ -288,7 +288,7 @@ export const NewsManagement = () => {
         setCleanupCompleted(false);
         setShowCleanupResults(true);
         toast.success('Faxina iniciada em segundo plano', {
-          description: 'Continua rodando mesmo se você sair dessa tela — o progresso atualiza sozinho.',
+          description: 'Continua rodando sozinha até zerar o backlog — não precisa clicar de novo nem ficar com a tela aberta. Volte mais tarde e clique em "Ver progresso da faxina".',
         });
       } else {
         setCleanupInitialBacklog(initial ?? 0);
