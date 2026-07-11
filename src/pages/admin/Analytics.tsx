@@ -15,7 +15,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { BarChart3, TrendingUp, Users, Bookmark, Newspaper, Radio } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Bookmark, Newspaper, Radio, ShieldCheck, ShieldOff, Filter } from 'lucide-react';
 import { StatsCard } from '@/components/admin/StatsCard';
 
 interface DayCount {
@@ -33,6 +33,22 @@ interface RegionCount {
   count: number;
 }
 
+interface RelevanceTotals {
+  total: number;
+  relevant: number;
+  rejected: number;
+  pending: number;
+}
+
+interface RelevanceBreakdown {
+  name?: string;
+  region?: string;
+  relevant: number;
+  rejected: number;
+  evaluated: number;
+  rejectionRate: number;
+}
+
 interface AdminAnalytics {
   totalNews: number;
   totalUsers: number;
@@ -47,6 +63,9 @@ interface AdminAnalytics {
   newsByRegion: RegionCount[];
   usersByRegion: RegionCount[];
   topSavedNews: { id: string; count: number }[];
+  relevanceTotals: RelevanceTotals | null;
+  relevanceBySource: RelevanceBreakdown[];
+  relevanceByRegion: RelevanceBreakdown[];
 }
 
 const COLORS = [
