@@ -32,7 +32,6 @@ export const usePushNotifications = () => {
   // Register service worker
   const registerServiceWorker = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
     if (!('serviceWorker' in navigator)) {
-      console.log('Service workers not supported');
       return null;
     }
 
@@ -40,7 +39,6 @@ export const usePushNotifications = () => {
       const registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
       });
-      console.log('Service worker registered:', registration);
       return registration;
     } catch (error) {
       console.error('Service worker registration failed:', error);

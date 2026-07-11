@@ -274,6 +274,7 @@ const ExploreScreen = React.forwardRef<HTMLDivElement, ExploreScreenProps>(
                           <img 
                             src={source.logo_url} 
                             alt={source.name}
+                            loading="lazy"
                             className="w-10 h-10 object-contain mx-auto mb-2 rounded-lg"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none';
