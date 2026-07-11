@@ -38,7 +38,8 @@ function detectTopics(title: string, description: string): string[] {
       "shopping\\s+center", "mall", "commercial\\s+real\\s+estate", "\\bcre\\b",
     ],
     "Residencial": [
-      "residencial", "residential", "apartamento", "apartment", "\\bcasa\\b", "house",
+      "residencial", "residential", "apartamento", "apartment",
+      "\\bcasa\\b(?!\\s+(civil|branca|dos\\s+deputados|legislativa))", "house",
       "housing", "condom[íi]nio", "condo", "moradia", "habita[çc][ãa]o", "single-family",
       "multifamily",
     ],
