@@ -640,7 +640,13 @@ export const NewsManagement = () => {
       <Dialog open={showCleanupResults} onOpenChange={setShowCleanupResults}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Progresso da faxina de relevância</DialogTitle>
+            <DialogTitle>
+              {cleanupCompleted
+                ? '✅ Faxina de relevância concluída'
+                : cleanupRunning
+                  ? 'Progresso da faxina de relevância'
+                  : 'Faxina de relevância'}
+            </DialogTitle>
             <DialogDescription>
               {cleanupBacklogRemaining === null
                 ? 'Consultando...'
@@ -653,6 +659,14 @@ export const NewsManagement = () => {
               Se alguma remoção parecer errada, reabra a notícia em "Editar" e marque como relevante de novo.
             </DialogDescription>
           </DialogHeader>
+          {cleanupCompleted && (
+            <Alert className="border-green-600/50 bg-green-600/10 text-green-700 dark:text-green-400">
+              <AlertTitle>Backlog revisado com sucesso</AlertTitle>
+              <AlertDescription>
+                Todas as notícias pendentes foram reavaliadas. As removidas aparecem na lista abaixo.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="overflow-y-auto flex-1 space-y-2">
             {cleanupRemoved.map((r) => (
               <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm">
