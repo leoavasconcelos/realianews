@@ -344,6 +344,11 @@ export const NewsManagement = () => {
         }
       } else {
         setCleanupLock(null);
+        // No active run — keep the idle pending-count fresh so the
+        // admin can see how much backlog is left before starting again.
+        if (!cleanupRunning) {
+          fetchCleanupSnapshot().catch(() => {});
+        }
       }
     };
     check();
@@ -476,7 +481,9 @@ export const NewsManagement = () => {
                 ? 'Iniciando...'
                 : cleanupCompleted
                   ? 'Faxina concluída'
-                  : 'Iniciar faxina de relevância'}
+                  : cleanupBacklogRemaining && cleanupBacklogRemaining > 0
+                    ? `Iniciar faxina (${cleanupBacklogRemaining.toLocaleString('pt-BR')} pendente${cleanupBacklogRemaining === 1 ? '' : 's'})`
+                    : 'Iniciar faxina de relevância'}
           </Button>
           <Button variant="outline" size="sm" onClick={handleCheckCleanupStatus} disabled={checkingCleanupStatus}>
             {checkingCleanupStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
@@ -512,6 +519,25 @@ export const NewsManagement = () => {
                     <> · <span className="font-semibold">{cleanupBacklogRemaining.toLocaleString('pt-BR')}</span> pendente(s)</>
                   )}
                 </p>
+                {(() => {
+                  const processed = cleanupLock.metadata.processed_count ?? 0;
+                  const remaining = cleanupBacklogRemaining ?? null;
+                  if (remaining == null || remaining === 0 || processed < 3) return null;
+                  const elapsedMs = Date.now() - new Date(cleanupLock.acquired_at).getTime();
+                  if (elapsedMs <= 0) return null;
+                  const ratePerMs = processed / elapsedMs;
+                  if (!isFinite(ratePerMs) || ratePerMs <= 0) return null;
+                  const etaMs = remaining / ratePerMs;
+                  const etaMin = Math.max(1, Math.round(etaMs / 60_000));
+                  const etaLabel = etaMin >= 60
+                    ? `~${Math.round(etaMin / 60)}h ${etaMin % 60}min`
+                    : `~${etaMin} min`;
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      Estimativa: {etaLabel} para zerar o backlog ({Math.round(ratePerMs * 60_000)}/min).
+                    </p>
+                  );
+                })()}
               </div>
               <Button size="sm" onClick={() => setShowCleanupResults(true)}>
                 Acompanhar execução
