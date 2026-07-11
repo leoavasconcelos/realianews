@@ -416,12 +416,14 @@ export const NewsManagement = () => {
             {translating ? `Traduzindo... (${translateProgress})` : 'Traduzir títulos pendentes'}
           </Button>
           <Button variant="outline" size="sm" onClick={handleStartCleanup} disabled={startingCleanup || cleanupRunning}>
-            {startingCleanup || cleanupRunning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            {startingCleanup || cleanupRunning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : cleanupCompleted ? <span className="mr-2">✅</span> : <Sparkles className="h-4 w-4 mr-2" />}
             {cleanupRunning && cleanupInitialBacklog !== null && cleanupBacklogRemaining !== null
               ? `Revisando... ${cleanupInitialBacklog - cleanupBacklogRemaining}/${cleanupInitialBacklog}`
               : startingCleanup
                 ? 'Iniciando...'
-                : 'Iniciar faxina de relevância'}
+                : cleanupCompleted
+                  ? 'Faxina concluída'
+                  : 'Iniciar faxina de relevância'}
           </Button>
           <Button variant="outline" size="sm" onClick={handleCheckCleanupStatus} disabled={checkingCleanupStatus}>
             {checkingCleanupStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
