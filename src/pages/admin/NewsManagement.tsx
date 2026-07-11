@@ -36,6 +36,13 @@ import {
   Languages,
   Sparkles
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -130,6 +137,10 @@ export const NewsManagement = () => {
   const [exporting, setExporting] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [translateProgress, setTranslateProgress] = useState(0);
+  const [cleaningBacklog, setCleaningBacklog] = useState(false);
+  const [cleanupProgress, setCleanupProgress] = useState(0);
+  const [cleanupResults, setCleanupResults] = useState<Array<{ id: string; title: string; status: string; reason?: string }>>([]);
+  const [showCleanupResults, setShowCleanupResults] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   const handleRegenerateAnalysis = async (id: string) => {
@@ -204,6 +215,51 @@ export const NewsManagement = () => {
     }
   };
 
+  const handleCleanupBacklog = async () => {
+    setCleaningBacklog(true);
+    setCleanupProgress(0);
+    setCleanupResults([]);
+    const allResults: Array<{ id: string; title: string; status: string; reason?: string }> = [];
+    let consecutiveEmpty = 0;
+    const MAX_BATCHES = 100;
+
+    try {
+      for (let i = 0; i < MAX_BATCHES; i++) {
+        const { data: result, error } = await supabase.functions.invoke('process-news-summaries', {
+          body: { mode: 'recheck_relevance' },
+        });
+        if (error) throw error;
+
+        const processed = (result as { processed?: number })?.processed ?? 0;
+        const results = (result as { results?: Array<{ id: string; title: string; status: string; reason?: string }> })?.results ?? [];
+
+        allResults.push(...results);
+        setCleanupProgress((prev) => prev + processed);
+        setCleanupResults([...allResults]);
+
+        if (processed === 0) {
+          consecutiveEmpty++;
+          if (consecutiveEmpty >= 2) break;
+        } else {
+          consecutiveEmpty = 0;
+        }
+
+        await new Promise((r) => setTimeout(r, 800));
+      }
+
+      const removedCount = allResults.filter((r) => r.status === 'removed').length;
+      toast.success(`Faxina concluída: ${allResults.length} revisadas, ${removedCount} removidas do feed`);
+      setShowCleanupResults(true);
+      queryClient.invalidateQueries({ queryKey: ['admin-news'] });
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error('Erro na faxina de relevância: ' + message);
+    } finally {
+      setCleaningBacklog(false);
+    }
+  };
+
   const handleExportCSV = async () => {
     setExporting(true);
     try {
@@ -257,6 +313,10 @@ export const NewsManagement = () => {
           <Button variant="outline" size="sm" onClick={handleTranslatePending} disabled={translating}>
             {translating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Languages className="h-4 w-4 mr-2" />}
             {translating ? `Traduzindo... (${translateProgress})` : 'Traduzir títulos pendentes'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleCleanupBacklog} disabled={cleaningBacklog}>
+            {cleaningBacklog ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            {cleaningBacklog ? `Revisando... (${cleanupProgress})` : 'Faxina de relevância (backlog)'}
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={exporting}>
             {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
@@ -463,6 +523,36 @@ export const NewsManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Relevance backlog cleanup results */}
+      <Dialog open={showCleanupResults} onOpenChange={setShowCleanupResults}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Resultado da faxina de relevância</DialogTitle>
+            <DialogDescription>
+              {cleanupResults.filter(r => r.status === 'removed').length} notícia(s) removida(s) do feed
+              de {cleanupResults.length} revisada(s). As mantidas não precisam de ação.
+              Se alguma remoção parecer errada, reabra a notícia em "Editar" e marque como relevante
+              novamente, ou peça pra eu reprocessar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 space-y-2">
+            {cleanupResults
+              .filter(r => r.status === 'removed')
+              .map((r) => (
+                <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm">
+                  <p className="font-medium">{r.title}</p>
+                  {r.reason && <p className="text-muted-foreground text-xs mt-1">{r.reason}</p>}
+                </div>
+              ))}
+            {cleanupResults.filter(r => r.status === 'removed').length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                Nada foi removido nessa faxina — o backlog já estava limpo.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Modal */}
       <NewsEditModal
