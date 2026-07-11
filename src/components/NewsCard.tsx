@@ -54,6 +54,8 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
         <img
           src={news.imageUrl}
           alt={news.title}
+          loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
             (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800';
@@ -83,6 +85,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
             <img 
               src={news.sourceLogo} 
               alt={news.source}
+              loading="lazy"
               className="w-4 h-4 object-contain rounded-sm"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';

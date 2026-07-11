@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import NewsCard, { NewsItem } from './NewsCard';
-import { useNews, useSources, useTopics, REGIONS, RegionFilter } from '@/hooks/useNews';
+import { useNews, useSources, useTopics, REGIONS, RegionFilter, flattenNewsPages } from '@/hooks/useNews';
 
 interface ExploreScreenProps {
   onNewsClick: (news: NewsItem) => void;
@@ -32,7 +32,8 @@ const ExploreScreen = React.forwardRef<HTMLDivElement, ExploreScreenProps>(
     const [selectedRegion, setSelectedRegion] = useState<RegionFilter>('all');
     const [activeSection, setActiveSection] = useState<'discover' | 'search'>('discover');
 
-    const { data: allNews, isLoading: newsLoading } = useNews();
+    const { data: newsPages, isLoading: newsLoading } = useNews();
+    const allNews = flattenNewsPages(newsPages);
     const { data: sources } = useSources();
     const { data: topics } = useTopics();
 

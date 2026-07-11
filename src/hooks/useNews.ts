@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { NewsItem } from '@/components/NewsCard';
 
@@ -93,117 +93,114 @@ export const REGIONS = [
 
 export type RegionFilter = typeof REGIONS[number]['id'];
 
-// Fetch all news with source info
+export const NEWS_PAGE_SIZE = 12;
+
+interface NewsPage {
+  items: NewsItem[];
+  nextPage: number | null;
+}
+
+const TOPIC_ALIASES: Record<string, string[]> = {
+  'fundos imobiliários': ['fundos imobiliários', 'fundo imobiliário', 'fiis', 'fii', 'reit', 'reits'],
+  'mercado imobiliário': ['mercado imobiliário', 'setor imobiliário'],
+  'comercial': ['comercial', 'corporativo', 'escritório', 'office'],
+  'logística': ['logística', 'logistic', 'galpão', 'warehouse', 'industrial'],
+  'governo': ['governo', 'mcmv', 'minha casa minha vida', 'casa verde amarela'],
+};
+
+const applyTopicFilter = (items: NewsItem[], topicFilter?: string): NewsItem[] => {
+  if (!topicFilter || topicFilter === 'Todos') return items;
+  const filterLc = topicFilter.toLowerCase();
+  const candidates = TOPIC_ALIASES[filterLc] ?? [filterLc];
+  return items.filter(news =>
+    news.topics.some(t => {
+      const tagLc = t.toLowerCase();
+      return candidates.some(c => tagLc === c || tagLc.includes(c) || c.includes(tagLc));
+    })
+  );
+};
+
+// Paginated news feed using infinite query.
 export const useNews = (topicFilter?: string, regionFilter?: RegionFilter, preferredRegions?: string[]) => {
-  return useQuery({
+  return useInfiniteQuery<NewsPage>({
     queryKey: ['news', topicFilter, regionFilter, preferredRegions],
+    initialPageParam: 0,
     retry: 3,
     retryDelay: 1000,
-    staleTime: 0,
-    queryFn: async () => {
-      try {
-        const { data: news, error } = await supabase
-          .from('news')
-          .select('*')
-          .order('published_at', { ascending: false });
+    staleTime: 60_000,
+    queryFn: async ({ pageParam = 0 }) => {
+      const page = pageParam as number;
+      const from = page * NEWS_PAGE_SIZE;
+      const to = from + NEWS_PAGE_SIZE - 1;
 
-        if (error) {
-          console.error('Supabase news fetch error:', error);
-          throw error;
-        }
+      let query = supabase
+        .from('news')
+        .select('*, sources(name, logo_url)')
+        .not('summary_ai', 'is', null)
+        .order('published_at', { ascending: false })
+        .range(from, to);
 
-        console.log('News fetched from DB:', news?.length || 0);
-
-        const { data: sources, error: sourcesError } = await supabase
-          .from('sources')
-          .select('*');
-
-        if (sourcesError) {
-          console.error('Supabase sources fetch error:', sourcesError);
-        }
-
-        const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
-
-        // Filter to only show news with AI summary (processed and relevant)
-        let filteredNews = (news || []).filter(item => item.summary_ai && item.summary_ai.trim().length > 0);
-        console.log('News with summary_ai:', filteredNews.length);
-
-        // Apply region filter
-        if (regionFilter && regionFilter !== 'all') {
-          // Specific region selected by user
-          filteredNews = filteredNews.filter(item => item.region === regionFilter);
-        } else if (preferredRegions && preferredRegions.length > 0) {
-          // Filter by user's preferred regions when 'all' is selected
-          filteredNews = filteredNews.filter(item => 
-            preferredRegions.includes(item.region || 'Brazil')
-          );
-        }
-
-        // Transform to NewsItem format
-        let newsItems: NewsItem[] = filteredNews.map((item) => {
-          const source = item.source_id ? sourceMap.get(item.source_id) : null;
-          
-          // Robust topics parsing with error handling
-          let topics: string[] = [];
-          try {
-            if (Array.isArray(item.topics)) {
-              topics = item.topics as string[];
-            } else if (typeof item.topics === 'string') {
-              topics = JSON.parse(item.topics || '[]');
-            } else if (item.topics && typeof item.topics === 'object') {
-              topics = Object.values(item.topics) as string[];
-            }
-          } catch (parseError) {
-            console.warn('Failed to parse topics for news:', item.id, parseError);
-            topics = [];
-          }
-          
-          return {
-            id: item.id,
-            title: item.title,
-            titleOriginal: item.title_original ?? null,
-            summary: item.summary_ai || '',
-            source: source?.name || extractSourceFromUrl(item.source_url),
-            sourceLogo: source?.logo_url || null,
-            imageUrl: item.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
-            publishedAt: formatTimeAgo(item.published_at),
-            topics: topics,
-            readTime: item.read_time || '3 min',
-            trending: item.is_trending,
-            sourceUrl: item.source_url,
-            audioUrl: item.audio_url,
-            region: item.region || 'Brazil',
-          };
-        });
-
-        // Apply topic filter (with aliases for backward-compat with legacy tags like "FIIs", "REIT")
-        if (topicFilter && topicFilter !== 'Todos') {
-          const aliases: Record<string, string[]> = {
-            'fundos imobiliários': ['fundos imobiliários', 'fundo imobiliário', 'fiis', 'fii', 'reit', 'reits'],
-            'mercado imobiliário': ['mercado imobiliário', 'setor imobiliário'],
-            'comercial': ['comercial', 'corporativo', 'escritório', 'office'],
-            'logística': ['logística', 'logistic', 'galpão', 'warehouse', 'industrial'],
-            'governo': ['governo', 'mcmv', 'minha casa minha vida', 'casa verde amarela'],
-          };
-          const filterLc = topicFilter.toLowerCase();
-          const candidates = aliases[filterLc] ?? [filterLc];
-          newsItems = newsItems.filter(news =>
-            news.topics.some(t => {
-              const tagLc = t.toLowerCase();
-              return candidates.some(c => tagLc === c || tagLc.includes(c) || c.includes(tagLc));
-            })
-          );
-        }
-
-        console.log('Final news items:', newsItems.length);
-        return newsItems;
-      } catch (err) {
-        console.error('useNews query error:', err);
-        throw err;
+      if (regionFilter && regionFilter !== 'all') {
+        query = query.eq('region', regionFilter);
+      } else if (preferredRegions && preferredRegions.length > 0) {
+        query = query.in('region', preferredRegions);
       }
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('Supabase news fetch error:', error);
+        throw error;
+      }
+
+      const rows = data || [];
+
+      let items: NewsItem[] = rows.map((item: any) => {
+        let topics: string[] = [];
+        try {
+          if (Array.isArray(item.topics)) {
+            topics = item.topics as string[];
+          } else if (typeof item.topics === 'string') {
+            topics = JSON.parse(item.topics || '[]');
+          } else if (item.topics && typeof item.topics === 'object') {
+            topics = Object.values(item.topics) as string[];
+          }
+        } catch {
+          topics = [];
+        }
+
+        const source = item.sources || null;
+
+        return {
+          id: item.id,
+          title: item.title,
+          titleOriginal: item.title_original ?? null,
+          summary: item.summary_ai || '',
+          source: source?.name || extractSourceFromUrl(item.source_url),
+          sourceLogo: source?.logo_url || null,
+          imageUrl: item.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
+          publishedAt: formatTimeAgo(item.published_at),
+          topics,
+          readTime: item.read_time || '3 min',
+          trending: item.is_trending,
+          sourceUrl: item.source_url,
+          audioUrl: item.audio_url,
+          region: item.region || 'Brazil',
+        };
+      });
+
+      items = applyTopicFilter(items, topicFilter);
+
+      const nextPage = rows.length === NEWS_PAGE_SIZE ? page + 1 : null;
+      return { items, nextPage };
     },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   });
 };
+
+// Flatten infinite-query pages into a single NewsItem[] for consumers.
+export const flattenNewsPages = (
+  data: { pages: NewsPage[] } | undefined
+): NewsItem[] => data?.pages.flatMap((p) => p.items) ?? [];
 
 // Fetch topics
 export const useTopics = () => {
