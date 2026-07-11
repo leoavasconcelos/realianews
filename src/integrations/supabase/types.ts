@@ -14,6 +14,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      crawl_monitor_runs: {
+        Row: {
+          alert_sent: boolean
+          changed: boolean
+          error_count: number
+          id: string
+          notes: string | null
+          ok_count: number
+          ran_at: string
+          redirect_count: number
+          total_urls: number
+        }
+        Insert: {
+          alert_sent?: boolean
+          changed?: boolean
+          error_count?: number
+          id?: string
+          notes?: string | null
+          ok_count?: number
+          ran_at?: string
+          redirect_count?: number
+          total_urls?: number
+        }
+        Update: {
+          alert_sent?: boolean
+          changed?: boolean
+          error_count?: number
+          id?: string
+          notes?: string | null
+          ok_count?: number
+          ran_at?: string
+          redirect_count?: number
+          total_urls?: number
+        }
+        Relationships: []
+      }
+      crawl_monitor_urls: {
+        Row: {
+          category: string
+          changed: boolean
+          checked_at: string
+          error: string | null
+          final_url: string | null
+          id: string
+          previous_category: string | null
+          previous_status_code: number | null
+          run_id: string
+          status_code: number | null
+          url: string
+        }
+        Insert: {
+          category: string
+          changed?: boolean
+          checked_at?: string
+          error?: string | null
+          final_url?: string | null
+          id?: string
+          previous_category?: string | null
+          previous_status_code?: number | null
+          run_id: string
+          status_code?: number | null
+          url: string
+        }
+        Update: {
+          category?: string
+          changed?: boolean
+          checked_at?: string
+          error?: string | null
+          final_url?: string | null
+          id?: string
+          previous_category?: string | null
+          previous_status_code?: number | null
+          run_id?: string
+          status_code?: number | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crawl_monitor_urls_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "crawl_monitor_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instagram_publications: {
         Row: {
           approved_at: string | null
