@@ -16,12 +16,29 @@ function isValidUrl(url: string): boolean {
   }
 }
 
+// Decodes common HTML entities (numeric and named) that RSS feeds often
+// leave un-decoded in titles/descriptions — without this, users would see
+// raw codes like "&#8216;" instead of a curly quote character.
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ');
+}
+
 // Text sanitization helper
 function sanitizeText(text: string, maxLength: number): string {
-  return text
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/<[^>]*>/g, '')
+  return decodeHtmlEntities(
+    text
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+      .replace(/<[^>]*>/g, '')
+  )
     .trim()
     .substring(0, maxLength);
 }
@@ -242,7 +259,8 @@ const REAL_ESTATE_KEYWORDS_PT = [
   "imóvel", "imóveis", "imobiliário", "imobiliária", "imobiliárias",
   "incorporadora", "incorporadoras", "incorporação",
   // Property types
-  "apartamento", "apartamentos", "casa", "casas", "terreno", "terrenos",
+  "apartamento", "apartamentos", "casa própria", "compra de casa",
+  "aluguel de casa", "terreno", "terrenos",
   "lote", "lotes", "sala comercial", "salas comerciais", "galpão", "galpões",
   "loja", "lojas", "escritório", "escritórios", "cobertura", "coberturas",
   "kitnet", "kitnets", "studio", "studios", "flat", "flats",
@@ -274,8 +292,8 @@ const REAL_ESTATE_KEYWORDS_PT = [
 // Real estate specific keywords for relevance filtering (English)
 const REAL_ESTATE_KEYWORDS_EN = [
   // Core terms
-  "real estate", "property", "properties", "housing", "home", "homes",
-  "residential", "commercial", "industrial", "retail",
+  "real estate", "property", "properties", "housing", "home prices", "home sales",
+  "home buyers", "home builders", "residential", "commercial", "industrial", "retail",
   // Property types
   "apartment", "apartments", "condo", "condos", "condominium",
   "townhouse", "duplex", "mansion", "penthouse", "loft",
