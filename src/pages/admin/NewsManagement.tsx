@@ -305,6 +305,56 @@ export const NewsManagement = () => {
     }
   };
 
+  // Detect a cleanup job that is already running on the server when the
+  // admin page loads, and expose a status card with live progress.
+  const fetchCleanupLock = async () => {
+    const { data: lock, error } = await supabase
+      .from('job_locks')
+      .select('name, acquired_at, metadata')
+      .eq('name', 'relevance_cleanup')
+      .maybeSingle();
+    if (error) {
+      console.error('Error fetching cleanup lock:', error);
+      return null;
+    }
+    return lock;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      const lock = await fetchCleanupLock();
+      if (cancelled) return;
+      if (lock?.name === 'relevance_cleanup') {
+        const meta = (lock.metadata as { initial_backlog?: number; processed_count?: number; removed_count?: number }) || {};
+        const initial = meta.initial_backlog ?? null;
+        setCleanupLock({ name: lock.name, acquired_at: lock.acquired_at, metadata: meta });
+        // If not already following a run, attach the UI to the running one.
+        if (!cleanupRunning) {
+          setCleanupInitialBacklog(initial);
+          setCleanupRunning(true);
+          setCleanupCompleted(false);
+          // Fetch the current remaining count so the progress math matches.
+          const remaining = await fetchCleanupSnapshot();
+          if (!cancelled) {
+            cleanupLastRemainingRef.current = remaining;
+            cleanupStaleCountRef.current = 0;
+          }
+        }
+      } else {
+        setCleanupLock(null);
+      }
+    };
+    check();
+    // Keep the lock status fresh while on the page.
+    const interval = setInterval(check, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Poll progress every 3s while the cleanup is running. Stops when the
   // backlog reaches zero or when the remaining count hasn't decreased for
   // several consecutive polls (server hit its time budget for this run).
