@@ -329,9 +329,13 @@ export const NewsManagement = () => {
             {translating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Languages className="h-4 w-4 mr-2" />}
             {translating ? `Traduzindo... (${translateProgress})` : 'Traduzir títulos pendentes'}
           </Button>
-          <Button variant="outline" size="sm" onClick={handleCleanupBacklog} disabled={cleaningBacklog}>
-            {cleaningBacklog ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            {cleaningBacklog ? `Revisando... (${cleanupProgress})` : 'Faxina de relevância (backlog)'}
+          <Button variant="outline" size="sm" onClick={handleStartCleanup} disabled={startingCleanup}>
+            {startingCleanup ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            {startingCleanup ? 'Iniciando...' : 'Iniciar faxina de relevância'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleCheckCleanupStatus} disabled={checkingCleanupStatus}>
+            {checkingCleanupStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            Ver progresso da faxina
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={exporting}>
             {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
@@ -539,30 +543,31 @@ export const NewsManagement = () => {
         </div>
       )}
 
-      {/* Relevance backlog cleanup results */}
+      {/* Relevance backlog cleanup status */}
       <Dialog open={showCleanupResults} onOpenChange={setShowCleanupResults}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Resultado da faxina de relevância</DialogTitle>
+            <DialogTitle>Progresso da faxina de relevância</DialogTitle>
             <DialogDescription>
-              {cleanupResults.filter(r => r.status === 'removed').length} notícia(s) removida(s) do feed
-              de {cleanupResults.length} revisada(s). As mantidas não precisam de ação.
-              Se alguma remoção parecer errada, reabra a notícia em "Editar" e marque como relevante
-              novamente, ou peça pra eu reprocessar.
+              {cleanupBacklogRemaining === null
+                ? 'Consultando...'
+                : cleanupBacklogRemaining > 0
+                  ? `Ainda faltam ${cleanupBacklogRemaining} notícia(s) por revisar — clique em "Iniciar faxina" de novo pra continuar.`
+                  : 'Backlog totalmente revisado! Nada pendente.'}
+              {' '}Lista abaixo mostra até as 100 remoções mais recentes. As mantidas não precisam de ação.
+              Se alguma remoção parecer errada, reabra a notícia em "Editar" e marque como relevante de novo.
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 space-y-2">
-            {cleanupResults
-              .filter(r => r.status === 'removed')
-              .map((r) => (
-                <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm">
-                  <p className="font-medium">{r.title}</p>
-                  {r.reason && <p className="text-muted-foreground text-xs mt-1">{r.reason}</p>}
-                </div>
-              ))}
-            {cleanupResults.filter(r => r.status === 'removed').length === 0 && (
+            {cleanupRemoved.map((r) => (
+              <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm">
+                <p className="font-medium">{r.title}</p>
+                {r.reason && <p className="text-muted-foreground text-xs mt-1">{r.reason}</p>}
+              </div>
+            ))}
+            {cleanupRemoved.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-6">
-                Nada foi removido nessa faxina — o backlog já estava limpo.
+                Nada foi removido até agora.
               </p>
             )}
           </div>
