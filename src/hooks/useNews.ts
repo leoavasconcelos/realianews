@@ -81,6 +81,23 @@ const formatTimeAgo = (dateString: string): string => {
   return `${diffDays} dias atrás`;
 };
 
+// Fallback images for articles that have no image at all.
+const FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
+  'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800',
+  'https://images.unsplash.com/photo-1560184897-ae75f418493e?w=800',
+  'https://images.unsplash.com/photo-1449844908441-8829872d2607?w=800',
+  'https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?w=800',
+];
+
+const pickFallbackImage = (id: string): string => {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  return FALLBACK_IMAGES[hash % FALLBACK_IMAGES.length];
+};
+
 // Available regions for filtering
 export const REGIONS = [
   { id: 'all', label: 'Todas' },
@@ -177,7 +194,7 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter, prefe
           summary: item.summary_ai || '',
           source: source?.name || extractSourceFromUrl(item.source_url),
           sourceLogo: source?.logo_url || null,
-          imageUrl: item.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
+          imageUrl: item.image_url || pickFallbackImage(item.id),
           publishedAt: formatTimeAgo(item.published_at),
           topics,
           readTime: item.read_time || '3 min',
