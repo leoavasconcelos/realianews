@@ -43,6 +43,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -144,6 +145,7 @@ export const NewsManagement = () => {
   const [showCleanupResults, setShowCleanupResults] = useState(false);
   const [cleanupInitialBacklog, setCleanupInitialBacklog] = useState<number | null>(null);
   const [cleanupRunning, setCleanupRunning] = useState(false);
+  const [cleanupCompleted, setCleanupCompleted] = useState(false);
   const cleanupStaleCountRef = useRef(0);
   const cleanupLastRemainingRef = useRef<number | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
@@ -248,6 +250,7 @@ export const NewsManagement = () => {
 
   const handleStartCleanup = async () => {
     setStartingCleanup(true);
+    setCleanupCompleted(false);
     try {
       // Snapshot the backlog size right before starting so we can show
       // "X de Y processadas" during the run.
@@ -271,6 +274,7 @@ export const NewsManagement = () => {
         cleanupLastRemainingRef.current = initial ?? 0;
         cleanupStaleCountRef.current = 0;
         setCleanupRunning(true);
+        setCleanupCompleted(false);
         setShowCleanupResults(true);
         toast.info(payload.message ?? 'Uma faxina já está em execução — acompanhando o progresso.');
       } else if (payload?.started) {
@@ -279,12 +283,18 @@ export const NewsManagement = () => {
         cleanupLastRemainingRef.current = initial ?? 0;
         cleanupStaleCountRef.current = 0;
         setCleanupRunning(true);
+        setCleanupCompleted(false);
         setShowCleanupResults(true);
         toast.success('Faxina iniciada em segundo plano', {
           description: 'Continua rodando mesmo se você sair dessa tela — o progresso atualiza sozinho.',
         });
       } else {
-        toast.info('Nada pendente pra revisar no momento.');
+        setCleanupInitialBacklog(initial ?? 0);
+        setCleanupBacklogRemaining(initial ?? 0);
+        setCleanupRunning(false);
+        setCleanupCompleted(initial === 0);
+        setShowCleanupResults(true);
+        toast.info(initial === 0 ? 'Backlog já está vazio — nada para revisar.' : 'Faxina concluída!');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
@@ -306,6 +316,7 @@ export const NewsManagement = () => {
         if (cancelled) return;
         if (remaining === 0) {
           setCleanupRunning(false);
+          setCleanupCompleted(true);
           toast.success('Faxina concluída — backlog totalmente revisado.');
           queryClient.invalidateQueries({ queryKey: ['admin-news'] });
           queryClient.invalidateQueries({ queryKey: ['news'] });
@@ -337,7 +348,9 @@ export const NewsManagement = () => {
   const handleCheckCleanupStatus = async () => {
     setCheckingCleanupStatus(true);
     try {
-      await fetchCleanupSnapshot();
+      const remaining = await fetchCleanupSnapshot();
+      setCleanupCompleted(remaining === 0);
+      setCleanupRunning(false);
       setShowCleanupResults(true);
       queryClient.invalidateQueries({ queryKey: ['admin-news'] });
       queryClient.invalidateQueries({ queryKey: ['news'] });
@@ -404,12 +417,14 @@ export const NewsManagement = () => {
             {translating ? `Traduzindo... (${translateProgress})` : 'Traduzir títulos pendentes'}
           </Button>
           <Button variant="outline" size="sm" onClick={handleStartCleanup} disabled={startingCleanup || cleanupRunning}>
-            {startingCleanup || cleanupRunning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            {startingCleanup || cleanupRunning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : cleanupCompleted ? <span className="mr-2">✅</span> : <Sparkles className="h-4 w-4 mr-2" />}
             {cleanupRunning && cleanupInitialBacklog !== null && cleanupBacklogRemaining !== null
               ? `Revisando... ${cleanupInitialBacklog - cleanupBacklogRemaining}/${cleanupInitialBacklog}`
               : startingCleanup
                 ? 'Iniciando...'
-                : 'Iniciar faxina de relevância'}
+                : cleanupCompleted
+                  ? 'Faxina concluída'
+                  : 'Iniciar faxina de relevância'}
           </Button>
           <Button variant="outline" size="sm" onClick={handleCheckCleanupStatus} disabled={checkingCleanupStatus}>
             {checkingCleanupStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
@@ -625,7 +640,13 @@ export const NewsManagement = () => {
       <Dialog open={showCleanupResults} onOpenChange={setShowCleanupResults}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Progresso da faxina de relevância</DialogTitle>
+            <DialogTitle>
+              {cleanupCompleted
+                ? '✅ Faxina de relevância concluída'
+                : cleanupRunning
+                  ? 'Progresso da faxina de relevância'
+                  : 'Faxina de relevância'}
+            </DialogTitle>
             <DialogDescription>
               {cleanupBacklogRemaining === null
                 ? 'Consultando...'
@@ -638,6 +659,14 @@ export const NewsManagement = () => {
               Se alguma remoção parecer errada, reabra a notícia em "Editar" e marque como relevante de novo.
             </DialogDescription>
           </DialogHeader>
+          {cleanupCompleted && (
+            <Alert className="border-green-600/50 bg-green-600/10 text-green-700 dark:text-green-400">
+              <AlertTitle>Backlog revisado com sucesso</AlertTitle>
+              <AlertDescription>
+                Todas as notícias pendentes foram reavaliadas. As removidas aparecem na lista abaixo.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="overflow-y-auto flex-1 space-y-2">
             {cleanupRemoved.map((r) => (
               <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm">
