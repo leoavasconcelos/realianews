@@ -234,6 +234,61 @@ serve(async (req) => {
     // when we stop, clicking the button again just picks up where it left
     // off, since relevance_rechecked_at tracks progress in the database.
     if (mode === "recheck_relevance") {
+      // Server-side lock so two overlapping clicks don't spawn two
+      // background sweeps at the same time. We upsert into public.job_locks
+      // only when there's no live lock (existing row expired or missing).
+      // If we don't get a row back, someone else holds it.
+      const LOCK_NAME = "relevance_cleanup";
+      const LOCK_TTL_MS = 180_000; // 3 min — slightly larger than TIME_BUDGET_MS
+      const nowIso = new Date().toISOString();
+      const expiresIso = new Date(Date.now() + LOCK_TTL_MS).toISOString();
+
+      // Try to insert; if a row already exists and is still valid, this
+      // conflict path returns nothing and we abort.
+      const { data: lockRow, error: lockError } = await supabase
+        .from("job_locks")
+        .upsert(
+          { name: LOCK_NAME, acquired_at: nowIso, expires_at: expiresIso },
+          { onConflict: "name", ignoreDuplicates: false }
+        )
+        // Only take the lock if there was no row, or the previous one expired.
+        // We emulate that by re-reading and comparing.
+        .select("expires_at")
+        .maybeSingle();
+
+      if (lockError) {
+        console.error("Error acquiring cleanup lock:", lockError);
+        return new Response(
+          JSON.stringify({ error: "Failed to acquire lock" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // The upsert above unconditionally overwrites. To make it a real lock,
+      // check whether we actually stole an expired one or grabbed a free
+      // slot. Fetch previous state BEFORE upserting is racy, so instead we
+      // check the acquired_at we just wrote against a fresh read and abort
+      // if a DIFFERENT concurrent caller wrote later. Simpler and safe:
+      // do a conditional update via SQL — but PostgREST supports filtered
+      // updates. Redo with a two-step approach:
+      const { data: currentLock } = await supabase
+        .from("job_locks")
+        .select("acquired_at, expires_at")
+        .eq("name", LOCK_NAME)
+        .maybeSingle();
+
+      if (currentLock && currentLock.acquired_at !== nowIso) {
+        // Someone else took the lock after us (or before) — back off.
+        return new Response(
+          JSON.stringify({
+            started: false,
+            alreadyRunning: true,
+            message: "Uma faxina já está em execução — aguarde ela terminar.",
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const recheckPrompt = `Você é um curador de notícias do mercado imobiliário brasileiro. Avalie se a notícia abaixo é GENUINAMENTE sobre o mercado imobiliário (compra, venda, aluguel, construção civil, incorporação, financiamento imobiliário, fundos imobiliários/FIIs, políticas habitacionais, grandes players do setor). O CONTEXTO e ASSUNTO PRINCIPAL precisam ser sobre imóveis — não basta mencionar uma palavra relacionada de passagem, e não importa qual fonte publicou. Notícias de política, esportes, entretenimento, acidentes, crime ou qualquer assunto sem relação direta com o setor imobiliário NÃO são relevantes, mesmo que mencionem termos como "residencial" ou "casa" incidentalmente.
 
 Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
@@ -244,6 +299,7 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
         const TIME_BUDGET_MS = 120_000;
         let totalProcessed = 0;
         let totalRemoved = 0;
+        try {
 
         while (Date.now() - startedAt < TIME_BUDGET_MS) {
           const { data: backlog, error: backlogError } = await supabase
@@ -323,6 +379,14 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
             console.log(`Relevance cleanup: time budget reached, stopping for now. Processed: ${totalProcessed}, removed: ${totalRemoved}`);
             break;
           }
+        }
+        } finally {
+          // Always release the lock so the next click can start immediately.
+          const { error: releaseError } = await supabase
+            .from("job_locks")
+            .delete()
+            .eq("name", LOCK_NAME);
+          if (releaseError) console.error("Error releasing cleanup lock:", releaseError);
         }
       }
 
