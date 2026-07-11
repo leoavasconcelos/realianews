@@ -15,10 +15,39 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { format, subDays, startOfDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { BarChart3, TrendingUp, Users, Bookmark, Newspaper, Radio } from 'lucide-react';
 import { StatsCard } from '@/components/admin/StatsCard';
+
+interface DayCount {
+  dateStr: string;
+  count: number;
+}
+
+interface NamedCount {
+  name: string;
+  count: number;
+}
+
+interface RegionCount {
+  region: string;
+  count: number;
+}
+
+interface AdminAnalytics {
+  totalNews: number;
+  totalUsers: number;
+  totalSaves: number;
+  totalSources: number;
+  activeSources: number;
+  totalTopics: number;
+  newsByDay: DayCount[];
+  usersByDay: DayCount[];
+  savesByDay: DayCount[];
+  newsBySource: NamedCount[];
+  newsByRegion: RegionCount[];
+  usersByRegion: RegionCount[];
+  topSavedNews: { id: string; count: number }[];
+}
 
 const COLORS = [
   'hsl(var(--primary))', 
@@ -32,126 +61,10 @@ export const Analytics = () => {
   // Fetch comprehensive analytics data
   const { data: analytics, isLoading } = useQuery({
     queryKey: ['admin-analytics'],
-    queryFn: async () => {
-      // Get all data in parallel
-      const [
-        newsResult,
-        profilesResult,
-        savedItemsResult,
-        sourcesResult,
-        topicsResult,
-      ] = await Promise.all([
-        supabase.from('news').select('id, published_at, region, source_id'),
-        supabase.from('profiles').select('id, created_at, preferred_regions, interests'),
-        supabase.from('user_saved_items').select('id, saved_at, news_id, user_id'),
-        supabase.from('sources').select('id, name, is_active'),
-        supabase.from('topics').select('id, name, slug'),
-      ]);
-
-      const news = newsResult.data || [];
-      const profiles = profilesResult.data || [];
-      const savedItems = savedItemsResult.data || [];
-      const sources = sourcesResult.data || [];
-      const topics = topicsResult.data || [];
-
-      // Calculate news by day (last 30 days)
-      const last30Days = Array.from({ length: 30 }, (_, i) => {
-        const date = startOfDay(subDays(new Date(), 29 - i));
-        return {
-          date,
-          dateStr: format(date, 'dd/MM'),
-          count: 0,
-        };
-      });
-
-      news.forEach(n => {
-        const newsDate = startOfDay(new Date(n.published_at));
-        const dayData = last30Days.find(d => d.date.getTime() === newsDate.getTime());
-        if (dayData) dayData.count++;
-      });
-
-      // Calculate users by day (last 30 days)
-      const usersLast30Days = Array.from({ length: 30 }, (_, i) => {
-        const date = startOfDay(subDays(new Date(), 29 - i));
-        return {
-          date,
-          dateStr: format(date, 'dd/MM'),
-          count: 0,
-        };
-      });
-
-      profiles.forEach(p => {
-        const userDate = startOfDay(new Date(p.created_at));
-        const dayData = usersLast30Days.find(d => d.date.getTime() === userDate.getTime());
-        if (dayData) dayData.count++;
-      });
-
-      // Calculate saves by day (last 30 days)
-      const savesLast30Days = Array.from({ length: 30 }, (_, i) => {
-        const date = startOfDay(subDays(new Date(), 29 - i));
-        return {
-          date,
-          dateStr: format(date, 'dd/MM'),
-          count: 0,
-        };
-      });
-
-      savedItems.forEach(s => {
-        const saveDate = startOfDay(new Date(s.saved_at));
-        const dayData = savesLast30Days.find(d => d.date.getTime() === saveDate.getTime());
-        if (dayData) dayData.count++;
-      });
-
-      // News by source
-      const newsBySource: Record<string, number> = {};
-      news.forEach(n => {
-        const source = sources.find(s => s.id === n.source_id);
-        const sourceName = source?.name || 'Unknown';
-        newsBySource[sourceName] = (newsBySource[sourceName] || 0) + 1;
-      });
-
-      // News by region
-      const newsByRegion: Record<string, number> = {};
-      news.forEach(n => {
-        const region = n.region || 'Unknown';
-        newsByRegion[region] = (newsByRegion[region] || 0) + 1;
-      });
-
-      // Users by region preference
-      const usersByRegion: Record<string, number> = {};
-      profiles.forEach(p => {
-        const regions = Array.isArray(p.preferred_regions) ? p.preferred_regions : [];
-        regions.forEach((region: string) => {
-          usersByRegion[region] = (usersByRegion[region] || 0) + 1;
-        });
-      });
-
-      // Top saved news
-      const savesByNews: Record<string, number> = {};
-      savedItems.forEach(s => {
-        savesByNews[s.news_id] = (savesByNews[s.news_id] || 0) + 1;
-      });
-
-      const topSavedNewsIds = Object.entries(savesByNews)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([id, count]) => ({ id, count }));
-
-      return {
-        totalNews: news.length,
-        totalUsers: profiles.length,
-        totalSaves: savedItems.length,
-        totalSources: sources.length,
-        activeSources: sources.filter(s => s.is_active).length,
-        totalTopics: topics.length,
-        newsByDay: last30Days,
-        usersByDay: usersLast30Days,
-        savesByDay: savesLast30Days,
-        newsBySource: Object.entries(newsBySource).map(([name, count]) => ({ name, count })),
-        newsByRegion: Object.entries(newsByRegion).map(([region, count]) => ({ region, count })),
-        usersByRegion: Object.entries(usersByRegion).map(([region, count]) => ({ region, count })),
-        topSavedNews: topSavedNewsIds,
-      };
+    queryFn: async (): Promise<AdminAnalytics> => {
+      const { data, error } = await supabase.rpc('get_admin_analytics');
+      if (error) throw error;
+      return data as unknown as AdminAnalytics;
     },
     staleTime: 60000, // 1 minute
   });
