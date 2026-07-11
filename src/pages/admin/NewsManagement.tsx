@@ -481,7 +481,9 @@ export const NewsManagement = () => {
                 ? 'Iniciando...'
                 : cleanupCompleted
                   ? 'Faxina concluída'
-                  : 'Iniciar faxina de relevância'}
+                  : cleanupBacklogRemaining && cleanupBacklogRemaining > 0
+                    ? `Iniciar faxina (${cleanupBacklogRemaining.toLocaleString('pt-BR')} pendente${cleanupBacklogRemaining === 1 ? '' : 's'})`
+                    : 'Iniciar faxina de relevância'}
           </Button>
           <Button variant="outline" size="sm" onClick={handleCheckCleanupStatus} disabled={checkingCleanupStatus}>
             {checkingCleanupStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
