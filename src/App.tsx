@@ -42,6 +42,9 @@ const InstagramAutomation = lazy(() =>
 const CrawlMonitor = lazy(() =>
   import("./pages/admin/CrawlMonitor").then((m) => ({ default: m.CrawlMonitor }))
 );
+const RejectedNews = lazy(() =>
+  import("./pages/admin/RejectedNews").then((m) => ({ default: m.RejectedNews }))
+);
 
 const queryClient = new QueryClient();
 
@@ -83,6 +86,7 @@ const App = () => (
                 <Route path="analytics" element={<Suspense fallback={<AdminFallback />}><Analytics /></Suspense>} />
                 <Route path="instagram" element={<Suspense fallback={<AdminFallback />}><InstagramAutomation /></Suspense>} />
                 <Route path="crawl" element={<Suspense fallback={<AdminFallback />}><CrawlMonitor /></Suspense>} />
+                <Route path="rejected" element={<Suspense fallback={<AdminFallback />}><RejectedNews /></Suspense>} />
               </Route>
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
