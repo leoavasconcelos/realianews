@@ -18,7 +18,8 @@ import NotificationCenter from '@/components/NotificationCenter';
 import ShareSheet from '@/components/ShareSheet';
 import { Compass, GraduationCap, Users, Loader2, Bell } from 'lucide-react';
 import { toast } from 'sonner';
-import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType } from '@/hooks/useNews';
+import { useNews, useTopics, useSaveNews, useUnsaveNews, useSavedItems, RegionFilter as RegionFilterType, flattenNewsPages } from '@/hooks/useNews';
+import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -149,7 +150,14 @@ const Index = () => {
     }
   }, [activeTab, queryClient]);
 
-  const { data: news, isLoading: newsLoading } = useNews(activeFilter, activeRegion, preferredRegions);
+  const {
+    data: newsPages,
+    isLoading: newsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useNews(activeFilter, activeRegion, preferredRegions);
+  const news = flattenNewsPages(newsPages);
   const { data: topics } = useTopics();
   const { data: savedItems } = useSavedItems(user?.id);
   const saveNewsMutation = useSaveNews();
@@ -264,11 +272,29 @@ const Index = () => {
                       </div>
                     ))}
                     
-                    {(!news || news.length === 0) && (
+                    {news.length === 0 && (
                       <div className="text-center py-12">
                         <p className="text-muted-foreground">Nenhuma notícia encontrada para este filtro.</p>
                       </div>
                     )}
+                  </div>
+                )}
+                {hasNextPage && !newsLoading && (
+                  <div className="flex justify-center py-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                    >
+                      {isFetchingNextPage ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Carregando...
+                        </>
+                      ) : (
+                        'Carregar mais notícias'
+                      )}
+                    </Button>
                   </div>
                 )}
               </main>
