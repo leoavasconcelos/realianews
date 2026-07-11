@@ -228,6 +228,7 @@ export type Database = {
           full_text: string | null
           id: string
           image_url: string | null
+          is_relevant: boolean | null
           is_trending: boolean
           published_at: string
           read_time: string | null
@@ -246,6 +247,7 @@ export type Database = {
           full_text?: string | null
           id?: string
           image_url?: string | null
+          is_relevant?: boolean | null
           is_trending?: boolean
           published_at?: string
           read_time?: string | null
@@ -264,6 +266,7 @@ export type Database = {
           full_text?: string | null
           id?: string
           image_url?: string | null
+          is_relevant?: boolean | null
           is_trending?: boolean
           published_at?: string
           read_time?: string | null
