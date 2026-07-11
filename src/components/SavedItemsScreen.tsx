@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Bookmark, Loader2, Download } from 'lucide-react';
-import { useNews, useSavedItems, useSaveNews, useUnsaveNews } from '@/hooks/useNews';
+import { useNews, useSavedItems, useSaveNews, useUnsaveNews, flattenNewsPages } from '@/hooks/useNews';
 import { useAuth } from '@/hooks/useAuth';
 import NewsCard, { NewsItem } from './NewsCard';
 import ShareSheet from './ShareSheet';
@@ -16,12 +16,13 @@ const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onNewsClick, onLogi
   const { user } = useAuth();
   const [shareOpen, setShareOpen] = useState(false);
   const [shareItem, setShareItem] = useState<NewsItem | null>(null);
-  const { data: allNews, isLoading: newsLoading } = useNews();
+  const { data: newsPages, isLoading: newsLoading } = useNews();
+  const allNews = flattenNewsPages(newsPages);
   const { data: savedItems, isLoading: savedLoading } = useSavedItems(user?.id);
   const saveNewsMutation = useSaveNews();
   const unsaveNewsMutation = useUnsaveNews();
 
-  const savedNews = allNews?.filter(n => savedItems?.includes(n.id)) || [];
+  const savedNews = allNews.filter(n => savedItems?.includes(n.id));
   const isLoading = newsLoading || savedLoading;
 
   const handleSave = async (id: string) => {
