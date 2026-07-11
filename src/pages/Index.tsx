@@ -357,6 +357,11 @@ const Index = () => {
 
   return (
     <div className="bg-background min-h-screen">
+      <Seo
+        title="REalia — Inteligência do Mercado Imobiliário"
+        description="Notícias personalizadas por IA, resumos inteligentes e análises do setor imobiliário brasileiro."
+        path="/"
+      />
       {/* Onboarding Modal */}
       {showOnboarding && (
         <OnboardingModal 
