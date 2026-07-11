@@ -224,16 +224,19 @@ export type Database = {
         Row: {
           acquired_at: string
           expires_at: string
+          metadata: Json | null
           name: string
         }
         Insert: {
           acquired_at?: string
           expires_at: string
+          metadata?: Json | null
           name: string
         }
         Update: {
           acquired_at?: string
           expires_at?: string
+          metadata?: Json | null
           name?: string
         }
         Relationships: []
