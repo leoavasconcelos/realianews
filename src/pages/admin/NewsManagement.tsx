@@ -519,6 +519,25 @@ export const NewsManagement = () => {
                     <> · <span className="font-semibold">{cleanupBacklogRemaining.toLocaleString('pt-BR')}</span> pendente(s)</>
                   )}
                 </p>
+                {(() => {
+                  const processed = cleanupLock.metadata.processed_count ?? 0;
+                  const remaining = cleanupBacklogRemaining ?? null;
+                  if (remaining == null || remaining === 0 || processed < 3) return null;
+                  const elapsedMs = Date.now() - new Date(cleanupLock.acquired_at).getTime();
+                  if (elapsedMs <= 0) return null;
+                  const ratePerMs = processed / elapsedMs;
+                  if (!isFinite(ratePerMs) || ratePerMs <= 0) return null;
+                  const etaMs = remaining / ratePerMs;
+                  const etaMin = Math.max(1, Math.round(etaMs / 60_000));
+                  const etaLabel = etaMin >= 60
+                    ? `~${Math.round(etaMin / 60)}h ${etaMin % 60}min`
+                    : `~${etaMin} min`;
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      Estimativa: {etaLabel} para zerar o backlog ({Math.round(ratePerMs * 60_000)}/min).
+                    </p>
+                  );
+                })()}
               </div>
               <Button size="sm" onClick={() => setShowCleanupResults(true)}>
                 Acompanhar execução
