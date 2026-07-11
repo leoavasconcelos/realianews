@@ -841,7 +841,12 @@ serve(async (req) => {
             continue;
           }
 
-          const validImageUrl = article.imageUrl && isValidUrl(article.imageUrl) ? article.imageUrl : null;
+          // Prefer the real image from the article's own page (og:image) over
+          // whatever the RSS feed provided — some sources reuse one generic
+          // thumbnail across many articles in their feed.
+          const pageImageUrl = await fetchArticleOgImage(article.link);
+          const candidateImageUrl = pageImageUrl || article.imageUrl;
+          const validImageUrl = candidateImageUrl && isValidUrl(candidateImageUrl) ? candidateImageUrl : null;
 
           // Translate the title to PT-BR for international (non-Brazil) feeds.
           // Preserve the original (English/foreign) title in `title_original`.
