@@ -807,9 +807,20 @@ export const NewsManagement = () => {
           )}
           <div className="overflow-y-auto flex-1 space-y-2">
             {cleanupRemoved.map((r) => (
-              <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm">
-                <p className="font-medium">{r.title}</p>
-                {r.reason && <p className="text-muted-foreground text-xs mt-1">{r.reason}</p>}
+              <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium">{r.title}</p>
+                  {r.reason && <p className="text-muted-foreground text-xs mt-1">{r.reason}</p>}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => handleRestoreArticle(r.id)}
+                  disabled={restoringId === r.id}
+                >
+                  {restoringId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Restaurar'}
+                </Button>
               </div>
             ))}
             {cleanupRemoved.length === 0 && (
