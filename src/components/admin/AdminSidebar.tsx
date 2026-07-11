@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Instagram,
-  Activity
+  Activity,
+  ShieldOff
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -71,6 +72,12 @@ const menuItems = [
     label: 'Monitor de Crawl',
     icon: Activity,
     adminOnly: true
+  },
+  {
+    path: '/admin/rejected',
+    label: 'Rejeitadas (IA)',
+    icon: ShieldOff,
+    adminOnly: false
   },
 ];
 
