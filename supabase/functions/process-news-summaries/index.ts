@@ -269,7 +269,7 @@ serve(async (req) => {
               alreadyRunning: true,
               message: "Uma faxina de relevância já está em execução — aguarde ela terminar.",
             }),
-            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
         console.error("Error acquiring cleanup lock:", lockError);
