@@ -224,14 +224,15 @@ serve(async (req) => {
       ? { data: [], error: null }
       : await supabase
           .from("news")
-          .select("id, title, full_text, topics, region, summary_ai")
+          .select("id, title, full_text, topics, region, summary_ai, is_relevant")
           .is("summary_ai", null)
+          .is("is_relevant", null)
           .limit(10);
 
     // Backfill: international news that haven't been translated yet (title_original is null)
     const { data: untranslatedIntl, error: untranslatedError } = await supabase
       .from("news")
-      .select("id, title, full_text, topics, region, summary_ai")
+      .select("id, title, full_text, topics, region, summary_ai, is_relevant")
       .neq("region", "Brazil")
       .is("title_original", null)
       .limit(40);
