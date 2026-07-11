@@ -144,6 +144,7 @@ export const NewsManagement = () => {
   const [showCleanupResults, setShowCleanupResults] = useState(false);
   const [cleanupInitialBacklog, setCleanupInitialBacklog] = useState<number | null>(null);
   const [cleanupRunning, setCleanupRunning] = useState(false);
+  const [cleanupCompleted, setCleanupCompleted] = useState(false);
   const cleanupStaleCountRef = useRef(0);
   const cleanupLastRemainingRef = useRef<number | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
