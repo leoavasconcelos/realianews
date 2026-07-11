@@ -41,7 +41,7 @@ export const Analytics = () => {
         sourcesResult,
         topicsResult,
       ] = await Promise.all([
-        supabase.from('news').select('id, published_at, region, topics, source_id'),
+        supabase.from('news').select('id, published_at, region, source_id'),
         supabase.from('profiles').select('id, created_at, preferred_regions, interests'),
         supabase.from('user_saved_items').select('id, saved_at, news_id, user_id'),
         supabase.from('sources').select('id, name, is_active'),
