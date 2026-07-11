@@ -151,6 +151,35 @@ export const NewsManagement = () => {
   const cleanupStaleCountRef = useRef(0);
   const cleanupLastRemainingRef = useRef<number | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+
+  const handleRestoreArticle = async (id: string) => {
+    setRestoringId(id);
+    try {
+      // Put the article back into the "needs processing" queue (same state
+      // a brand-new article is in) and immediately trigger a processing
+      // run so it doesn't have to wait for the next scheduled cron.
+      const { error: resetError } = await supabase
+        .from('news')
+        .update({ is_relevant: null, relevance_rechecked_at: null })
+        .eq('id', id);
+      if (resetError) throw resetError;
+
+      const { error: processError } = await supabase.functions.invoke('process-news-summaries', {
+        body: { mode: 'all' },
+      });
+      if (processError) throw processError;
+
+      toast.success('Notícia restaurada — resumo sendo gerado, deve voltar ao feed em instantes');
+      queryClient.invalidateQueries({ queryKey: ['admin-news'] });
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error('Erro ao restaurar: ' + message);
+    } finally {
+      setRestoringId(null);
+    }
+  };
 
   const handleRegenerateAnalysis = async (id: string) => {
     setRegeneratingId(id);
@@ -628,6 +657,21 @@ export const NewsManagement = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
+                        {item.is_relevant === false && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRestoreArticle(item.id)}
+                            disabled={restoringId === item.id}
+                            title="Restaurar pro feed (gera resumo novo)"
+                          >
+                            {restoringId === item.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <span className="text-xs">↺</span>
+                            )}
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -778,9 +822,20 @@ export const NewsManagement = () => {
           )}
           <div className="overflow-y-auto flex-1 space-y-2">
             {cleanupRemoved.map((r) => (
-              <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm">
-                <p className="font-medium">{r.title}</p>
-                {r.reason && <p className="text-muted-foreground text-xs mt-1">{r.reason}</p>}
+              <div key={r.id} className="p-3 rounded-lg border border-border bg-destructive/5 text-sm flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium">{r.title}</p>
+                  {r.reason && <p className="text-muted-foreground text-xs mt-1">{r.reason}</p>}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => handleRestoreArticle(r.id)}
+                  disabled={restoringId === r.id}
+                >
+                  {restoringId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Restaurar'}
+                </Button>
               </div>
             ))}
             {cleanupRemoved.length === 0 && (
