@@ -51,20 +51,34 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // REalia custom colors
+        // REalia custom colors — kept as aliases for the new palette so any
+        // existing bg-navy / text-teal usage still resolves to something
+        // sensible instead of an undefined CSS variable.
         navy: {
-          DEFAULT: "hsl(var(--navy))",
-          light: "hsl(var(--navy-light))",
+          DEFAULT: "hsl(var(--bottle-green))",
+          light: "hsl(var(--bottle-green-light))",
         },
         graphite: {
-          DEFAULT: "hsl(var(--graphite))",
-          light: "hsl(var(--graphite-light))",
+          DEFAULT: "hsl(var(--ink-light))",
+          light: "hsl(var(--ink-light))",
         },
         "burnt-orange": {
-          DEFAULT: "hsl(var(--burnt-orange))",
-          light: "hsl(var(--burnt-orange-light))",
+          DEFAULT: "hsl(var(--brass))",
+          light: "hsl(var(--brass-light))",
         },
-        teal: "hsl(var(--teal))",
+        teal: "hsl(var(--brass))",
+        "bottle-green": {
+          DEFAULT: "hsl(var(--bottle-green))",
+          light: "hsl(var(--bottle-green-light))",
+        },
+        brass: {
+          DEFAULT: "hsl(var(--brass))",
+          light: "hsl(var(--brass-light))",
+        },
+        ink: {
+          DEFAULT: "hsl(var(--ink))",
+          light: "hsl(var(--ink-light))",
+        },
         success: "hsl(var(--success))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
