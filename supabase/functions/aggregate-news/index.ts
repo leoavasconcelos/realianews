@@ -168,7 +168,7 @@ const RSS_FEEDS = [
   // International sources - Asia
   {
     name: "South China Morning Post Property",
-    url: "https://www.scmp.com/rss/91/feed",
+    url: "https://www.scmp.com/rss/96/feed",
     sourceId: null as string | null,
     region: "World",
   },
