@@ -146,6 +146,7 @@ export const NewsManagement = () => {
   const [cleanupInitialBacklog, setCleanupInitialBacklog] = useState<number | null>(null);
   const [cleanupRunning, setCleanupRunning] = useState(false);
   const [cleanupCompleted, setCleanupCompleted] = useState(false);
+  const [cleanupLock, setCleanupLock] = useState<{ name: string; acquired_at: string; metadata: { initial_backlog?: number; processed_count?: number; removed_count?: number } } | null>(null);
   const cleanupStaleCountRef = useRef(0);
   const cleanupLastRemainingRef = useRef<number | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
