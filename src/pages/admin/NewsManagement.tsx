@@ -142,6 +142,10 @@ export const NewsManagement = () => {
   const [cleanupBacklogRemaining, setCleanupBacklogRemaining] = useState<number | null>(null);
   const [cleanupRemoved, setCleanupRemoved] = useState<Array<{ id: string; title: string; reason: string | null; relevance_rechecked_at: string }>>([]);
   const [showCleanupResults, setShowCleanupResults] = useState(false);
+  const [cleanupInitialBacklog, setCleanupInitialBacklog] = useState<number | null>(null);
+  const [cleanupRunning, setCleanupRunning] = useState(false);
+  const cleanupStaleCountRef = useRef(0);
+  const cleanupLastRemainingRef = useRef<number | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   const handleRegenerateAnalysis = async (id: string) => {
@@ -216,17 +220,57 @@ export const NewsManagement = () => {
     }
   };
 
+  const fetchCleanupSnapshot = async () => {
+    const { count: remaining } = await supabase
+      .from('news')
+      .select('id', { count: 'exact', head: true })
+      .not('summary_ai', 'is', null)
+      .is('relevance_rechecked_at', null);
+
+    const { data: removed } = await supabase
+      .from('news')
+      .select('id, title, rejection_reason, relevance_rechecked_at')
+      .eq('is_relevant', false)
+      .order('relevance_rechecked_at', { ascending: false })
+      .limit(100);
+
+    setCleanupBacklogRemaining(remaining ?? 0);
+    setCleanupRemoved(
+      (removed ?? []).map((r) => ({
+        id: r.id,
+        title: r.title,
+        reason: r.rejection_reason,
+        relevance_rechecked_at: r.relevance_rechecked_at,
+      }))
+    );
+    return remaining ?? 0;
+  };
+
   const handleStartCleanup = async () => {
     setStartingCleanup(true);
     try {
+      // Snapshot the backlog size right before starting so we can show
+      // "X de Y processadas" during the run.
+      const { count: initial } = await supabase
+        .from('news')
+        .select('id', { count: 'exact', head: true })
+        .not('summary_ai', 'is', null)
+        .is('relevance_rechecked_at', null);
+
       const { data: result, error } = await supabase.functions.invoke('process-news-summaries', {
         body: { mode: 'recheck_relevance' },
       });
       if (error) throw error;
 
       if ((result as { started?: boolean })?.started) {
+        setCleanupInitialBacklog(initial ?? 0);
+        setCleanupBacklogRemaining(initial ?? 0);
+        cleanupLastRemainingRef.current = initial ?? 0;
+        cleanupStaleCountRef.current = 0;
+        setCleanupRunning(true);
+        setShowCleanupResults(true);
         toast.success('Faxina iniciada em segundo plano', {
-          description: 'Continua rodando mesmo se você sair dessa tela. Volte em alguns minutos e clique em "Ver progresso da faxina".',
+          description: 'Continua rodando mesmo se você sair dessa tela — o progresso atualiza sozinho.',
         });
       } else {
         toast.info('Nada pendente pra revisar no momento.');
@@ -239,31 +283,50 @@ export const NewsManagement = () => {
     }
   };
 
+  // Poll progress every 3s while the cleanup is running. Stops when the
+  // backlog reaches zero or when the remaining count hasn't decreased for
+  // several consecutive polls (server hit its time budget for this run).
+  useEffect(() => {
+    if (!cleanupRunning) return;
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      try {
+        const remaining = await fetchCleanupSnapshot();
+        if (cancelled) return;
+        if (remaining === 0) {
+          setCleanupRunning(false);
+          toast.success('Faxina concluída — backlog totalmente revisado.');
+          queryClient.invalidateQueries({ queryKey: ['admin-news'] });
+          queryClient.invalidateQueries({ queryKey: ['news'] });
+          return;
+        }
+        if (remaining === cleanupLastRemainingRef.current) {
+          cleanupStaleCountRef.current += 1;
+          // ~30s of no progress → server likely paused after time budget
+          if (cleanupStaleCountRef.current >= 10) {
+            setCleanupRunning(false);
+            toast.info(`Faxina pausada com ${remaining} pendente(s). Clique em "Iniciar" de novo pra continuar.`);
+          }
+        } else {
+          cleanupStaleCountRef.current = 0;
+          cleanupLastRemainingRef.current = remaining;
+          queryClient.invalidateQueries({ queryKey: ['admin-news'] });
+        }
+      } catch (err) {
+        console.error('cleanup poll error:', err);
+      }
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleanupRunning]);
+
   const handleCheckCleanupStatus = async () => {
     setCheckingCleanupStatus(true);
     try {
-      const { count: remaining } = await supabase
-        .from('news')
-        .select('id', { count: 'exact', head: true })
-        .not('summary_ai', 'is', null)
-        .is('relevance_rechecked_at', null);
-
-      const { data: removed } = await supabase
-        .from('news')
-        .select('id, title, rejection_reason, relevance_rechecked_at')
-        .eq('is_relevant', false)
-        .order('relevance_rechecked_at', { ascending: false })
-        .limit(100);
-
-      setCleanupBacklogRemaining(remaining ?? 0);
-      setCleanupRemoved(
-        (removed ?? []).map((r) => ({
-          id: r.id,
-          title: r.title,
-          reason: r.rejection_reason,
-          relevance_rechecked_at: r.relevance_rechecked_at,
-        }))
-      );
+      await fetchCleanupSnapshot();
       setShowCleanupResults(true);
       queryClient.invalidateQueries({ queryKey: ['admin-news'] });
       queryClient.invalidateQueries({ queryKey: ['news'] });
