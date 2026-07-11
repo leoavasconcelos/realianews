@@ -198,13 +198,15 @@ serve(async (req) => {
 
     const supabase = supabaseAdmin;
 
-    let mode: "all" | "titles_only" = "all";
+    let mode: "all" | "titles_only" | "recheck_relevance" = "all";
     const rawBody = await req.text();
     if (rawBody) {
       try {
         const body = JSON.parse(rawBody) as { mode?: string };
         if (body.mode === "titles_only") {
           mode = "titles_only";
+        } else if (body.mode === "recheck_relevance") {
+          mode = "recheck_relevance";
         } else if (body.mode && body.mode !== "all") {
           return new Response(
             JSON.stringify({ error: "Invalid mode" }),
@@ -217,6 +219,109 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    }
+
+    // One-time backlog cleanup: re-evaluate articles that already have a
+    // summary (published before the relevance-check existed) and remove
+    // the ones that don't actually belong in a real estate feed.
+    if (mode === "recheck_relevance") {
+      const { data: backlog, error: backlogError } = await supabase
+        .from("news")
+        .select("id, title, full_text, summary_ai, region")
+        .not("summary_ai", "is", null)
+        .is("relevance_rechecked_at", null)
+        .order("created_at", { ascending: true })
+        .limit(10);
+
+      if (backlogError) {
+        console.error("Error fetching backlog:", backlogError);
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch backlog" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!backlog || backlog.length === 0) {
+        return new Response(
+          JSON.stringify({ message: "No backlog articles left to recheck", processed: 0, results: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const recheckPrompt = `Você é um curador de notícias do mercado imobiliário brasileiro. Avalie se a notícia abaixo é GENUINAMENTE sobre o mercado imobiliário (compra, venda, aluguel, construção civil, incorporação, financiamento imobiliário, fundos imobiliários/FIIs, políticas habitacionais, grandes players do setor). O CONTEXTO e ASSUNTO PRINCIPAL precisam ser sobre imóveis — não basta mencionar uma palavra relacionada de passagem, e não importa qual fonte publicou. Notícias de política, esportes, entretenimento, acidentes, crime ou qualquer assunto sem relação direta com o setor imobiliário NÃO são relevantes, mesmo que mencionem termos como "residencial" ou "casa" incidentalmente.
+
+Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
+{"relevant": true} ou {"relevant": false, "reason": "explicação curta de 1 frase"}`;
+
+      const recheckResults: Array<{ id: string; title: string; status: string; reason?: string }> = [];
+
+      for (const item of backlog) {
+        try {
+          const content = (item.full_text || item.summary_ai || item.title || "").substring(0, 3000);
+          const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-3-flash-preview",
+              messages: [
+                { role: "system", content: recheckPrompt },
+                { role: "user", content: `Título: ${item.title}\n\nConteúdo: ${content}` },
+              ],
+              max_tokens: 150,
+              temperature: 0.1,
+            }),
+          });
+
+          let relevant = true;
+          let reason: string | undefined;
+
+          if (aiResponse.ok) {
+            const aiData = await aiResponse.json();
+            const raw = aiData.choices?.[0]?.message?.content?.trim() || "";
+            try {
+              const cleaned = raw.replace(/^```json\s*|^```\s*|```$/gm, "").trim();
+              const parsed = JSON.parse(cleaned);
+              if (typeof parsed.relevant === "boolean") relevant = parsed.relevant;
+              if (typeof parsed.reason === "string") reason = parsed.reason;
+            } catch {
+              relevant = true;
+            }
+          } else {
+            console.error(`AI error rechecking ${item.id}:`, aiResponse.status);
+          }
+
+          const updatePayload: Record<string, unknown> = {
+            relevance_rechecked_at: new Date().toISOString(),
+            is_relevant: relevant,
+          };
+          if (!relevant) {
+            updatePayload.summary_ai = null;
+          }
+
+          const { error: updateError } = await supabase
+            .from("news")
+            .update(updatePayload)
+            .eq("id", item.id);
+
+          recheckResults.push({
+            id: item.id,
+            title: item.title,
+            status: updateError ? "update_failed" : (relevant ? "kept" : "removed"),
+            reason,
+          });
+        } catch (err) {
+          console.error(`Error rechecking news ${item.id}:`, err);
+          recheckResults.push({ id: item.id, title: item.title, status: "error" });
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ processed: recheckResults.length, results: recheckResults }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Fetch news articles that need summaries OR international titles still in English (backfill)
