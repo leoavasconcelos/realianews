@@ -113,25 +113,25 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
       </div>
       
       {/* Two-column layout container */}
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-32 lg:grid lg:grid-cols-3 lg:gap-8">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 pt-6 sm:pt-8 pb-32 lg:grid lg:grid-cols-3 lg:gap-10">
         {/* Main Content (left, 2/3) */}
-        <div className="lg:col-span-2 lg:min-w-0">
+        <article className="lg:col-span-2 lg:min-w-0 max-w-[68ch] mx-auto lg:mx-0">
           {/* Kicker — editorial category label */}
           {news.topics[0] && (
-            <div className="kicker mb-3">
+            <div className="kicker mb-4">
               {news.topics[0]}
             </div>
           )}
 
           {/* Title */}
-          <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-semibold text-foreground leading-tight mb-2">
+          <h1 className="font-serif text-[1.75rem] sm:text-4xl lg:text-[2.75rem] font-semibold text-foreground leading-[1.15] tracking-tight mb-3">
             {news.title}
           </h1>
 
           {/* Original (foreign) title — discreet subtitle for international news */}
           {news.titleOriginal && news.titleOriginal !== news.title && (
             <p
-              className="text-sm sm:text-base italic text-muted-foreground/80 leading-snug mb-4"
+              className="font-serif text-base sm:text-lg italic text-muted-foreground leading-snug mb-5"
               lang="en"
             >
               {news.titleOriginal}
@@ -139,14 +139,14 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           )}
           
           {/* Meta */}
-          <div className="flex items-center gap-3 text-sm text-muted-foreground mb-6 pb-6 border-b border-border">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-muted-foreground mb-8 pb-5 border-b border-border">
             <span>{news.publishedAt}</span>
-            <span>•</span>
+            <span className="text-border">•</span>
             <span>{news.readTime}</span>
           </div>
 
           {/* Audio Player — mobile/tablet only (desktop shows it in sidebar) */}
-          <div className="bg-secondary rounded-lg border border-border p-4 mb-6 lg:hidden">
+          <div className="bg-secondary/60 rounded-md border border-border p-4 mb-8 lg:hidden">
             <div className="kicker mb-3">Ouvir resumo</div>
             <div className="flex items-center gap-3 mb-3">
               <Button
@@ -203,15 +203,17 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           </div>
           
           {/* AI Summary */}
-          <div className="mb-6">
-            <div className="kicker mb-3">Resumo · IA</div>
+          <section className="mb-8 pb-8 border-b border-border/70">
+            <div className="kicker mb-4">Resumo · IA</div>
             <h2 className="sr-only">Resumo Rápido</h2>
-            <p className="text-foreground/90 leading-relaxed">{news.summary}</p>
-          </div>
+            <p className="font-serif text-lg sm:text-xl text-foreground leading-[1.6] first-letter:font-semibold">
+              {news.summary}
+            </p>
+          </section>
 
           {/* Full Analysis */}
-          <div className="mb-6">
-            <div className="kicker mb-3">Análise Completa</div>
+          <section className="mb-8">
+            <div className="kicker mb-4">Análise Completa</div>
             
             {analysisLoading ? (
               <div className="space-y-3">
@@ -225,9 +227,9 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
                 <Skeleton className="h-4 w-[88%]" />
               </div>
             ) : fullAnalysis ? (
-              <div className="prose prose-sm max-w-none">
+              <div className="max-w-none">
                 {fullAnalysis.split('\n\n').map((paragraph, index) => (
-                  <p key={index} className="text-foreground/90 leading-relaxed mb-4">
+                  <p key={index} className="text-[0.975rem] sm:text-base text-foreground/90 leading-[1.75] mb-5">
                     {paragraph}
                   </p>
                 ))}
@@ -237,14 +239,14 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
                 Não foi possível gerar a análise. Tente novamente mais tarde.
               </p>
             )}
-          </div>
+          </section>
           
           {/* Source Link — mobile/tablet only */}
           <a
             href={news.sourceUrl || '#'}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between p-4 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity lg:hidden"
+            className="flex items-center justify-between p-4 mt-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity lg:hidden"
           >
             <div>
               <p className="text-sm font-semibold">Ler matéria original</p>
@@ -252,7 +254,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             </div>
             <ExternalLink className="w-5 h-5" />
           </a>
-        </div>
+        </article>
 
         {/* Sidebar (right, 1/3) — desktop only */}
         <aside className="hidden lg:block lg:col-span-1">
