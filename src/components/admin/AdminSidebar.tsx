@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
-  Instagram
+  Instagram,
+  Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -64,6 +65,12 @@ const menuItems = [
     label: 'Fila Instagram', 
     icon: Instagram,
     adminOnly: false 
+  },
+  {
+    path: '/admin/crawl',
+    label: 'Monitor de Crawl',
+    icon: Activity,
+    adminOnly: true
   },
 ];
 
