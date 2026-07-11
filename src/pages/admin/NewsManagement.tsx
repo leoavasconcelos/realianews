@@ -490,6 +490,37 @@ export const NewsManagement = () => {
         </div>
       </div>
 
+      {/* Active relevance cleanup status */}
+      {cleanupLock && cleanupRunning && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <Activity className="h-4 w-4 animate-pulse" />
+                  Faxina de relevância em execução
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Iniciada em {format(new Date(cleanupLock.acquired_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+                <p className="text-sm">
+                  <span className="font-semibold">{(cleanupLock.metadata.processed_count ?? 0).toLocaleString('pt-BR')}</span> notícia(s) revisada(s)
+                  {cleanupLock.metadata.removed_count != null && (
+                    <>, <span className="font-semibold text-destructive">{(cleanupLock.metadata.removed_count ?? 0).toLocaleString('pt-BR')}</span> removida(s)</>
+                  )}
+                  {cleanupBacklogRemaining != null && (
+                    <> · <span className="font-semibold">{cleanupBacklogRemaining.toLocaleString('pt-BR')}</span> pendente(s)</>
+                  )}
+                </p>
+              </div>
+              <Button size="sm" onClick={() => setShowCleanupResults(true)}>
+                Acompanhar execução
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
