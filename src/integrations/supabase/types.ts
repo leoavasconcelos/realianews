@@ -220,6 +220,24 @@ export type Database = {
         }
         Relationships: []
       }
+      job_locks: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          name: string
+        }
+        Insert: {
+          acquired_at?: string
+          expires_at: string
+          name: string
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          name?: string
+        }
+        Relationships: []
+      }
       news: {
         Row: {
           audio_url: string | null
