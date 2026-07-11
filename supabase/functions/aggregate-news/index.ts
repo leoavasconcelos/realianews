@@ -343,6 +343,57 @@ function extractImageUrl(itemXml: string): string | undefined {
   return undefined;
 }
 
+// Fetches the article's own page and pulls its real image from standard
+// social-sharing meta tags (og:image / twitter:image).
+async function fetchArticleOgImage(articleUrl: string, timeoutMs = 6000): Promise<string | undefined> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(articleUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; REaliaBot/1.0; +https://realia.digital)",
+        "Accept": "text/html",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) return undefined;
+
+    const reader = response.body?.getReader();
+    if (!reader) return undefined;
+
+    const decoder = new TextDecoder();
+    let html = "";
+    const maxBytes = 200_000;
+    let bytesRead = 0;
+
+    while (bytesRead < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytesRead += value.length;
+      html += decoder.decode(value, { stream: true });
+      if (/<\/head>/i.test(html)) break;
+    }
+    reader.cancel().catch(() => {});
+
+    const ogMatch = html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (ogMatch?.[1]) return ogMatch[1];
+
+    const twitterMatch = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
+    if (twitterMatch?.[1]) return twitterMatch[1];
+
+    return undefined;
+  } catch (err) {
+    console.warn(`Could not fetch og:image for ${articleUrl}:`, err instanceof Error ? err.message : err);
+    return undefined;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function parseRSS(xmlText: string): ParsedArticle[] {
   const articles: ParsedArticle[] = [];
   
