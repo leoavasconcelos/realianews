@@ -262,7 +262,18 @@ export const NewsManagement = () => {
       });
       if (error) throw error;
 
-      if ((result as { started?: boolean })?.started) {
+      const payload = result as { started?: boolean; alreadyRunning?: boolean; message?: string };
+      if (payload?.alreadyRunning) {
+        // Another sweep is already running on the server — attach the UI
+        // to it via polling instead of starting a new one.
+        setCleanupInitialBacklog(initial ?? 0);
+        setCleanupBacklogRemaining(initial ?? 0);
+        cleanupLastRemainingRef.current = initial ?? 0;
+        cleanupStaleCountRef.current = 0;
+        setCleanupRunning(true);
+        setShowCleanupResults(true);
+        toast.info(payload.message ?? 'Uma faxina já está em execução — acompanhando o progresso.');
+      } else if (payload?.started) {
         setCleanupInitialBacklog(initial ?? 0);
         setCleanupBacklogRemaining(initial ?? 0);
         cleanupLastRemainingRef.current = initial ?? 0;
