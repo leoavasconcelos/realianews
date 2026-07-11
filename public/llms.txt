@@ -1,0 +1,9 @@
+# REalia
+
+> Inteligência do mercado imobiliário brasileiro: notícias personalizadas por IA, resumos inteligentes e análises do setor.
+
+REalia agrega, filtra e resume notícias do mercado imobiliário do Brasil (incorporação, crédito, fundos imobiliários, varejo, construção), com curadoria por IA e narração em áudio.
+
+## Pages
+
+- [Home](/): Feed principal de notícias do mercado imobiliário, com filtros por região e tópico.

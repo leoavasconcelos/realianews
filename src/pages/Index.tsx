@@ -238,6 +238,7 @@ const Index = () => {
             {/* News Feed with Pull to Refresh */}
             <PullToRefresh onRefresh={handlePullRefresh}>
               <main className="flex-1 px-4 py-4 md:px-6 lg:px-8 md:max-w-7xl md:mx-auto w-full">
+                <h1 className="sr-only">Notícias e Inteligência do Mercado Imobiliário</h1>
                 {newsLoading ? (
                   <div className="flex items-center justify-center py-20">
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />

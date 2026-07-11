@@ -146,6 +146,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
               variant="ghost"
               size="icon"
               className={`h-8 w-8 ${isSaved ? 'text-accent' : ''}`}
+              aria-label={isSaved ? 'Remover dos salvos' : 'Salvar notícia'}
               onClick={(e) => {
                 e.stopPropagation();
                 onSave(news.id);
@@ -157,6 +158,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ news, onSave, onShare, onClick, isS
               variant="ghost"
               size="icon"
               className="h-8 w-8"
+              aria-label="Compartilhar notícia"
               onClick={(e) => {
                 e.stopPropagation();
                 onShare(news.id);
