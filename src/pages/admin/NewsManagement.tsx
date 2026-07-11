@@ -344,6 +344,11 @@ export const NewsManagement = () => {
         }
       } else {
         setCleanupLock(null);
+        // No active run — keep the idle pending-count fresh so the
+        // admin can see how much backlog is left before starting again.
+        if (!cleanupRunning) {
+          fetchCleanupSnapshot().catch(() => {});
+        }
       }
     };
     check();
