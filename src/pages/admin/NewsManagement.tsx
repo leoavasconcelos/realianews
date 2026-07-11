@@ -657,6 +657,21 @@ export const NewsManagement = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
+                        {item.is_relevant === false && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRestoreArticle(item.id)}
+                            disabled={restoringId === item.id}
+                            title="Restaurar pro feed (gera resumo novo)"
+                          >
+                            {restoringId === item.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <span className="text-xs">↺</span>
+                            )}
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
