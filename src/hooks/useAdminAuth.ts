@@ -43,7 +43,6 @@ export const useAdminAuth = () => {
         setRoles([]);
       } else {
         const fetched = (data as UserRole[])?.map(r => r.role) || [];
-        console.log('[useAdminAuth] Roles for user', user.id, '→', fetched);
         setRoles(fetched);
       }
 
