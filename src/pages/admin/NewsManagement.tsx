@@ -151,6 +151,35 @@ export const NewsManagement = () => {
   const cleanupStaleCountRef = useRef(0);
   const cleanupLastRemainingRef = useRef<number | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+
+  const handleRestoreArticle = async (id: string) => {
+    setRestoringId(id);
+    try {
+      // Put the article back into the "needs processing" queue (same state
+      // a brand-new article is in) and immediately trigger a processing
+      // run so it doesn't have to wait for the next scheduled cron.
+      const { error: resetError } = await supabase
+        .from('news')
+        .update({ is_relevant: null, relevance_rechecked_at: null })
+        .eq('id', id);
+      if (resetError) throw resetError;
+
+      const { error: processError } = await supabase.functions.invoke('process-news-summaries', {
+        body: { mode: 'all' },
+      });
+      if (processError) throw processError;
+
+      toast.success('Notícia restaurada — resumo sendo gerado, deve voltar ao feed em instantes');
+      queryClient.invalidateQueries({ queryKey: ['admin-news'] });
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error('Erro ao restaurar: ' + message);
+    } finally {
+      setRestoringId(null);
+    }
+  };
 
   const handleRegenerateAnalysis = async (id: string) => {
     setRegeneratingId(id);
