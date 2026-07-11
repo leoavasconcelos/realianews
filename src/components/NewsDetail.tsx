@@ -116,20 +116,15 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
       <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-32 lg:grid lg:grid-cols-3 lg:gap-8">
         {/* Main Content (left, 2/3) */}
         <div className="lg:col-span-2 lg:min-w-0">
-          {/* Topics */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {news.topics.map((topic) => (
-              <span
-                key={topic}
-                className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-lg"
-              >
-                {topic}
-              </span>
-            ))}
-          </div>
-          
+          {/* Kicker — editorial category label */}
+          {news.topics[0] && (
+            <div className="kicker mb-3">
+              {news.topics[0]}
+            </div>
+          )}
+
           {/* Title */}
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight mb-2">
+          <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-semibold text-foreground leading-tight mb-2">
             {news.title}
           </h1>
 
@@ -208,23 +203,14 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           
           {/* AI Summary */}
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-5 w-5 rounded-md bg-gradient-hero flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white">IA</span>
-              </div>
-              <h2 className="font-semibold text-foreground">Resumo Rápido</h2>
-            </div>
-            <p className="text-muted-foreground leading-relaxed">{news.summary}</p>
+            <div className="kicker mb-3">Resumo · IA</div>
+            <h2 className="sr-only">Resumo Rápido</h2>
+            <p className="text-foreground/90 leading-relaxed">{news.summary}</p>
           </div>
 
           {/* Full Analysis */}
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-5 w-5 rounded-md bg-gradient-hero flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white">✦</span>
-              </div>
-              <h2 className="font-semibold text-foreground">Análise Completa</h2>
-            </div>
+            <div className="kicker mb-3">Análise Completa</div>
             
             {analysisLoading ? (
               <div className="space-y-3">
@@ -240,7 +226,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             ) : fullAnalysis ? (
               <div className="prose prose-sm max-w-none">
                 {fullAnalysis.split('\n\n').map((paragraph, index) => (
-                  <p key={index} className="text-muted-foreground leading-relaxed mb-4">
+                  <p key={index} className="text-foreground/90 leading-relaxed mb-4">
                     {paragraph}
                   </p>
                 ))}
@@ -271,11 +257,8 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
         <aside className="hidden lg:block lg:col-span-1">
           <div className="sticky top-6 space-y-4">
             {/* Audio Player */}
-            <div className="bg-secondary rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Volume2 className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-sm text-foreground">Ouvir resumo</h3>
-              </div>
+            <div className="bg-secondary rounded-lg border border-border p-4">
+              <div className="kicker mb-3">Ouvir resumo</div>
               <div className="flex items-center gap-3 mb-3">
                 <Button
                   variant="default"
@@ -323,8 +306,8 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             </div>
 
             {/* Metadata card */}
-            <div className="bg-secondary rounded-xl p-4 space-y-3">
-              <h3 className="font-semibold text-sm text-foreground mb-2">Detalhes</h3>
+            <div className="bg-secondary rounded-lg border border-border p-4 space-y-3">
+              <div className="kicker mb-1">Detalhes</div>
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Fonte</span>
                 <span className="font-medium text-foreground text-right truncate ml-2">{news.source}</span>
@@ -349,13 +332,13 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
 
             {/* Topics */}
             {news.topics.length > 0 && (
-              <div className="bg-secondary rounded-xl p-4">
-                <h3 className="font-semibold text-sm text-foreground mb-3">Tópicos</h3>
+              <div className="bg-secondary rounded-lg border border-border p-4">
+                <div className="kicker mb-3">Tópicos</div>
                 <div className="flex flex-wrap gap-2">
                   {news.topics.map((topic) => (
                     <span
                       key={topic}
-                      className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-lg"
+                      className="text-xs font-medium text-primary bg-primary/10 border border-primary/15 px-2.5 py-1 rounded-md"
                     >
                       {topic}
                     </span>
@@ -369,7 +352,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
               href={news.sourceUrl || '#'}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-4 bg-gradient-hero text-primary-foreground rounded-xl hover:opacity-90 transition-opacity"
+              className="flex items-center justify-between p-4 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
             >
               <div className="min-w-0">
                 <p className="text-sm font-semibold">Ler matéria original</p>
