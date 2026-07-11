@@ -216,48 +216,62 @@ export const NewsManagement = () => {
     }
   };
 
-  const handleCleanupBacklog = async () => {
-    setCleaningBacklog(true);
-    setCleanupProgress(0);
-    setCleanupResults([]);
-    const allResults: Array<{ id: string; title: string; status: string; reason?: string }> = [];
-    let consecutiveEmpty = 0;
-    const MAX_BATCHES = 100;
-
+  const handleStartCleanup = async () => {
+    setStartingCleanup(true);
     try {
-      for (let i = 0; i < MAX_BATCHES; i++) {
-        const { data: result, error } = await supabase.functions.invoke('process-news-summaries', {
-          body: { mode: 'recheck_relevance' },
+      const { data: result, error } = await supabase.functions.invoke('process-news-summaries', {
+        body: { mode: 'recheck_relevance' },
+      });
+      if (error) throw error;
+
+      if ((result as { started?: boolean })?.started) {
+        toast.success('Faxina iniciada em segundo plano', {
+          description: 'Continua rodando mesmo se você sair dessa tela. Volte em alguns minutos e clique em "Ver progresso da faxina".',
         });
-        if (error) throw error;
-
-        const processed = (result as { processed?: number })?.processed ?? 0;
-        const results = (result as { results?: Array<{ id: string; title: string; status: string; reason?: string }> })?.results ?? [];
-
-        allResults.push(...results);
-        setCleanupProgress((prev) => prev + processed);
-        setCleanupResults([...allResults]);
-
-        if (processed === 0) {
-          consecutiveEmpty++;
-          if (consecutiveEmpty >= 2) break;
-        } else {
-          consecutiveEmpty = 0;
-        }
-
-        await new Promise((r) => setTimeout(r, 800));
+      } else {
+        toast.info('Nada pendente pra revisar no momento.');
       }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error('Erro ao iniciar a faxina: ' + message);
+    } finally {
+      setStartingCleanup(false);
+    }
+  };
 
-      const removedCount = allResults.filter((r) => r.status === 'removed').length;
-      toast.success(`Faxina concluída: ${allResults.length} revisadas, ${removedCount} removidas do feed`);
+  const handleCheckCleanupStatus = async () => {
+    setCheckingCleanupStatus(true);
+    try {
+      const { count: remaining } = await supabase
+        .from('news')
+        .select('id', { count: 'exact', head: true })
+        .not('summary_ai', 'is', null)
+        .is('relevance_rechecked_at', null);
+
+      const { data: removed } = await supabase
+        .from('news')
+        .select('id, title, rejection_reason, relevance_rechecked_at')
+        .eq('is_relevant', false)
+        .order('relevance_rechecked_at', { ascending: false })
+        .limit(100);
+
+      setCleanupBacklogRemaining(remaining ?? 0);
+      setCleanupRemoved(
+        (removed ?? []).map((r) => ({
+          id: r.id,
+          title: r.title,
+          reason: r.rejection_reason,
+          relevance_rechecked_at: r.relevance_rechecked_at,
+        }))
+      );
       setShowCleanupResults(true);
       queryClient.invalidateQueries({ queryKey: ['admin-news'] });
       queryClient.invalidateQueries({ queryKey: ['news'] });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      toast.error('Erro na faxina de relevância: ' + message);
+      toast.error('Erro ao consultar progresso: ' + message);
     } finally {
-      setCleaningBacklog(false);
+      setCheckingCleanupStatus(false);
     }
   };
 
