@@ -223,8 +223,8 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete, user, aut
               </div>
               
               <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card shadow-card hover:shadow-card-hover transition-all duration-300">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, hsl(173 58% 39%), hsl(173 58% 50%))' }}>
-                  <Globe className="w-5 h-5 text-white" />
+                <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shrink-0">
+                  <Globe className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground text-sm">Cobertura Global</h3>
