@@ -618,9 +618,11 @@ export const NewsManagement = () => {
             <DialogDescription>
               {cleanupBacklogRemaining === null
                 ? 'Consultando...'
-                : cleanupBacklogRemaining > 0
-                  ? `Ainda faltam ${cleanupBacklogRemaining} notícia(s) por revisar — clique em "Iniciar faxina" de novo pra continuar.`
-                  : 'Backlog totalmente revisado! Nada pendente.'}
+                : cleanupRunning && cleanupInitialBacklog !== null
+                  ? `Em execução — ${cleanupInitialBacklog - cleanupBacklogRemaining} de ${cleanupInitialBacklog} processada(s), ${cleanupBacklogRemaining} restante(s). Atualizando a cada 3 segundos.`
+                  : cleanupBacklogRemaining > 0
+                    ? `Ainda faltam ${cleanupBacklogRemaining} notícia(s) por revisar — clique em "Iniciar faxina" de novo pra continuar.`
+                    : 'Backlog totalmente revisado! Nada pendente.'}
               {' '}Lista abaixo mostra até as 100 remoções mais recentes. As mantidas não precisam de ação.
               Se alguma remoção parecer errada, reabra a notícia em "Editar" e marque como relevante de novo.
             </DialogDescription>
