@@ -233,6 +233,7 @@ export type Database = {
           published_at: string
           read_time: string | null
           region: string | null
+          rejection_reason: string | null
           source_id: string | null
           source_url: string
           summary_ai: string | null
@@ -252,6 +253,7 @@ export type Database = {
           published_at?: string
           read_time?: string | null
           region?: string | null
+          rejection_reason?: string | null
           source_id?: string | null
           source_url: string
           summary_ai?: string | null
@@ -271,6 +273,7 @@ export type Database = {
           published_at?: string
           read_time?: string | null
           region?: string | null
+          rejection_reason?: string | null
           source_id?: string | null
           source_url?: string
           summary_ai?: string | null
