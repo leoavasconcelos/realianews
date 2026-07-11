@@ -73,7 +73,8 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           variant="ghost"
           size="icon"
           onClick={onBack}
-          className="absolute top-4 left-4 bg-black/30 backdrop-blur-sm text-white hover:bg-black/50"
+          aria-label="Voltar"
+          className="absolute top-4 left-4 min-h-11 min-w-11 bg-black/50 backdrop-blur-sm text-white hover:bg-black/70"
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -90,7 +91,9 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             variant="ghost"
             size="icon"
             onClick={() => onSave(news.id)}
-            className={`bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 ${isSaved ? 'text-accent' : ''}`}
+            aria-label={isSaved ? 'Remover dos salvos' : 'Salvar notícia'}
+            aria-pressed={isSaved}
+            className={`min-h-11 min-w-11 bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 ${isSaved ? 'text-accent' : ''}`}
           >
             <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
           </Button>
@@ -98,7 +101,8 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             variant="ghost"
             size="icon"
             onClick={() => setShareOpen(true)}
-            className="bg-black/30 backdrop-blur-sm text-white hover:bg-black/50"
+            aria-label="Compartilhar notícia"
+            className="min-h-11 min-w-11 bg-black/50 backdrop-blur-sm text-white hover:bg-black/70"
           >
             <Share2 className="w-5 h-5" />
           </Button>
@@ -113,7 +117,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
       </div>
       
       {/* Two-column layout container */}
-      <div className="max-w-7xl mx-auto px-5 sm:px-8 pt-6 sm:pt-8 pb-32 lg:grid lg:grid-cols-3 lg:gap-10">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 pt-8 sm:pt-10 pb-32 lg:grid lg:grid-cols-3 lg:gap-10">
         {/* Main Content (left, 2/3) */}
         <article className="lg:col-span-2 lg:min-w-0 max-w-[68ch] mx-auto lg:mx-0">
           {/* Kicker — editorial category label */}
@@ -139,7 +143,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           )}
           
           {/* Meta */}
-          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-muted-foreground mb-8 pb-5 border-b border-border">
+          <div className="flex flex-wrap items-center gap-2 text-[0.8rem] uppercase tracking-[0.12em] text-muted-foreground mb-8 pb-5 border-b border-border">
             <span>{news.publishedAt}</span>
             <span className="text-border">•</span>
             <span>{news.readTime}</span>
@@ -206,7 +210,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
           <section className="mb-8 pb-8 border-b border-border/70">
             <div className="kicker mb-4">Resumo · IA</div>
             <h2 className="sr-only">Resumo Rápido</h2>
-            <p className="font-serif text-lg sm:text-xl text-foreground leading-[1.6] first-letter:font-semibold">
+            <p className="font-serif text-lg sm:text-xl text-foreground leading-[1.6]">
               {news.summary}
             </p>
           </section>
@@ -229,13 +233,13 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onBack, onSave, onShare, 
             ) : fullAnalysis ? (
               <div className="max-w-none">
                 {fullAnalysis.split('\n\n').map((paragraph, index) => (
-                  <p key={index} className="text-[0.975rem] sm:text-base text-foreground/90 leading-[1.75] mb-5">
+                  <p key={index} className="text-base sm:text-[1.0625rem] text-foreground leading-[1.75] mb-5">
                     {paragraph}
                   </p>
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm italic">
+              <p className="text-muted-foreground text-base italic">
                 Não foi possível gerar a análise. Tente novamente mais tarde.
               </p>
             )}
