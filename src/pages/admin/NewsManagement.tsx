@@ -137,9 +137,10 @@ export const NewsManagement = () => {
   const [exporting, setExporting] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [translateProgress, setTranslateProgress] = useState(0);
-  const [cleaningBacklog, setCleaningBacklog] = useState(false);
-  const [cleanupProgress, setCleanupProgress] = useState(0);
-  const [cleanupResults, setCleanupResults] = useState<Array<{ id: string; title: string; status: string; reason?: string }>>([]);
+  const [startingCleanup, setStartingCleanup] = useState(false);
+  const [checkingCleanupStatus, setCheckingCleanupStatus] = useState(false);
+  const [cleanupBacklogRemaining, setCleanupBacklogRemaining] = useState<number | null>(null);
+  const [cleanupRemoved, setCleanupRemoved] = useState<Array<{ id: string; title: string; reason: string | null; relevance_rechecked_at: string }>>([]);
   const [showCleanupResults, setShowCleanupResults] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
