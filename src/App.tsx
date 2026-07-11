@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import MetroQuadradoGuide from "./pages/guides/MetroQuadradoGuide";
 
 // Admin pages
 import { AdminLayout } from "./pages/admin/AdminLayout";
@@ -32,6 +33,9 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+
+              {/* Public SEO guides */}
+              <Route path="/guia/metro-quadrado" element={<MetroQuadradoGuide />} />
               
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminLayout />}>
