@@ -537,6 +537,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      get_admin_analytics: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
