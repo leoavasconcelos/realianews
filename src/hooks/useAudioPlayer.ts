@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UseAudioPlayerReturn {
   isPlaying: boolean;
@@ -76,6 +77,10 @@ export const useAudioPlayer = (): UseAudioPlayerReturn => {
       let audioUrl = audioCache.get(text);
 
       if (!audioUrl) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('Faça login para ouvir o áudio');
+        }
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
           {
@@ -83,7 +88,7 @@ export const useAudioPlayer = (): UseAudioPlayerReturn => {
             headers: {
               'Content-Type': 'application/json',
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              Authorization: `Bearer ${session.access_token}`,
             },
             body: JSON.stringify({ text }),
           }
