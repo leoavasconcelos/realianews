@@ -321,18 +321,61 @@ const REAL_ESTATE_KEYWORDS_EN = [
   "interest rates", "fed rate", "federal reserve",
 ];
 
-// Check if article is relevant to real estate market
-function isRealEstateRelevant(title: string, description: string, isInternational: boolean = false): boolean {
+// Word-boundary keyword matching. The previous implementation used
+// text.includes(keyword), i.e. SUBSTRING matching — which meant short
+// keywords matched inside unrelated words: "cri" (the CRI security)
+// matched "crise"/"crime"/"criminalizar", "tegra" (the builder) matched
+// "íntegra", "even" (the builder) matched "evento", "tenda" (the
+// builder) matched the common noun "tenda". That was the single biggest
+// reason unrelated general news kept flooding the feed. This version
+// requires the keyword to appear as a whole word/phrase (unicode-aware,
+// so accented Portuguese characters count as letters).
+function matchesKeyword(text: string, keyword: string): boolean {
+  const escaped = keyword.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, "iu").test(text);
+}
+
+// Core terms that unambiguously signal real-estate subject matter. News
+// from GENERAL sources (economy/finance feeds that cover everything) must
+// match at least one of these to enter the pipeline — a single incidental
+// keyword is not enough for those sources. Specialized real-estate sources
+// keep the looser 1-keyword rule since their content is on-topic by
+// definition.
+const CORE_TERMS_PT = [
+  "imóvel", "imóveis", "imobiliário", "imobiliária", "imobiliárias",
+  "incorporadora", "incorporadoras", "incorporação", "construtora", "construtoras",
+  "fii", "fiis", "fundo imobiliário", "fundos imobiliários",
+  "financiamento imobiliário", "crédito imobiliário", "aluguel", "locação",
+  "minha casa minha vida", "mcmv", "construção civil", "lançamento imobiliário",
+];
+
+const CORE_TERMS_EN = [
+  "real estate", "property market", "housing market", "property prices",
+  "home prices", "home sales", "homebuilder", "homebuilders", "mortgage",
+  "mortgages", "reit", "reits", "commercial property", "residential property",
+  "property developer", "rental market", "landlord", "landlords",
+];
+
+function isRealEstateRelevant(
+  title: string,
+  description: string,
+  isInternational: boolean = false,
+  sourceTier: "specialized" | "general" = "specialized",
+): boolean {
   const text = `${title} ${description}`.toLowerCase();
-  
+
   const keywords = isInternational ? REAL_ESTATE_KEYWORDS_EN : REAL_ESTATE_KEYWORDS_PT;
-  
-  // Check for keyword matches
-  const matchCount = keywords.filter(keyword => 
-    text.includes(keyword.toLowerCase())
-  ).length;
-  
-  // Require at least 1 keyword match
+  const coreTerms = isInternational ? CORE_TERMS_EN : CORE_TERMS_PT;
+
+  const matchCount = keywords.filter((keyword) => matchesKeyword(text, keyword)).length;
+
+  if (sourceTier === "general") {
+    // General-news sources publish about everything; require an
+    // unambiguous core real-estate term, not just any keyword.
+    return coreTerms.some((term) => matchesKeyword(text, term));
+  }
+
+  // Specialized real-estate sources: one whole-word keyword match suffices.
   return matchCount >= 1;
 }
 
@@ -844,7 +887,8 @@ serve(async (req) => {
 
           // Check if article is relevant to real estate
           const isInternational = feed.region !== "Brazil";
-          if (!isRealEstateRelevant(article.title, article.description, isInternational)) {
+          const sourceTier = (feed as { tier?: "specialized" | "general" }).tier ?? "specialized";
+          if (!isRealEstateRelevant(article.title, article.description, isInternational, sourceTier)) {
             console.log(`Skipping non-real-estate article: ${article.title.substring(0, 50)}...`);
             continue;
           }
