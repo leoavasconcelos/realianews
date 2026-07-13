@@ -686,13 +686,15 @@ Responda apenas com o JSON, no formato especificado.`;
         const aiData = await aiResponse.json();
         const rawContent = aiData.choices?.[0]?.message?.content?.trim() || "";
 
-        // Parse the model's JSON response. Strip a ```json fence if the
-        // model added one despite instructions not to, and fail open
-        // (treat as relevant, keep the raw text as the summary) if parsing
-        // fails — a formatting hiccup isn't evidence the article is
-        // irrelevant, and this matches the previous (pre-relevance-check)
-        // behavior as the fallback.
-        let relevant = true;
+        // Parse the model's JSON response, stripping a ```json fence if the
+        // model added one despite instructions not to. FAIL CLOSED: if we
+        // can't parse a clear verdict, the article does NOT enter the feed
+        // (is_relevant and summary_ai both stay NULL), and the next cron
+        // run simply retries it. Formatting hiccups are transient; letting
+        // unverified content into a curated feed is worse than a short
+        // delay. (The previous fail-open behavior was one of the reasons
+        // off-topic articles kept leaking through.)
+        let relevant: boolean | null = null;
         let summary: string | null = null;
         let rejectionReason: string | null = null;
         try {
@@ -706,8 +708,13 @@ Responda apenas com o JSON, no formato especificado.`;
             rejectionReason = parsed.rejection_reason.trim().substring(0, 500) || null;
           }
         } catch (parseErr) {
-          console.warn(`Could not parse relevance/summary JSON for news ${news.id}, failing open:`, parseErr);
-          summary = rawContent || null;
+          console.warn(`Could not parse relevance/summary JSON for news ${news.id}; leaving unprocessed for retry:`, parseErr);
+        }
+
+        if (relevant === null) {
+          // No clear verdict — leave the article untouched (out of the
+          // feed) so the next scheduled run retries it.
+          return { id: news.id, status: "unparseable_retry_later" };
         }
 
         if (!relevant) {
