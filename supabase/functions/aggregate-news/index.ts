@@ -102,12 +102,14 @@ const RSS_FEEDS = [
   },
   {
     name: "Forbes Brasil",
+    tier: "general" as const,
     url: "https://forbes.com.br/feed/",
     sourceId: null as string | null,
     region: "Brazil",
   },
   {
     name: "Estadão Imóveis",
+    tier: "general" as const,
     url: "https://www.estadao.com.br/rss/economia.xml",
     sourceId: null as string | null,
     region: "Brazil",
@@ -115,24 +117,28 @@ const RSS_FEEDS = [
   // General economy sources (filtered for real estate)
   {
     name: "InfoMoney",
+    tier: "general" as const,
     url: "https://www.infomoney.com.br/feed/",
     sourceId: null as string | null,
     region: "Brazil",
   },
   {
     name: "Valor Econômico",
+    tier: "general" as const,
     url: "https://valor.globo.com/rss/",
     sourceId: null as string | null,
     region: "Brazil",
   },
   {
     name: "Exame",
+    tier: "general" as const,
     url: "https://exame.com/feed/",
     sourceId: null as string | null,
     region: "Brazil",
   },
   {
     name: "Money Times",
+    tier: "general" as const,
     url: "https://www.moneytimes.com.br/feed/",
     sourceId: null as string | null,
     region: "Brazil",
@@ -178,6 +184,7 @@ const RSS_FEEDS = [
   // International sources - Middle East
   {
     name: "Zawya MENA",
+    tier: "general" as const,
     url: "https://www.zawya.com/en/rss-feed",
     sourceId: null as string | null,
     region: "Middle East",
@@ -203,6 +210,7 @@ const RSS_FEEDS = [
   },
   {
     name: "Nikkei Asia Real Estate",
+    tier: "general" as const,
     url: "https://asia.nikkei.com/rss/feed/Business",
     sourceId: null as string | null,
     region: "World",
