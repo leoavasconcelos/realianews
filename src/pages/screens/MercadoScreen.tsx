@@ -12,6 +12,7 @@ interface MercadoScreenProps {
   userId?: string;
   unreadCount: number;
   onNotificationsClick: () => void;
+  onLogoClick: () => void;
   activeRegion: RegionFilterType;
   onRegionChange: (region: RegionFilterType) => void;
   filters: string[];
@@ -33,6 +34,7 @@ export const MercadoScreen = ({
   userId,
   unreadCount,
   onNotificationsClick,
+  onLogoClick,
   activeRegion,
   onRegionChange,
   filters,
@@ -53,6 +55,7 @@ export const MercadoScreen = ({
     <FeedHeader
       unreadCount={unreadCount}
       onNotificationsClick={onNotificationsClick}
+      onLogoClick={onLogoClick}
     />
 
     <div className="px-4 py-3 border-b border-border bg-background/50 backdrop-blur-sm sticky top-[57px] z-30 space-y-2">

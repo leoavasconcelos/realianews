@@ -112,6 +112,11 @@ const Index = () => {
     await queryClient.resetQueries({ queryKey: ['news'] });
   }, [queryClient]);
 
+  const handleLogoClick = useCallback(async () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    await handlePullRefresh();
+  }, [handlePullRefresh]);
+
   const renderContent = () => {
     switch (activeTab) {
       case 'mercado':
@@ -120,6 +125,7 @@ const Index = () => {
             userId={user?.id}
             unreadCount={unreadCount}
             onNotificationsClick={() => setNotifCenterOpen(true)}
+            onLogoClick={handleLogoClick}
             activeRegion={activeRegion}
             onRegionChange={setActiveRegion}
             filters={filters}
