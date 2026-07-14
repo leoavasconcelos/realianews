@@ -107,7 +107,9 @@ const Index = () => {
   };
 
   const handlePullRefresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['news'] });
+    // resetQueries collapses the infinite query back to page 1 and
+    // refetches — a true "refresh" reflecting current DB state.
+    await queryClient.resetQueries({ queryKey: ['news'] });
   }, [queryClient]);
 
   const renderContent = () => {
@@ -115,6 +117,7 @@ const Index = () => {
       case 'mercado':
         return (
           <MercadoScreen
+            userId={user?.id}
             unreadCount={unreadCount}
             onNotificationsClick={() => setNotifCenterOpen(true)}
             activeRegion={activeRegion}

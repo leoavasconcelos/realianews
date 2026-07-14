@@ -117,6 +117,43 @@ interface NewsPage {
   nextPage: number | null;
 }
 
+// Maps a raw Supabase row (news + embedded sources) to the NewsItem shape
+// the UI consumes. Shared by the main feed query and the "unseen
+// highlights" section so both render identically.
+const mapDbRowToNewsItem = (item: any): NewsItem => {
+  let topics: string[] = [];
+  try {
+    if (Array.isArray(item.topics)) {
+      topics = item.topics as string[];
+    } else if (typeof item.topics === 'string') {
+      topics = JSON.parse(item.topics || '[]');
+    } else if (item.topics && typeof item.topics === 'object') {
+      topics = Object.values(item.topics) as string[];
+    }
+  } catch {
+    topics = [];
+  }
+
+  const source = item.sources || null;
+
+  return {
+    id: item.id,
+    title: item.title,
+    titleOriginal: item.title_original ?? null,
+    summary: item.summary_ai || '',
+    source: source?.name || extractSourceFromUrl(item.source_url),
+    sourceLogo: source?.logo_url || null,
+    imageUrl: item.image_url || pickFallbackImage(item.id),
+    publishedAt: formatTimeAgo(item.published_at),
+    topics,
+    readTime: item.read_time || '3 min',
+    trending: item.is_trending,
+    sourceUrl: item.source_url,
+    audioUrl: item.audio_url,
+    region: item.region || 'Brazil',
+  };
+};
+
 const TOPIC_ALIASES: Record<string, string[]> = {
   'fundos imobiliários': ['fundos imobiliários', 'fundo imobiliário', 'fiis', 'fii', 'reit', 'reits'],
   'mercado imobiliário': ['mercado imobiliário', 'setor imobiliário'],
@@ -171,39 +208,7 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter, prefe
 
       const rows = data || [];
 
-      let items: NewsItem[] = rows.map((item: any) => {
-        let topics: string[] = [];
-        try {
-          if (Array.isArray(item.topics)) {
-            topics = item.topics as string[];
-          } else if (typeof item.topics === 'string') {
-            topics = JSON.parse(item.topics || '[]');
-          } else if (item.topics && typeof item.topics === 'object') {
-            topics = Object.values(item.topics) as string[];
-          }
-        } catch {
-          topics = [];
-        }
-
-        const source = item.sources || null;
-
-        return {
-          id: item.id,
-          title: item.title,
-          titleOriginal: item.title_original ?? null,
-          summary: item.summary_ai || '',
-          source: source?.name || extractSourceFromUrl(item.source_url),
-          sourceLogo: source?.logo_url || null,
-          imageUrl: item.image_url || pickFallbackImage(item.id),
-          publishedAt: formatTimeAgo(item.published_at),
-          topics,
-          readTime: item.read_time || '3 min',
-          trending: item.is_trending,
-          sourceUrl: item.source_url,
-          audioUrl: item.audio_url,
-          region: item.region || 'Brazil',
-        };
-      });
+      let items: NewsItem[] = rows.map(mapDbRowToNewsItem);
 
       items = applyTopicFilter(items, topicFilter);
 
@@ -337,6 +342,51 @@ export const useMarkNewsRead = () => {
     },
     onSuccess: (_, { userId }) => {
       queryClient.invalidateQueries({ queryKey: ['read-news-count', userId] });
+    },
+  });
+};
+
+// "Você ainda não viu": up to 3 relevant articles from the recent past
+// (older than 24h, newer than 7 days) that this user hasn't opened yet.
+export const useUnseenHighlights = (userId?: string) => {
+  return useQuery({
+    queryKey: ['unseen-highlights', userId],
+    enabled: !!userId,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<NewsItem[]> => {
+      if (!userId) return [];
+
+      const now = Date.now();
+      const windowStart = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const windowEnd = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: candidates, error } = await supabase
+        .from('news')
+        .select('*, sources(name, logo_url)')
+        .not('summary_ai', 'is', null)
+        .gte('published_at', windowStart)
+        .lte('published_at', windowEnd)
+        .order('is_trending', { ascending: false })
+        .order('published_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      if (!candidates || candidates.length === 0) return [];
+
+      const candidateIds = candidates.map((c) => c.id);
+      const { data: readRows, error: readError } = await supabase
+        .from('user_read_news')
+        .select('news_id')
+        .eq('user_id', userId)
+        .in('news_id', candidateIds);
+
+      if (readError) throw readError;
+      const readIds = new Set((readRows ?? []).map((r) => r.news_id));
+
+      return candidates
+        .filter((c) => !readIds.has(c.id))
+        .slice(0, 3)
+        .map(mapDbRowToNewsItem);
     },
   });
 };

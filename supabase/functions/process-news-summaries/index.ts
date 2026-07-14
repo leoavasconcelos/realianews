@@ -328,7 +328,10 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
             .select("id, title, full_text, summary_ai, region")
             .not("summary_ai", "is", null)
             .is("relevance_rechecked_at", null)
-            .order("created_at", { ascending: true })
+            // Newest first: the feed shows recent articles at the top, so
+            // clean what users actually see before working through the
+            // old archive.
+            .order("created_at", { ascending: false })
             .limit(10);
 
           if (backlogError) {
