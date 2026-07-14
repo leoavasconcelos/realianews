@@ -8,6 +8,26 @@ const corsHeaders = {
 
 // Topic detection aligned with the `topics` table names.
 // MUST stay in sync with aggregate-news/detectTopics.
+// Extracts the first JSON object from a model response, tolerating markdown
+// fences and stray text before/after the JSON. Returns null if no valid
+// JSON object can be found — callers decide what "no verdict" means
+// (fail-closed in the summary path).
+function extractJsonObject(raw: string): Record<string, unknown> | null {
+  const cleaned = raw.replace(/```json|```/g, "").trim();
+  const candidates = [cleaned];
+  const braceMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (braceMatch) candidates.push(braceMatch[0]);
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}
+
 function detectTopics(title: string, description: string): string[] {
   const text = `${title || ""} ${description || ""}`.toLowerCase();
   const topics: string[] = [];
