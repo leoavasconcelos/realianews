@@ -12,6 +12,7 @@ interface MercadoScreenProps {
   userId?: string;
   unreadCount: number;
   onNotificationsClick: () => void;
+  onLogoClick: () => void;
   activeRegion: RegionFilterType;
   onRegionChange: (region: RegionFilterType) => void;
   filters: string[];
