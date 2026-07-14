@@ -117,6 +117,43 @@ interface NewsPage {
   nextPage: number | null;
 }
 
+// Maps a raw Supabase row (news + embedded sources) to the NewsItem shape
+// the UI consumes. Shared by the main feed query and the "unseen
+// highlights" section so both render identically.
+const mapDbRowToNewsItem = (item: any): NewsItem => {
+  let topics: string[] = [];
+  try {
+    if (Array.isArray(item.topics)) {
+      topics = item.topics as string[];
+    } else if (typeof item.topics === 'string') {
+      topics = JSON.parse(item.topics || '[]');
+    } else if (item.topics && typeof item.topics === 'object') {
+      topics = Object.values(item.topics) as string[];
+    }
+  } catch {
+    topics = [];
+  }
+
+  const source = item.sources || null;
+
+  return {
+    id: item.id,
+    title: item.title,
+    titleOriginal: item.title_original ?? null,
+    summary: item.summary_ai || '',
+    source: source?.name || extractSourceFromUrl(item.source_url),
+    sourceLogo: source?.logo_url || null,
+    imageUrl: item.image_url || pickFallbackImage(item.id),
+    publishedAt: formatTimeAgo(item.published_at),
+    topics,
+    readTime: item.read_time || '3 min',
+    trending: item.is_trending,
+    sourceUrl: item.source_url,
+    audioUrl: item.audio_url,
+    region: item.region || 'Brazil',
+  };
+};
+
 const TOPIC_ALIASES: Record<string, string[]> = {
   'fundos imobiliários': ['fundos imobiliários', 'fundo imobiliário', 'fiis', 'fii', 'reit', 'reits'],
   'mercado imobiliário': ['mercado imobiliário', 'setor imobiliário'],
@@ -171,39 +208,7 @@ export const useNews = (topicFilter?: string, regionFilter?: RegionFilter, prefe
 
       const rows = data || [];
 
-      let items: NewsItem[] = rows.map((item: any) => {
-        let topics: string[] = [];
-        try {
-          if (Array.isArray(item.topics)) {
-            topics = item.topics as string[];
-          } else if (typeof item.topics === 'string') {
-            topics = JSON.parse(item.topics || '[]');
-          } else if (item.topics && typeof item.topics === 'object') {
-            topics = Object.values(item.topics) as string[];
-          }
-        } catch {
-          topics = [];
-        }
-
-        const source = item.sources || null;
-
-        return {
-          id: item.id,
-          title: item.title,
-          titleOriginal: item.title_original ?? null,
-          summary: item.summary_ai || '',
-          source: source?.name || extractSourceFromUrl(item.source_url),
-          sourceLogo: source?.logo_url || null,
-          imageUrl: item.image_url || pickFallbackImage(item.id),
-          publishedAt: formatTimeAgo(item.published_at),
-          topics,
-          readTime: item.read_time || '3 min',
-          trending: item.is_trending,
-          sourceUrl: item.source_url,
-          audioUrl: item.audio_url,
-          region: item.region || 'Brazil',
-        };
-      });
+      let items: NewsItem[] = rows.map(mapDbRowToNewsItem);
 
       items = applyTopicFilter(items, topicFilter);
 
