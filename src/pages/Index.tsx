@@ -112,6 +112,11 @@ const Index = () => {
     await queryClient.resetQueries({ queryKey: ['news'] });
   }, [queryClient]);
 
+  const handleLogoClick = useCallback(async () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    await handlePullRefresh();
+  }, [handlePullRefresh]);
+
   const renderContent = () => {
     switch (activeTab) {
       case 'mercado':
