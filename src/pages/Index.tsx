@@ -125,6 +125,7 @@ const Index = () => {
             userId={user?.id}
             unreadCount={unreadCount}
             onNotificationsClick={() => setNotifCenterOpen(true)}
+            onLogoClick={handleLogoClick}
             activeRegion={activeRegion}
             onRegionChange={setActiveRegion}
             filters={filters}
