@@ -3,11 +3,13 @@ import RegionFilter from '@/components/RegionFilter';
 import FilterPills from '@/components/FilterPills';
 import PullToRefresh from '@/components/PullToRefresh';
 import NewsCard, { NewsItem } from '@/components/NewsCard';
+import UnseenHighlights from '@/components/UnseenHighlights';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import type { RegionFilter as RegionFilterType } from '@/hooks/useNews';
 
 interface MercadoScreenProps {
+  userId?: string;
   unreadCount: number;
   onNotificationsClick: () => void;
   activeRegion: RegionFilterType;
@@ -28,6 +30,7 @@ interface MercadoScreenProps {
 }
 
 export const MercadoScreen = ({
+  userId,
   unreadCount,
   onNotificationsClick,
   activeRegion,
@@ -67,6 +70,7 @@ export const MercadoScreen = ({
     <PullToRefresh onRefresh={onPullRefresh}>
       <main className="flex-1 px-4 py-4 md:px-6 lg:px-8 md:max-w-7xl md:mx-auto w-full">
         <h1 className="sr-only">Notícias e Inteligência do Mercado Imobiliário</h1>
+        <UnseenHighlights userId={userId} onSelectNews={onSelectNews} />
         {newsLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
