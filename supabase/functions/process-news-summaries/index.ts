@@ -8,6 +8,26 @@ const corsHeaders = {
 
 // Topic detection aligned with the `topics` table names.
 // MUST stay in sync with aggregate-news/detectTopics.
+// Extracts the first JSON object from a model response, tolerating markdown
+// fences and stray text before/after the JSON. Returns null if no valid
+// JSON object can be found — callers decide what "no verdict" means
+// (fail-closed in the summary path).
+function extractJsonObject(raw: string): Record<string, unknown> | null {
+  const cleaned = raw.replace(/```json|```/g, "").trim();
+  const candidates = [cleaned];
+  const braceMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (braceMatch) candidates.push(braceMatch[0]);
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}
+
 function detectTopics(title: string, description: string): string[] {
   const text = `${title || ""} ${description || ""}`.toLowerCase();
   const topics: string[] = [];
@@ -369,12 +389,14 @@ Responda ESTRITAMENTE em JSON, sem texto antes/depois, sem markdown:
               if (aiResponse.ok) {
                 const aiData = await aiResponse.json();
                 const raw = aiData.choices?.[0]?.message?.content?.trim() || "";
-                try {
-                  const cleaned = raw.replace(/^```json\s*|^```\s*|```$/gm, "").trim();
-                  const parsed = JSON.parse(cleaned);
+                const parsed = extractJsonObject(raw);
+                if (parsed) {
                   if (typeof parsed.relevant === "boolean") relevant = parsed.relevant;
-                  if (typeof parsed.reason === "string") reason = parsed.reason;
-                } catch {
+                  if (typeof parsed.reason === "string") reason = parsed.reason as string;
+                } else {
+                  // keep status quo (article stays live) rather than
+                  // mis-marking it; extraction above tolerates most
+                  // formatting noise so this should be rare
                   relevant = true;
                 }
               } else {
@@ -700,18 +722,17 @@ Responda apenas com o JSON, no formato especificado.`;
         let relevant: boolean | null = null;
         let summary: string | null = null;
         let rejectionReason: string | null = null;
-        try {
-          const cleaned = rawContent.replace(/^```json\s*|^```\s*|```$/gm, "").trim();
-          const parsed = JSON.parse(cleaned);
+        const parsed = extractJsonObject(rawContent);
+        if (parsed) {
           if (typeof parsed.relevant === "boolean") {
             relevant = parsed.relevant;
           }
-          summary = typeof parsed.summary === "string" ? parsed.summary.trim() : null;
+          summary = typeof parsed.summary === "string" ? (parsed.summary as string).trim() : null;
           if (typeof parsed.rejection_reason === "string") {
-            rejectionReason = parsed.rejection_reason.trim().substring(0, 500) || null;
+            rejectionReason = (parsed.rejection_reason as string).trim().substring(0, 500) || null;
           }
-        } catch (parseErr) {
-          console.warn(`Could not parse relevance/summary JSON for news ${news.id}; leaving unprocessed for retry:`, parseErr);
+        } else {
+          console.warn(`Could not parse relevance/summary JSON for news ${news.id}; leaving unprocessed for retry`);
         }
 
         if (relevant === null) {

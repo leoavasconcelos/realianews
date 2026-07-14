@@ -414,7 +414,7 @@ function extractImageUrl(itemXml: string): string | undefined {
 
 // Fetches the article's own page and pulls its real image from standard
 // social-sharing meta tags (og:image / twitter:image).
-async function fetchArticleOgImage(articleUrl: string, timeoutMs = 6000): Promise<string | undefined> {
+async function fetchArticleOgImage(articleUrl: string, timeoutMs = 3000): Promise<string | undefined> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -850,7 +850,24 @@ serve(async (req) => {
       errors: [] as string[],
     };
 
+    // Global time budget. Each new article costs a dedup query + an
+    // og:image page fetch + (for international feeds) a translation AI
+    // call, all serial — with ~30 feeds that can blow past the platform's
+    // execution ceiling, killing the run mid-flight so few or no articles
+    // get inserted. Stopping cleanly under budget means whatever was
+    // processed IS saved, and the next scheduled run picks up the
+    // remaining feeds (dedup makes re-visiting already-inserted articles
+    // cheap).
+    const runStartedAt = Date.now();
+    const RUN_TIME_BUDGET_MS = 100_000;
+    const budgetExceeded = () => Date.now() - runStartedAt > RUN_TIME_BUDGET_MS;
+
     for (const feed of RSS_FEEDS) {
+      if (budgetExceeded()) {
+        console.log("Aggregation time budget reached — stopping cleanly; next run continues.");
+        results.errors.push("time_budget_reached (not an error: next run continues)");
+        break;
+      }
       try {
         console.log(`Fetching feed: ${feed.name}`);
         
@@ -873,6 +890,7 @@ serve(async (req) => {
         console.log(`Parsed ${articles.length} articles from ${feed.name}`);
 
         for (const article of articles) {
+          if (budgetExceeded()) break;
           // Check if article already exists
           const { data: existing } = await supabase
             .from("news")
